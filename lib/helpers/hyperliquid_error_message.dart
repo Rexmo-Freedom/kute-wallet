@@ -4,6 +4,8 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
 import 'package:kute/services/hyperliquid/hot_twap_guard.dart';
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
+import 'package:kute/services/hyperliquid/hl_trigger_guard.dart';
 
 /// Rejections are authoritative. A transport or unclassified failure is not
 /// proof that nothing was submitted, so never promise safety or suggest an
@@ -13,6 +15,7 @@ String hlTradeErrorMessage(AppLocalizations l10n, Object error) {
     return error.decision.messageIn(l10n);
   }
   if (error is LeverageCapExceededException) return error.messageIn(l10n);
+  if (error is HlExposureRefusedException) return error.messageIn(l10n);
   if (error is PendingHyperliquidTwapException) {
     return l10n.investingTwapPending;
   }
@@ -35,6 +38,14 @@ String hlTradeErrorMessage(AppLocalizations l10n, Object error) {
     return l10n.investingInsufficientBalance;
   }
   if (error is OwnDexCreditPending) return l10n.moneyStepCrediting;
+  // The price crossed a protective trigger before it was signed: the same
+  // line the sheet shows for it ([hlProtectIssueText]); nothing was sent.
+  if (error is HlTriggerCrossedException) {
+    final sl = error.tpsl == 'sl';
+    return error.closeIsBuy
+        ? (sl ? l10n.hlProtectStopAbovePrice : l10n.hlProtectTakeBelowPrice)
+        : (sl ? l10n.hlProtectStopBelowPrice : l10n.hlProtectTakeAbovePrice);
+  }
   // The send got no answer and the account showed the order nowhere for
   // the whole lookup: nothing was placed.
   if (error is HyperliquidOrderNotPlacedException) {
@@ -71,6 +82,10 @@ String? hlRejectionCopy(AppLocalizations l10n, String reason) {
   if (r.contains('insufficient margin') ||
       r.contains('insufficient spot balance')) {
     return l10n.investingInsufficientBalance;
+  }
+  // An account the venue has never seen (nothing was ever added to it).
+  if (r.contains('does not exist') && r.contains('user')) {
+    return l10n.hlRejectNoAccount;
   }
   if (r.contains('reduce only order would increase position')) {
     return l10n.hlRejectReduceOnly;

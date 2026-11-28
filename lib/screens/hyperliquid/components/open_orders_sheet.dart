@@ -7,7 +7,9 @@
 // order-wire asset id — resolved here from the order's WIRE coin
 // ('xyz:TSLA', '@107', 'PURR/USDC'), exactly, never by display name.
 
-import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/platform/kute_wide_frames.dart'
+    show KuteSideFlow, kuteWindowIsExpanded;
 import 'package:flutter/material.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show KuteDockClearance, kuteDockScrollClearance;
@@ -22,6 +24,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/screens/hyperliquid/components/hl_protect_rules.dart'
+    show hlIsProtectiveOrder;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/hyperliquid_user_events_provider.dart';
@@ -65,15 +69,73 @@ void _showCancellationReceipt(
   );
 }
 
-/// Show the Hyperliquid open-orders bottom sheet.
+/// Show the Hyperliquid open-orders bottom sheet; on EXPANDED the side
+/// panel at the window's right edge, like the position page's other forms
+/// (kute_wide_frames.dart, KuteSideFlow), never a sheet across the window.
 Future<void> showHlOpenOrdersSheet(BuildContext context) {
-  return showKuteModalSheet<void>(
+  Future<void> open() => showKuteModalSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const HlOpenOrdersSheet(),
+      );
+  if (kuteWindowIsExpanded(context)) return KuteSideFlow.run(open);
+  return open();
+}
+
+/// The app's confirm sheet (the chart's Move order one): [title], what it
+/// does in [subtitle], [cta] and Cancel. True only on the user's own tap
+/// of [cta]. On EXPANDED it opens as the dialog / side panel the app uses
+/// (showKuteModalSheet), inside the side panel it was opened from.
+Future<bool> showHlOrderConfirm(
+  BuildContext context, {
+  required String title,
+  required String subtitle,
+  required String cta,
+}) async {
+  final confirmed = await showAppBottomSheet<bool>(
     context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => const HlOpenOrdersSheet(),
+    builder: (sheetContext) => AppBottomSheetContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBottomSheetHeader(title: title, subtitle: subtitle),
+          Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 8.h),
+            child: AppBottomSheetButton(
+              key: const ValueKey('hl-order-confirm-cta'),
+              text: cta,
+              onPressed: () => Navigator.of(sheetContext).pop(true),
+            ),
+          ),
+          AppBottomSheetTextButton(
+            text: sheetContext.l10n.cancel,
+            onPressed: () => Navigator.of(sheetContext).pop(false),
+          ),
+        ],
+      ),
+    ),
   );
+  return confirmed == true;
+}
+
+/// The order's kind in the app's words ('Stop market', 'Take limit',
+/// 'Limit', 'Trailing stop market'), never the venue's raw name; null
+/// while only the WebSocket has seen it (its kind is not known yet).
+String? hlOrderKindLabel(AppLocalizations l10n, HlOpenOrder o) {
+  if (!o.detailsKnown) return null;
+  if (o.isTrailingStop) return l10n.hlOrdersTrailingStopMarket;
+  if (o.isTrigger) {
+    final market = o.isMarketTrigger;
+    return switch (o.tpsl) {
+      'tp' => market ? l10n.slipTakeMarket : l10n.slipTakeLimit,
+      'sl' => market ? l10n.slipStopMarket : l10n.slipStopLimit,
+      _ => l10n.hlChartStop,
+    };
+  }
+  return l10n.betOrderTypeLimit;
 }
 
 class HlOpenOrdersSheet extends ConsumerWidget {
@@ -253,6 +315,55 @@ class HlOpenOrdersSheet extends ConsumerWidget {
   }
 }
 
+/// Cancels one resting order [o] with this sheet's receipt and error
+/// wording: the Orders row's Cancel, and the position page's protection
+/// rows after their confirmation. The order-wire asset id comes from the
+/// order's WIRE coin (spot orders come back as '@107' / 'PURR/USDC',
+/// builder-dex orders as 'xyz:TSLA'). True when it was cancelled.
+Future<bool> hlCancelOneOrder(
+    BuildContext context, WidgetRef ref, HlOpenOrder o) async {
+  final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+  final market = ref.read(hyperliquidWireMarketProvider(o.coin));
+  if (market == null) {
+    // The notifier is never reached, so it cannot report this one.
+    TrackingService.track('hyperliquid_cancel_failed', params: {
+      'scope': 'single',
+      'coin': o.coin,
+      'reason': 'asset_unresolved',
+      'wallet_kind': 'hot',
+    });
+    showMessageSnackBar(
+      context: context,
+      message: context.l10n.investingCancellationIncomplete,
+      error: true,
+    );
+    return false;
+  }
+  HapticFeedback.lightImpact();
+  try {
+    await ref.read(hyperliquidTradingProvider.notifier).cancelOrder(
+          assetId: market.assetId,
+          oid: o.oid,
+          coin: o.coin,
+        );
+    if (context.mounted &&
+        pickSpendingWallet(ref.read(settingsProvider))?.id == walletId) {
+      _showCancellationReceipt(context,
+          coin: market.coin, reference: '${o.oid}');
+    }
+    return true;
+  } catch (_) {
+    if (context.mounted) {
+      showMessageSnackBar(
+        context: context,
+        message: context.l10n.investingCancelUnconfirmed,
+        error: true,
+      );
+    }
+    return false;
+  }
+}
+
 /// Cancels EVERY resting Investing order in one batch action, with this
 /// sheet's own receipt and error wording. Shared with the Portfolio's
 /// merged Orders list (portfolio_orders.dart), whose one Cancel all runs
@@ -280,6 +391,31 @@ Future<void> hlCancelAllOrders(BuildContext context, WidgetRef ref) async {
   }
 }
 
+/// Cancel all's confirmation: what it removes, said first (every resting
+/// Investing order, and how many of them protect a position, plus
+/// [alsoPredictions] when the Portfolio's link cancels those too). True
+/// only on the user's own tap; nothing is cancelled without it.
+Future<bool> hlConfirmCancelAll(BuildContext context, WidgetRef ref,
+    {bool alsoPredictions = false}) {
+  final orders = ref.read(hyperliquidTradingProvider).valueOrNull?.openOrders ??
+      const <HlOpenOrder>[];
+  final protective = orders.where(hlIsProtectiveOrder).length;
+  final l10n = context.l10n;
+  HapticFeedback.selectionClick();
+  return showHlOrderConfirm(
+    context,
+    title: l10n.hlProtectCancelAllTitle,
+    subtitle: [
+      if (orders.isNotEmpty)
+        protective > 0
+            ? l10n.hlProtectCancelAllWithStops(orders.length, protective)
+            : l10n.hlProtectCancelAllCount(orders.length),
+      if (alsoPredictions) l10n.hlProtectCancelAllPredictionsToo,
+    ].join('\n'),
+    cta: l10n.ordersCancelAll,
+  );
+}
+
 /// Header pill that cancels EVERY resting order in one batch action.
 /// Same bordered-pill chrome as the per-row Cancel button.
 class _CancelAllButton extends ConsumerStatefulWidget {
@@ -294,6 +430,8 @@ class _CancelAllButtonState extends ConsumerState<_CancelAllButton> {
 
   Future<void> _cancelAll() async {
     if (_busy) return;
+    final ok = await hlConfirmCancelAll(context, ref);
+    if (!ok || !mounted || _busy) return;
     setState(() => _busy = true);
     HapticFeedback.lightImpact();
     try {
@@ -427,48 +565,9 @@ class _HlOrderRowState extends ConsumerState<HlOrderRow> {
 
   Future<void> _cancel() async {
     if (_cancelling) return;
-    final o = widget.order;
-    final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
-    // Resolve the order-wire asset id from the markets universe by the
-    // order's wire coin (spot orders come back as '@107' / 'PURR/USDC',
-    // builder-dex orders as 'xyz:TSLA').
-    final market = ref.read(hyperliquidWireMarketProvider(o.coin));
-    if (market == null) {
-      // The notifier is never reached, so it cannot report this one.
-      TrackingService.track('hyperliquid_cancel_failed', params: {
-        'scope': 'single',
-        'coin': o.coin,
-        'reason': 'asset_unresolved',
-        'wallet_kind': 'hot',
-      });
-      showMessageSnackBar(
-        context: context,
-        message: context.l10n.investingCancellationIncomplete,
-        error: true,
-      );
-      return;
-    }
     setState(() => _cancelling = true);
-    HapticFeedback.lightImpact();
     try {
-      await ref.read(hyperliquidTradingProvider.notifier).cancelOrder(
-            assetId: market.assetId,
-            oid: o.oid,
-            coin: o.coin,
-          );
-      if (mounted &&
-          pickSpendingWallet(ref.read(settingsProvider))?.id == walletId) {
-        _showCancellationReceipt(context,
-            coin: market.coin, reference: '${o.oid}');
-      }
-    } catch (_) {
-      if (mounted) {
-        showMessageSnackBar(
-          context: context,
-          message: context.l10n.investingCancelUnconfirmed,
-          error: true,
-        );
-      }
+      await hlCancelOneOrder(context, ref, widget.order);
     } finally {
       if (mounted) setState(() => _cancelling = false);
     }
@@ -507,14 +606,15 @@ class _HlOrderRowState extends ConsumerState<HlOrderRow> {
                       ? o.triggerPx!
                       : o.limitPx,
                   decimalCap: market?.pxDecimalCap),
-              detail: o.orderType.isNotEmpty ? o.orderType : 'Limit',
+              detail: hlOrderKindLabel(context.l10n, o),
             ),
       footer: [
         if (o.isTrailingStop) context.l10n.hlOrdersTrailingStopMarket,
-        '${formatHlSize(o.sz)} of ${formatHlSize(o.origSz)} left',
+        context.l10n.hlProtectSizeLeft(
+            formatHlSize(o.sz), formatHlSize(o.origSz)),
         if (o.reduceOnly) context.l10n.hlOrdersReduceOnly,
         if (fillPct > 0)
-          '${fillPct.toStringAsFixed(0)}% filled — partially matched',
+          context.l10n.hlProtectPercentFilled(fillPct.toStringAsFixed(0)),
       ],
       below: fillPct > 0
           ? Padding(

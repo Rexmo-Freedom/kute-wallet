@@ -33,6 +33,9 @@ void main() {
         l10n.hlRejectNoLiquidity);
     expect(msg('Invalid TP/SL price. asset=1'), l10n.hlRejectTpsl);
     expect(msg('Order price too far from oracle'), l10n.hlRejectOracle);
+    // An account the venue has never seen (nothing was ever added).
+    expect(msg('User or API Wallet 0xabc does not exist.'),
+        l10n.hlRejectNoAccount);
     expect(msg('Something new'), l10n.investingTradeRejected);
   });
 }

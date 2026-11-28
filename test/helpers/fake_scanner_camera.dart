@@ -17,6 +17,9 @@ class FakeScannerCamera implements ScannerCamera {
   /// Thrown by every [start] when set (a camera that never frees).
   final Object? startError;
   final ValueNotifier<bool> _torch = ValueNotifier(false);
+
+  @override
+  final ValueNotifier<bool> hasTorch = ValueNotifier(true);
   void Function(BarcodeCapture capture)? _onDetect;
 
   int starts = 0;

@@ -815,6 +815,7 @@ class HyperliquidModel {
   /// in parallel. Throws if either half fails — a partial snapshot would
   /// silently render as "no positions"/"no balance".
   Future<HlAccountSnapshot> getAccountSnapshot(String address) async {
+    final readAt = DateTime.now();
     final results = await Future.wait([
       _infoOrThrow({'type': 'clearinghouseState', 'user': address}),
       _infoOrThrow({'type': 'spotClearinghouseState', 'user': address}),
@@ -827,6 +828,7 @@ class HyperliquidModel {
     return HlAccountSnapshot.fromJson(
       perpState: perpState,
       spotState: spotState is Map<String, dynamic> ? spotState : null,
+      readAt: readAt,
     );
   }
 
@@ -936,6 +938,13 @@ class HyperliquidModel {
         activeDexes: {
           for (final e in dexes.entries)
             if (e.value.hasActivity) e.key,
+        },
+        positionDexes: {'', ...dexes.keys},
+        // Each part as old as its own read: a reused builder-dex part
+        // keeps the time it was read at.
+        positionsReadAt: {
+          for (final snapshot in dexes.values) ...snapshot.positionsReadAt,
+          ...base.positionsReadAt,
         });
   }
 
@@ -985,6 +994,29 @@ class HyperliquidModel {
     if (names.isEmpty) return byOid.values.toList();
     return byOid.values.toList()
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+  }
+
+  /// The account's recent orders whatever became of them
+  /// (`historicalOrders`: filled, triggered, cancelled, rejected), as the
+  /// order each entry carries (frontendOpenOrders' fields). [dex] names a
+  /// builder dex ('' = the main dex). Throws when it cannot be read: a
+  /// caller deciding an order never landed must not read an error as
+  /// "nowhere".
+  Future<List<HlOpenOrder>> getHistoricalOrders(String address,
+      {String dex = ''}) async {
+    final decoded = await _infoOrThrow({
+      'type': 'historicalOrders',
+      'user': address,
+      if (dex.isNotEmpty) 'dex': dex,
+    });
+    if (decoded is! List) {
+      throw const FormatException('unexpected historicalOrders shape');
+    }
+    return [
+      for (final e in decoded.whereType<Map<String, dynamic>>())
+        if (e['order'] is Map<String, dynamic>)
+          HlOpenOrder.fromJson(e['order'] as Map<String, dynamic>),
+    ];
   }
 
   /// Perps on [dex] ('' = the main dex) that are at their open-interest
@@ -1173,11 +1205,13 @@ class HyperliquidModel {
   /// Perp clearinghouse state on one builder (HIP-3) dex.
   Future<HlAccountSnapshot> getDexClearinghouse(
       String address, String dex) async {
+    final readAt = DateTime.now();
     final decoded = await _infoOrThrow(
         {'type': 'clearinghouseState', 'user': address, 'dex': dex});
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('unexpected clearinghouseState shape');
     }
-    return HlAccountSnapshot.fromJson(perpState: decoded);
+    return HlAccountSnapshot.fromJson(
+        perpState: decoded, dex: dex, readAt: readAt);
   }
 }

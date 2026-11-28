@@ -1,15 +1,17 @@
-// The Dollars page opens on Investing, the first pill, the pills reading
-// Investing · Predictions · Overview (founder, 25 November 2026: "make sure
-// investing is first please"; it opened on Overview, then the first pill,
+// The Dollars page opens on Overview, the first pill, the pills reading
+// Overview · Investing · Predictions (founder, 26 November 2026, phones and
+// web: "open in Overview with a button saying Start investing which brings
+// us to Investing"; it opened on Investing from 25 November, on Overview
 // from 8 November), and Overview holds the open positions and the P&L:
 //
-//   * the first open and every Bitcoin | Dollars switch land on Investing
+//   * the first open and every Bitcoin | Dollars switch land on Overview
 //     (kInvestmentsDefaultTab, openInvestmentsOnDefaultTab), whatever the
 //     policy withholds, the switch put back in place with no motion of its
 //     own; a pick still switches in; a link naming a pill keeps it
 //     (`?tab=predictions`), `?tab=activity` and `?tab=overview` name Overview;
 //   * on Overview: the open positions, the open P&L, then the map, at the
-//     cards' width; with nothing open Sal over "No open positions", no map; the map's
+//     cards' width; with nothing open Sal over "No open positions", the
+//     bar "Start investing", which lands on Investing; no map; the map's
 //     skeleton in its place; a tile, scrolled to, opens its market, the
 //     page clearing the bar; no category picked on Investing touches it;
 //   * Investing is its plain list: no map, on any category;
@@ -33,6 +35,8 @@ import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarContextProvider, kuteBarTop;
 import 'package:kute/screens/shared/kute_motion.dart' show SelectionFade;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/usd/components/dollars_activity_tab.dart';
@@ -175,15 +179,15 @@ void main() {
   tearDown(() => HlIconAvailability.debugEveryLogoKnown = false);
 
   group('the pill the page opens on', () {
-    // Pinned (founder, 25 November 2026): the order and the default
+    // Pinned (founder, 26 November 2026): the order and the default
     // cannot flip back without this failing.
-    test('Investing, the first pill; the order Investing, Predictions, '
-        'Overview', () {
-      expect(kInvestmentsDefaultTab, InvestmentsTab.investing);
+    test('Overview, the first pill; the order Overview, Investing, '
+        'Predictions', () {
+      expect(kInvestmentsDefaultTab, InvestmentsTab.activity);
       expect(kInvestmentsPills, const [
+        InvestmentsTab.activity,
         InvestmentsTab.investing,
         InvestmentsTab.predictions,
-        InvestmentsTab.activity,
       ]);
       expect(kInvestmentsPills.first, kInvestmentsDefaultTab);
     });
@@ -202,16 +206,16 @@ void main() {
     });
 
     testWidgets(
-        'first open: Investing, the first pill, picked and on screen, with no '
+        'first open: Overview, the first pill, picked and on screen, with no '
         'pick reported', (tester) async {
       final events = recordEvents();
       final container = await _pumpHeld(tester, size: const Size(390, 844));
-      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
       expect(_strip(tester).selectedIndex, 0);
       expect(_strip(tester).items.map((i) => i.label).toList(),
-          ['Investing', 'Predictions', 'Overview']);
-      expect(find.byType(HyperliquidScreen), findsOneWidget);
-      expect(_overview, findsNothing,
+          ['Overview', 'Investing', 'Predictions']);
+      expect(_overview, findsOneWidget);
+      expect(find.byType(HyperliquidScreen), findsNothing,
           reason: 'mounted behind the stack, not on screen');
       expect(events.where((e) => e.$1 == 'analytics_tab_selected'), isEmpty);
       expect(tester.takeException(), isNull);
@@ -219,32 +223,31 @@ void main() {
     });
 
     testWidgets(
-        'both venues\' browsing withheld: still Investing, first open and after '
+        'both venues\' browsing withheld: still Overview, first open and after '
         'the switch', (tester) async {
       final container = await _pump(tester, browseInvesting: false);
-      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
       await tapPill(tester, 'Predictions');
       openInvestmentsOnDefaultTab(_ref(tester));
       await tester.pump();
-      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
 
-    for (final tab in [InvestmentsTab.activity, InvestmentsTab.predictions]) {
+    for (final tab in [InvestmentsTab.investing, InvestmentsTab.predictions]) {
       testWidgets('a link naming ${tab.key} still opens it', (tester) async {
         final container = await _pump(tester, link: tab);
         expect(container.read(investmentsTabProvider), tab);
         expect(_strip(tester).selectedIndex, kInvestmentsPills.indexOf(tab));
-        expect(_overview,
-            tab == InvestmentsTab.activity ? findsOneWidget : findsNothing);
+        expect(_overview, findsNothing);
         expect(tester.takeException(), isNull);
         await unmountInvestments(tester);
       });
     }
 
     testWidgets(
-        'every Bitcoin | Dollars switch lands on Investing again, in place; a '
+        'every Bitcoin | Dollars switch lands on Overview again, in place; a '
         'pick still switches in', (tester) async {
       final container = await _pumpHeld(tester, size: const Size(390, 844));
       await tapPill(tester, 'Predictions');
@@ -254,7 +257,7 @@ void main() {
       // The shell's switch to Dollars (app_shell.dart, a tap or a swipe).
       openInvestmentsOnDefaultTab(_ref(tester));
       await tester.pump();
-      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
       expect(_strip(tester).selectedIndex, 0);
       // At rest on its first frame: the shell's slide is the motion.
       expect(tester.widget<SelectionFade>(find.byType(SelectionFade)).animate,
@@ -267,16 +270,16 @@ void main() {
       expect(_bodyOpacity(tester), 1);
 
       // A pick switches in as every switch does.
-      await tester.tap(investmentsPill('Overview'));
+      await tester.tap(investmentsPill('Investing'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 16));
       expect(tester.widget<SelectionFade>(find.byType(SelectionFade)).animate,
           isTrue);
       expect(_bodyOpacity(tester), lessThan(1));
       await _frames(tester);
-      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
-      // And back on Investing by a pick: switched in too.
-      await tester.tap(investmentsPill('Investing'));
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+      // And back on Overview by a pick: switched in too.
+      await tester.tap(investmentsPill('Overview'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 16));
       expect(_bodyOpacity(tester), lessThan(1));
@@ -286,12 +289,13 @@ void main() {
     });
 
     testWidgets(
-        'a pull on the page it opened on reports tab investing and re-reads '
-        'the market lists', (tester) async {
+        'a pull on Investing reports tab investing and re-reads the market '
+        'lists', (tester) async {
       final events = recordEvents();
       var reads = 0;
       // A phone's height: the pull arms at a share of it.
       final container = await _pump(tester,
+          link: InvestmentsTab.investing,
           size: const Size(390, 844),
           overrides: [
             hyperliquidPerpMarketsProvider.overrideWith((_) async {
@@ -361,6 +365,81 @@ void main() {
       expect(find.text('No open positions'), findsOneWidget);
       expect(find.byKey(const ValueKey('dollars-activity-positions-heading')),
           findsNothing);
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'nothing open: the bar is "Start investing" and lands on Investing',
+        (tester) async {
+      final events = recordEvents();
+      final container = await _pump(tester, size: const Size(390, 1400));
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      // No button of its own on the page (founder, 27 November 2026): the
+      // bar is the action.
+      expect(find.byKey(const ValueKey('dollars-start-investing')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('dollars-start-investing-wide')),
+          findsNothing);
+      final bar = kuteBarTop(container.read(kuteBarContextProvider));
+      expect(bar!.isPrimary, isTrue);
+      expect(bar.label, 'Start investing');
+      expect(bar.actionable, isTrue);
+      bar.onPrimary!();
+      await _frames(tester);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+      expect(_strip(tester).selectedIndex,
+          kInvestmentsPills.indexOf(InvestmentsTab.investing));
+      expect(find.byType(HyperliquidScreen), findsOneWidget);
+      expect(
+          events.where((e) =>
+              e.$1 == 'quick_action_tapped' &&
+              e.$2?['action'] == 'start_investing' &&
+              e.$2?['source'] == 'overview_empty'),
+          hasLength(1));
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'a laptop: the top bar\'s pill, centred under the empty state, '
+        'content width', (tester) async {
+      final events = recordEvents();
+      final container = await _pump(tester, size: const Size(1440, 1600));
+      final pill = find.byKey(const ValueKey('dollars-start-investing-wide'));
+      expect(pill, findsOneWidget);
+      final empty = tester.getRect(_empty);
+      final box = tester.getRect(pill);
+      // Its own width, never the column's.
+      expect(box.width, lessThan(empty.width - 64));
+      expect((box.center.dx - empty.center.dx).abs(), lessThan(1));
+      expect(box.top,
+          greaterThan(tester.getRect(find.text('No open positions')).bottom));
+      await tester.tap(find.text('Start investing'));
+      await tester.pump();
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+      expect(
+          events.where((e) =>
+              e.$1 == 'quick_action_tapped' &&
+              e.$2?['action'] == 'start_investing' &&
+              e.$2?['source'] == 'overview_empty'),
+          hasLength(1));
+      // The laptop's Investing page (mounted beside Overview on a wide
+      // window) wants the shell's Material, which this phone harness does
+      // not give it: what it draws is not this test's.
+      await _frames(tester);
+      tester.takeException();
+      await unmountInvestments(tester);
+    });
+
+    testWidgets('positions held: the bar is the Portfolio\'s again',
+        (tester) async {
+      final container =
+          await _pumpHeld(tester, link: InvestmentsTab.activity);
+      final bar = kuteBarTop(container.read(kuteBarContextProvider));
+      expect(bar!.isPrimary, isTrue);
+      expect(bar.label, 'See full portfolio and activity');
+      expect(find.text('Start investing'), findsNothing);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });

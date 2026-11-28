@@ -24,6 +24,7 @@ import 'package:flutter/services.dart';
 
 import 'package:kute/services/secure/keychain_local.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Shared state between the Flutter cover (`PrivacyCover`, Android) and
 /// the native iOS cover (`AppDelegate.addPrivacyCover`).
@@ -59,7 +60,7 @@ class PrivacyCoverBridge {
   static const Duration _settle = Duration(milliseconds: 700);
 
   static bool get _isIOS =>
-      (debugPlatform ?? defaultTargetPlatform) == TargetPlatform.iOS;
+      (debugPlatform ?? PlatformOs.nativeTarget) == TargetPlatform.iOS;
 
   /// Runs [body] with the privacy cover told to sit out the `inactive`
   /// edge the system biometric sheet causes. Rethrows whatever [body]

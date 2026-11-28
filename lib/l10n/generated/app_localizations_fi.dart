@@ -9,6 +9,129 @@ class AppLocalizationsFi extends AppLocalizations {
   AppLocalizationsFi([String locale = 'fi']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Tämä positio käyttää vipua, joten voit täällä vain pienentää tai sulkea sen.';
+
+  @override
+  String get hlExpoNothingToReduce =>
+      'Täällä ei ole positiota, jota tämä toimeksianto voisi pienentää.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Kaupankäyntiin ei ole vielä rahaa. Lisää rahaa ennen tämän toimeksiannon jättämistä.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Positiotasi tällä markkinalla ei voitu tarkistaa. Yritä hetken päästä uudelleen.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Aseta stop loss nykyisen hinnan alle, muuten se sulkee position heti.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Aseta stop loss nykyisen hinnan yläpuolelle, muuten se sulkee position heti.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Aseta take profit nykyisen hinnan yläpuolelle, muuten se sulkee position heti.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Aseta take profit nykyisen hinnan alle, muuten se sulkee position heti.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Aseta rajahinta laukaisuhintaan tai sen alle.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Aseta rajahinta laukaisuhintaan tai sen yläpuolelle.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Tämä stop on likvidaatiohinnan takana: positio likvidoitaisiin ennen kuin se laukeaa.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Tämä hinta on markkinahinnan takana: se toteutuu heti, korkeammalla taker-maksulla.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Koko position sulkeminen peruu myös sen stop- ja take profit -toimeksiannot ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Suojaavat toimeksiannot peruttu';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Suojaavat toimeksiannot yhä avoinna';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Sen stop- ja take profit -toimeksiantoja ei voitu perua. Peru ne Toimeksiannoissa, jotta ne eivät sulje uutta positiota.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Uusi stop loss on asetettu, mutta vanhaa ei voitu perua. Peru se Toimeksiannoissa.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Tällä positiolla on jo stop loss hinnassa $price. Korvattaessa vanha perutaan vasta, kun uusi on asetettu.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Tällä positiolla on jo stop lossia: $count. Korvattaessa vanhat perutaan vasta, kun uusi on asetettu.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Korvaa';
+
+  @override
+  String get hlProtectAddStop => 'Lisää toinen';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Perutaanko kaikki toimeksiannot?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Tämä peruu kaikki avoimet toimeksiannot ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Tämä peruu kaikki avoimet toimeksiannot ($count), joista positiota suojaavia: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Myös Predictions-toimeksiantosi perutaan.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return '$left/$total jäljellä';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent % toteutunut';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Viimeisin trailing stopisi tällä markkinalla ei ole vielä vahvistunut. Tarkista avoimet toimeksiantosi. Toista toimeksiantoa ei lähetetty.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop hinnassa $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Perutaanko tämä toimeksianto?';
+
+  @override
   String get totalBalance => 'Kokonaissaldo';
 
   @override
@@ -7004,6 +7127,68 @@ class AppLocalizationsFi extends AppLocalizations {
   String get betUntilCanceled => 'Kunnes peruttu';
 
   @override
+  String get advancedFillsNow => 'Toteutuu heti';
+
+  @override
+  String get advancedRests => 'Odottaa kirjassa';
+
+  @override
+  String get betLimitOrderFilled => 'Rajahintatoimeksianto toteutui';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Ostettu $shares osuutta $outcome hintaan $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Valitse hinta $step askelin.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Valitse hinta väliltä $low–$high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Pienin toimeksianto tässä on $count osuutta.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count osuutta avoimissa toimeksiannoissa';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Vain $count osuutta on vapaana myytäväksi. Loput ovat avoimissa toimeksiannoissasi.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Perutaanko kaikki toimeksiannot?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tämä poistaa $count avointa toimeksiantoa:',
+      one: 'Tämä poistaa 1 avoimen toimeksiannon:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Pidä toimeksiannot';
+
+  @override
+  String get betOrderTypeRow => 'Toimeksiannon tyyppi';
+
+  @override
+  String get betReservedRow => 'Varattu';
+
+  @override
   String get betProceedsToPredictions => 'Ennusteisiin';
 
   @override
@@ -11833,6 +12018,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Selaa sijoituskohteita';
 
   @override
+  String get dollarsStartInvesting => 'Aloita sijoittaminen';
+
+  @override
   String get activityFilterTrades => 'Kaupat';
 
   @override
@@ -12140,9 +12328,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get sendRecipientSearchHintNoPhone => 'Nimi tai kryptoosoite';
-
-  @override
-  String get shareGetKuteLine => 'Lähde mukaan: getkute.com';
 
   @override
   String get sendMoveToYourDollars => 'Siirrä Dollareihisi';
@@ -14575,4 +14760,89 @@ class AppLocalizationsFi extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profitia ei asetettu.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-lossia ei asetettu.';
+
+  @override
+  String get hlAdvTpSlNotPlaced => 'Take-profitia ja stop-lossia ei asetettu.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Vain $placed/$total toimeksiantoa asetettiin.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Toimeksianto osittain toteutunut';
+
+  @override
+  String get hlAdvStillOpen => 'Yhä avoinna';
+
+  @override
+  String get hlAdvRestStillOpen => 'Loput toimeksiannosta on yhä avoinna.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP-toimeksiannon on oltava vähintään $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'TWAP-toimeksiantosi on käynnissä $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Porrastus ottaa $min–$max toimeksiantoa.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Alku- ja loppuhinnan on oltava eri.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Kummankin hinnan on oltava nykyhinnan alapuolella.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Kummankin hinnan on oltava nykyhinnan yläpuolella.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Tämä stop-loss on arvioidun likvidaatiohinnan takana, joten positio voidaan likvidoida ensin.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Toimeksianto toteutui, mutta seuraavaa stoppia ei asetettu, koska sitä ei hyväksytty.';
+
+  @override
+  String get getAppBannerTitle => 'Lataa Kute-sovellus';
+
+  @override
+  String get getAppBannerSubtitle => 'Saatavilla iPhonelle ja Androidille';
+
+  @override
+  String get chartPriceScale => 'Hinta-asteikko';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Tämä sivu on auki toisessa sovelluksessa. Avaa se Safarissa, jotta voit käyttää Face ID:tä ja lompakkosi säilyy.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Tämä sivu on auki toisessa sovelluksessa. Avaa se Chromessa, jotta voit käyttää pääsyavainta ja lompakkosi säilyy.';
+
+  @override
+  String get shareOpenInAppBody =>
+      'Onko sinulla Kute-sovellus? Avaa tämä siellä.';
+
+  @override
+  String get shareOpenInApp => 'Avaa sovelluksessa';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Sulkeminen Ledgerillä ei peru position stop- ja take profit -toimeksiantoja: jokainen peruutus tarvitsee Ledgerisi. Peru ne Toimeksiannoissa, jotta ne eivät sulje uutta positiota.';
 }

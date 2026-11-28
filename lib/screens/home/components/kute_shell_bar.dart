@@ -93,10 +93,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart'
+    show
+        KuteBarPane,
+        kuteBarBottomRoomFor,
+        kuteBarPane,
+        kuteDialogsOpen,
+        kuteInPlaceRoutes,
+        kuteTopSearchInBar,
+        kuteWindowWidth;
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
-    show KuteSalPill;
+    show KuteSalPill, KuteTopBarActions;
 import 'package:kute/screens/search/components/search_morph.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -105,6 +115,7 @@ import 'package:kute/screens/shared/kute_motion.dart'
 import 'package:kute/screens/shared/kute_morph_label.dart';
 import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
+import 'package:kute/screens/shared/sal_sprite.dart' show SalSprite;
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_bar_surface.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -170,15 +181,66 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   void initState() {
     super.initState();
     KuteBarRouteObserver.over.addListener(_onRoutes);
+    kuteBarPane.addListener(_onRoutes);
+    kuteDialogsOpen.addListener(_onRoutes);
+    kuteInPlaceRoutes.addListener(_onRoutes);
     kuteShellMounted.addListener(_onRoutes);
     kuteBarScroll.addListener(_onScroll);
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  /// A HARDWARE KEYBOARD OPENS THE SEARCH (round two, a laptop): "/" or
+  /// Cmd/Ctrl+K opens the search panel while the bar shows the search
+  /// pill, as a tap on it does; never while a text field has the focus or
+  /// a panel is up. Escape closes the panel (its route's dismiss).
+  /// The web's wide layouts: the search context the hidden default pill
+  /// would have opened, for "/" and Cmd/Ctrl+K on a page with no top bar
+  /// field (see the build).
+  KuteBarContext? _webSearch;
+
+  bool _onKey(KeyEvent event) {
+    if (!mounted || event is! KeyDownEvent) return false;
+    final web = _webSearch;
+    final ctx = web ?? _last;
+    if ((web == null && !_shown) ||
+        _morphed ||
+        ctx == null ||
+        ctx.kind != KuteBarKind.search) {
+      return false;
+    }
+    if (ctx.hidden || ctx.inHeader || kuteDialogsOpen.value > 0) return false;
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    final command = keyboard.isMetaPressed || keyboard.isControlPressed;
+    final slash = !command &&
+        !keyboard.isAltPressed &&
+        event.character == '/';
+    final k = command && event.logicalKey == LogicalKeyboardKey.keyK;
+    if (!slash && !k) return false;
+    final direct = ctx.directAction;
+    if (direct != null) {
+      direct();
+    } else {
+      // No pill travel from a key: the sheet or the panel simply opens.
+      _open(ctx);
+    }
+    return true;
   }
 
   @override
   void dispose() {
     KuteBarRouteObserver.over.removeListener(_onRoutes);
+    kuteBarPane.removeListener(_onRoutes);
+    kuteDialogsOpen.removeListener(_onRoutes);
+    kuteInPlaceRoutes.removeListener(_onRoutes);
     kuteShellMounted.removeListener(_onRoutes);
     kuteBarScroll.removeListener(_onScroll);
+    HardwareKeyboard.instance.removeHandler(_onKey);
     _idle?.cancel();
     _entry.dispose();
     // The load this bar reported ends with it.
@@ -307,7 +369,19 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // The stack's top while its route is current; else the default: over
     // whatever is pushed, and on the tab roots themselves (the ONE pill of
     // the app; founder, 31 October 2026); nothing before the shell exists.
-    final KuteBarContext? top = stackTop != null && stackTop.current
+    // A MODAL BOTTOM SHEET WITH NO ACTION OF ITS OWN HAS NO BAR (founder,
+    // 27 November 2026: the pill sat over the Financial hub's Add account
+    // row): the default pill stays away while such a sheet is on top and
+    // returns when it closes. A sheet that sets its own context (a slip's
+    // Place, onboarding's Next) keeps it. The Sal sheet the pill became
+    // holds its place as before ([_morphed]).
+    final sheet = KuteBarRouteObserver.sheetOnTop();
+    final bareSheet = sheet != null &&
+        !_morphed &&
+        !(stackTop != null && stackTop.current && stackTop.route == sheet);
+    final KuteBarContext? top = bareSheet
+        ? null
+        : stackTop != null && stackTop.current
         ? stackTop
         : over || kuteShellMounted.value
             ? KuteBarContext(label: context.l10n.searchOrManageAi)
@@ -335,7 +409,45 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // the bar at the keyboard's top plus 12 px, centred at its own width, on the sheet
     // spring. A search or hidden context still slides under it.
     final rides = keyboard && top != null && top.isPrimary && !top.hidden;
+    // EXPANDED (round two, wide_design_2.md B): a sheet is a panel there
+    // that draws its own primary inside it (kute_dialog.dart): no bar
+    // while one is up. The search pill shows as on a phone (founder, 25
+    // November 2026: "put the search on the bottom always").
+    final expanded = KuteLayout.forWidth(MediaQuery.sizeOf(context).width) ==
+        KuteFormFactor.expanded;
+    // A split screen's form draws its page's primary in place
+    // (KuteInPlaceBar, kute_dialog.dart): no bar while it is on top.
+    final desktopQuiet = expanded &&
+        (kuteDialogsOpen.value > 0 ||
+            kuteInPlaceRoutes.value.any(KuteBarRouteObserver.onTop));
+    // EXPANDED web, a home tab whose pane draws the search field at its
+    // top (KuteBarPane.top, KuteTopSearchField): the search pill stays
+    // away (founder, 26 November 2026, on a laptop: "put it on the top on
+    // desktop"). Other contexts (a primary action, a market's) still show.
+    final paneNow = kuteBarPane.value;
+    final topSearch = expanded &&
+        paneNow != null &&
+        paneNow.topSearch &&
+        (paneNow.route == null || KuteBarRouteObserver.onTop(paneNow.route!));
+    // THE WEB'S WIDE AND MEDIUM LAYOUTS HAVE NO DEFAULT PILL (founder,
+    // 27 November 2026, on Add account: "this button also has no
+    // business being here"): the search lives in the top bar there, so
+    // the search / Manage with AI pill (in any tab's wording) is never
+    // shown on any page; a context with its own action (a primary, a
+    // trade row, a page's direct action) still is. "/" and Cmd/Ctrl+K
+    // still open the search ([_webSearch]).
+    final webDefault = KuteBarPane.webLayout &&
+        expanded &&
+        !morphed &&
+        top != null &&
+        top.kind == KuteBarKind.search &&
+        top.directAction == null;
+    // The keys' search where no field in the top bar answers them.
+    _webSearch = webDefault && !topSearch ? top : null;
     final show = top != null &&
+        !desktopQuiet &&
+        !webDefault &&
+        !(topSearch && !morphed && top.kind == KuteBarKind.search) &&
         (morphed || rides || (!top.hidden && !top.inHeader && !keyboard));
     // The lift follows what is shown: a bar sliding away, or one back on
     // a page without an action row, sits at the foot again (a kept lift
@@ -438,9 +550,32 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
             key: const ValueKey('kute-bar-morphed'),
             child: Opacity(opacity: 0, child: switcher))
         : switcher;
+    // A phone's width from MEDIUM up, centred in the window
+    // (kute_layout.dart): never stretched across a tablet or a desktop.
+    // On EXPANDED a two-pane page names the pane the bar belongs under
+    // (KuteBarPane, kute_wide_frames.dart) and the bar centres within it
+    // while that page is on top, with nothing over it. A phone keeps the
+    // screen's full width.
+    final window = MediaQuery.sizeOf(context).width;
+    final form = KuteLayout.forWidth(window);
+    final pane = kuteBarPane.value;
+    final route = pane?.route;
+    final underPane = form == KuteFormFactor.expanded &&
+        pane != null &&
+        (route == null || KuteBarRouteObserver.onTop(route));
+    double left, right;
+    if (form == KuteFormFactor.compact) {
+      left = right = 0;
+    } else if (underPane) {
+      final span = pane.barSpan();
+      left = span.left;
+      right = math.max(0.0, window - span.left - span.width);
+    } else {
+      left = right = math.max(0.0, (window - KuteLayout.paneWidth) / 2);
+    }
     return Positioned(
-      left: 0,
-      right: 0,
+      left: left,
+      right: right,
       bottom: 0,
       // Above the navigator, outside every page's Material: the theme's
       // text, never the error style (kute_overlay_surface.dart).
@@ -479,11 +614,16 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                     curve: KuteMotion.sheetIn,
                     // The pill's air; the primary button and the trade
                     // row take the screen's 16 px gutters.
+                    // From MEDIUM up it stands clearly off the window's
+                    // foot (founder, round two: "the button in the end
+                    // give it more space"; kuteBarBottomRoomFor).
                     padding: EdgeInsets.fromLTRB(
                         ctx.isPrimary || ctx.isTrade ? 16.w : 12.w,
                         0,
                         ctx.isPrimary || ctx.isTrade ? 16.w : 12.w,
-                        2.h),
+                        form == KuteFormFactor.compact
+                            ? 2.h
+                            : kuteBarBottomRoomFor(window)),
                     // Centred; docked right while folded. Pill to button
                     // and between the button's states the width springs
                     // on the chip spring (KuteMorphSize; the strip's own
@@ -686,12 +826,19 @@ class KuteBarPrimaryButton extends StatefulWidget {
   /// sits [gap] above the bar: the bar's height, its 2 px lift and, where
   /// the page runs to the screen's foot ([pageToFoot]: iOS screens that
   /// leave the home-indicator inset to the bar), that inset too.
+  ///
+  /// From MEDIUM up the bar stands higher off the window's foot
+  /// ([kuteBarBottomRoomFor]), and the room follows it: without that the
+  /// Start screen's "I already have an account" sat under the bar on a
+  /// laptop (25 November 2026).
   static double roomUnder(BuildContext context,
-          {double gap = 12, bool pageToFoot = false}) =>
-      height +
-      2.h +
-      gap +
-      (pageToFoot ? MediaQuery.paddingOf(context).bottom : 0);
+      {double gap = 12, bool pageToFoot = false}) {
+    final lift = kuteBarBottomRoomFor(kuteWindowWidth(context));
+    return height +
+        (lift <= 2 ? 2.h : lift) +
+        gap +
+        (pageToFoot ? MediaQuery.paddingOf(context).bottom : 0);
+  }
 
   @override
   State<KuteBarPrimaryButton> createState() => _KuteBarPrimaryButtonState();
@@ -1338,4 +1485,197 @@ class _Shimmer extends StatelessWidget {
           );
         },
       );
+}
+
+
+/// EXPANDED web: the home tabs' search, a field pinned at the top of the
+/// content column in place of the floating pill (founder, 26 November
+/// 2026, on a laptop: "it is better to look more searchable ... put it on
+/// the top on desktop"). It reads as the app's text field (AppTextField's
+/// fill, border and radius), with the pill's own words as its
+/// placeholder and Sal's mark at its end. For this pass it is a button
+/// styled as an input: a click, or "/" with no field focused, opens the
+/// same search sheet the pill opens (its composer takes the typing); the
+/// sheet's Escape closes it as before. Built only through
+/// [KuteBarPane.top]; the phones keep the pill.
+class KuteTopSearchField extends ConsumerStatefulWidget {
+  const KuteTopSearchField(
+      {super.key, this.inTopBar = false, this.button = false});
+
+  /// Drawn in the desktop top bar (kute_top_nav_bar.dart), the one that
+  /// answers "/" and Cmd/Ctrl+K.
+  final bool inTopBar;
+
+  /// A window with no room for the field (founder, 27 November 2026:
+  /// "when it looks bad, maybe already switch it to a button"): one
+  /// icon-only button, styled as the bar's other icon buttons, that does
+  /// what the field does; its tooltip and label the field's placeholder.
+  final bool button;
+
+  /// The field's narrowest in the top bar (logical px).
+  static const double minWidth = 240;
+
+  /// The field's widest (logical px).
+  static const double maxWidth = 420;
+
+  @override
+  ConsumerState<KuteTopSearchField> createState() => _KuteTopSearchFieldState();
+}
+
+class _KuteTopSearchFieldState extends ConsumerState<KuteTopSearchField> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  /// The context the pill would show here: the tab's own words.
+  KuteBarContext _context() {
+    final top = kuteBarTop(ref.read(kuteBarContextProvider));
+    if (top != null && top.current && top.kind == KuteBarKind.search) {
+      return top;
+    }
+    return KuteBarContext(label: context.l10n.searchOrManageAi);
+  }
+
+  void _open([BuildContext? source]) {
+    final ctx = _context();
+    final direct = ctx.directAction;
+    if (direct != null) {
+      HapticFeedback.lightImpact();
+      direct();
+      return;
+    }
+    openKuteBarSheet(ctx, source: source);
+  }
+
+  bool _onKey(KeyEvent event) {
+    if (!mounted || event is! KeyDownEvent) return false;
+    // One field answers: the top bar's while it holds one, else the row's.
+    if (widget.inTopBar != kuteTopSearchInBar.value) return false;
+    if (!widget.inTopBar && !TickerMode.valuesOf(context).enabled) {
+      return false;
+    }
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return false;
+    if (kuteDialogsOpen.value > 0) return false;
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    final command = keyboard.isMetaPressed || keyboard.isControlPressed;
+    final slash =
+        !command && !keyboard.isAltPressed && event.character == '/';
+    final k = command && event.logicalKey == LogicalKeyboardKey.keyK;
+    if (!slash && !k) return false;
+    _open();
+    return true;
+  }
+
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    // The tab's words, as the pill shows them.
+    final stack = ref.watch(kuteBarContextProvider);
+    final top = kuteBarTop(stack);
+    final label = top != null && top.current && top.kind == KuteBarKind.search
+        ? top.label
+        : context.l10n.searchOrManageAi;
+    // The bar's own outlined buttons (KuteTopBarActions): their height,
+    // pill radius, surface and thin border; the app's focused border when
+    // the keyboard is on it (founder, 27 November 2026: the search "a
+    // large grey slab"; it belongs to the bar).
+    const height = KuteTopBarActions.height;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final radius = BorderRadius.circular(height / 2);
+    final side = _focused
+        ? BorderSide(color: c.borderFocused, width: 1.5)
+        : BorderSide(
+            color: isLight ? c.border : c.borderSubtle,
+            width: isLight ? 1.0 : 0.5);
+    Widget surface(BuildContext fieldContext, Widget child, {Key? key}) =>
+        Material(
+          key: key,
+          color: isLight ? Colors.white : c.surface,
+          shape: RoundedRectangleBorder(borderRadius: radius, side: side),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _open(fieldContext),
+            onFocusChange: (on) {
+              if (on != _focused) setState(() => _focused = on);
+            },
+            child: SizedBox(height: height, child: child),
+          ),
+        );
+    if (widget.button) {
+      return Builder(
+        builder: (fieldContext) => Tooltip(
+          message: label,
+          child: Semantics(
+            button: true,
+            label: label,
+            excludeSemantics: true,
+            child: surface(
+              fieldContext,
+              key: const ValueKey('kute-top-search-button'),
+              SizedBox(
+                width: height,
+                child: Icon(Icons.search_rounded,
+                    size: 18, color: c.textPrimary),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return Builder(
+      builder: (fieldContext) => Semantics(
+        button: true,
+        textField: true,
+        label: label,
+        child: surface(
+          fieldContext,
+          key: const ValueKey('kute-top-search-field'),
+          Row(
+            children: [
+              const SizedBox(width: 14),
+              Icon(Icons.search_rounded, size: 18, color: c.textSecondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: c.textSecondary, fontSize: 13.5),
+                ),
+              ),
+              // Sal's mark: the way into the AI, at the buttons' icon
+              // size.
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: SalSprite(
+                  key: const ValueKey('kute-top-search-sal'),
+                  clip: top?.clip ?? 'idle',
+                  size: 20,
+                  fallback: Icon(Icons.auto_awesome_rounded,
+                      size: 16, color: c.textSecondary),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/constants/feature_flags.dart';
 import 'package:kute/services/ledger_service.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 final ledgerUsbTransportFlagProvider =
     Provider<bool>((ref) => kLedgerUsbTransportEnabled);
@@ -31,6 +32,7 @@ List<LedgerConnectionType> availableLedgerTransports({
 final ledgerTransportsProvider = Provider<List<LedgerConnectionType>>(
   (ref) => availableLedgerTransports(
     platform: ref.watch(ledgerTransportPlatformProvider),
-    usbEnabled: ref.watch(ledgerUsbTransportFlagProvider),
+    // No WebUSB transport: web offers Bluetooth only.
+    usbEnabled: ref.watch(ledgerUsbTransportFlagProvider) && !PlatformCaps.isWeb,
   ),
 );

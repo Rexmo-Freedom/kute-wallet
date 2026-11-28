@@ -1,5 +1,7 @@
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/onchain/native_onchain_service.dart';
+import 'package:kute/services/onchain/onchain_web_store.dart';
+import 'package:kute/models/breez/init.dart' show deleteWalletWebStorage;
 import 'package:kute/services/orchestra/onetime_refund_address_store.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
 import 'package:kute/models/auth_model.dart';
@@ -7,9 +9,10 @@ import 'package:kute/models/evm_derivation_version.dart';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:kute/services/passkey_service.dart' show PasskeyService;
+import 'package:kute/services/passkey_service.dart'
+    show PasskeyHome, PasskeyHomes, PasskeyService;
 import 'package:kute/services/tracking_service.dart' show TrackingService;
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
@@ -641,6 +644,16 @@ class SettingsModel extends StateNotifier<Settings> {
   Future<void> _deleteWalletData(WalletConfig wallet) async {
     final walletId = wallet.id;
     await _bestEffort('local_files', () async {
+      if (kIsWeb) {
+        // No files in a browser: the wallet's BDK data is its stored
+        // changeset, and the Breez SDK keeps its own browser databases.
+        final directory = await onchainDatabaseDirectory();
+        await OnchainWebStore.delete('$directory/bdk_wallet_$walletId.sqlite');
+        // The SDK's IndexedDB databases for this wallet, once no handle
+        // on them is running (the folder breez_<id> on a phone).
+        await deleteWalletWebStorage(walletId);
+        return;
+      }
       final appDocDir = await getApplicationDocumentsDirectory();
       final dbFile = File('${appDocDir.path}/bdk_wallet_$walletId.sqlite');
       if (await dbFile.exists()) await dbFile.delete();
@@ -654,11 +667,15 @@ class SettingsModel extends StateNotifier<Settings> {
 
     // A passkey wallet's derived seed is cached on this device under its
     // label; the record is gone, so the cache goes too. Only entries keyed
-    // by this label: pins and the registry stay (see forgetWallet).
+    // by this label: pins and the registry stay (see forgetWallet). Routed
+    // on the wallet's marker, so a Kute-home wallet forgets only Kute-home
+    // entries and every other passkey wallet exactly what it always did.
     final label = wallet.passkeyLabel;
     if (wallet.isPasskey && label != null) {
       await _bestEffort(
-          'passkey_seed_cache', () => PasskeyService.forgetWallet(label));
+          'passkey_seed_cache',
+          () => PasskeyService.forgetWalletFor(label,
+              provider: wallet.passkeyProvider));
     }
 
     // Polymarket credentials and proxy wallet.
@@ -906,8 +923,14 @@ class SettingsModel extends StateNotifier<Settings> {
   /// The passkey wallet(s) carrying [label] are backed up now that the
   /// label is on the relay (`PasskeyService.labelPublishedHandler`). A
   /// wallet already marked, or a label no record carries, changes nothing.
-  Future<void> markPasskeyLabelPublished(String label) async {
+  /// [home] is the passkey home whose relay identity published it: only
+  /// that home's wallets are marked (on the Breez home, every passkey
+  /// wallet that is not Kute's, exactly as before Kute had a home).
+  Future<void> markPasskeyLabelPublished(String label,
+      {PasskeyHome home = PasskeyHome.breez}) async {
     for (final wallet in state.wallets) {
+      final onKute = wallet.passkeyProvider == PasskeyHomes.markerKute;
+      if (onKute != (home == PasskeyHome.kute)) continue;
       if (wallet.isPasskey && wallet.passkeyLabel == label && !wallet.backedUp) {
         await updateWalletConfig(wallet.copyWith(backedUp: true));
       }

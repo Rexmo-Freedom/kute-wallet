@@ -19,6 +19,7 @@ import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
+import '../../helpers/hl_flat_positions.dart';
 
 const _market = HlMarket(
   coin: 'BTC',
@@ -105,7 +106,7 @@ void main() {
 
   setUp(() {
     FundedOrdersNotifier.persist = false;
-    c = ProviderContainer();
+    c = ProviderContainer(overrides: [hlFlatPositionsOverride]);
     runner = c.read(bitcoinFundedOrderRunnerProvider);
     pending = c.read(pendingHyperliquidOrderProvider.notifier);
     grant = AuthGrantRegistry.instance.issueAutofire(

@@ -12,7 +12,10 @@ import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/spash/splash.dart';
 import 'package:kute/screens/share/claim_screen.dart';
+import 'package:kute/screens/share/share_guest_screen.dart';
 import 'package:kute/services/share_link_claims.dart';
+import 'package:kute/services/share_target.dart';
+import 'package:kute/services/share_targets.dart';
 import 'package:kute/services/share_links_store.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/main_screen.dart';
@@ -41,7 +44,13 @@ import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
 import 'package:kute/screens/settings/wallets_screen.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:kute/providers/shell_wallet_provider.dart'
+    show shellVenueOwnerProvider;
+
+import 'package:kute/platform/kute_wide_frames.dart';
 
 import 'package:posthog_flutter/posthog_flutter.dart';
 
@@ -51,7 +60,7 @@ import 'screens/shared/coming_soon_screen.dart';
 import 'screens/scanner/scanner_sheet.dart';
 import 'screens/settings/affiliate_screen.dart';
 import 'screens/app_shell.dart';
-import 'services/appsflyer_service.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'services/tracking_service.dart';
 
 /// The Bitcoin home with its Activity tab selected: where the old Dollars
@@ -100,13 +109,31 @@ class AppRouter {
   /// kept; a plain line under Reduce Motion. One transition for every
   /// pushed page in the app (kute_page_route.dart; the numbers in
   /// lib/theme/kute_motion.dart).
+  ///
+  /// [wide]: how the page sits on EXPANDED, named per route (round
+  /// three, founder 25 November 2026: "it must be all occupying full
+  /// screen when we can"; kute_page_route.dart, [KutePageFrame]):
+  /// [KuteWideMode.full] spans the window and lays itself out,
+  /// [KuteWideMode.split] is the onboarding split screen,
+  /// [KuteWideMode.column] the centred column still (a short page with
+  /// nothing to put side by side), [KuteWideMode.own] a page with panes
+  /// of its own from MEDIUM up (Portfolio, Search). MEDIUM is the
+  /// centred column but for `own`; a phone sees no difference.
+  ///
+  /// [masterDetail]: a Settings detail ([_settingsDetail]): one page key
+  /// for all of them, so a detail opened from the master column replaces
+  /// the shown one in place, and on EXPANDED the [KuteMasterDetail] plays
+  /// the route's motion itself.
   static CustomTransitionPage<void> _buildFadeScalePage({
     required Widget child,
     required GoRouterState state,
+    required KuteWideMode wide,
     Duration duration = KuteMotion.settleDuration,
+    bool masterDetail = false,
   }) {
+    child = KutePageFrame(mode: wide, child: child);
     return CustomTransitionPage<void>(
-      key: state.pageKey,
+      key: masterDetail ? kuteSettingsDetailPageKey : state.pageKey,
       // Carry the GoRoute's name onto the page so NavigatorObservers
       // (SyncRouteObserver / PostHog) see it — without this every
       // route.settings.name was null and the route-gated background
@@ -115,10 +142,24 @@ class AppRouter {
       child: child,
       transitionDuration: duration,
       reverseTransitionDuration: duration,
+      // A split screen's steps share their brand half: a fade, no scale,
+      // so the brand never seems to move between them.
       transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-          kutePageTransition(context, animation, child),
+          kutePageTransition(context, animation, child,
+              scale: wide != KuteWideMode.split, masterDetail: masterDetail),
     );
   }
+
+  /// A Settings sub-page opened from Settings
+  /// ([kuteSettingsDetailExtra]): on EXPANDED the detail beside Settings
+  /// as the section list ([KuteMasterDetail]); else the page as it is.
+  /// [selected] names the detail (the master marks its row).
+  static Widget _settingsDetail(
+          GoRouterState state, Widget page, String selected) =>
+      state.extra == kuteSettingsDetailExtra
+          ? KuteMasterDetail(
+              master: const Settings(), detail: page, selected: selected)
+          : page;
 
   // ── deep_link_opened bookkeeping (analytics only) ──
   // First router creation ≈ process start (RestartWidget rebuilds keep it).
@@ -171,15 +212,12 @@ class AppRouter {
     // A claim link (`/c/{id}`, or `deep_link_value=claim`) carries no
     // referral code: `claim` must never be bound as one.
     if (ShareLinkClaims.claimIdFromLink(uri) == null) {
-      AppsFlyerService.ingestReferrerFromDeepLink(
+      AffiliateService.captureReferrerFromLink(
         uri.queryParameters['deep_link_value'] ??
-            uri.queryParameters['af_sub1'] ??
+            uri.queryParameters['r'] ??
             uri.queryParameters['c'],
       );
     }
-    // Website → app identity link (never a referral code).
-    AppsFlyerService.ingestWebVisitorFromDeepLink(
-        uri.queryParameters['af_sub2']);
   }
 
   /// The routes reachable while no session is unlocked: the cold-start
@@ -227,13 +265,58 @@ class AppRouter {
     return null;
   }
 
+  /// The shell's five branch roots (the tab strip's pages).
+  static const Set<String> _shellRoots = {
+    '/home',
+    '/bank',
+    '/usd',
+    '/hyperliquid',
+    '/polymarket',
+  };
+
+  static bool _inShell(String path) =>
+      _shellRoots.any((root) => path == root || path.startsWith('$root/'));
+
+  /// Whether [path] is in the tab shell (onboarding and PIN are not).
+  static bool isShellPath(String path) => _inShell(path);
+
+  /// Whether the Dollars tab is in the strip now (shell_venue_tabs.dart:
+  /// not while a Ledger owns the strip). Read, not watched.
+  static bool _dollarsShown(BuildContext context) =>
+      shellShowsUsdTab(ProviderScope.containerOf(context, listen: false)
+          .read(shellVenueOwnerProvider));
+
+  /// THE WEB OPENS ON DOLLARS (founder, 26 November 2026: "make dollars
+  /// the main one, on web regardless … as in it opens up in dollars,
+  /// that's it"). On [web] only, the first time an unlocked session
+  /// reaches the tab shell after the app starts (the unlock's and the
+  /// wallet creation's plain `go('/home')`), it lands on Dollars
+  /// (`/usd`) instead, whatever tab was last open. Anything that names
+  /// its place (a deep link to `/usd?tab=…`, `/home?tab=activity`, a
+  /// pay route) goes where it points, and ends the rule for this start
+  /// the same way. When the strip has no Dollars tab ([dollarsShown]
+  /// false: a Ledger owns it) it stays on Bitcoin. iOS and Android: never
+  /// (null). [landed] is the start's one-shot flag, set here.
+  @visibleForTesting
+  static String? webLandingRedirect({
+    required bool web,
+    required bool locked,
+    required Uri uri,
+    required bool Function() dollarsShown,
+    required ValueNotifier<bool> landed,
+  }) {
+    if (!web || locked || landed.value || !_inShell(uri.path)) return null;
+    landed.value = true;
+    if (uri.toString() != '/home') return null;
+    return dollarsShown() ? '/usd' : null;
+  }
+
   /// The top-level redirect. [sessionLocked] reads the session (null
   /// `sessionAuthProvider`); [initialRoute] seeds the last good location.
   ///
   /// Affiliate deep links arrive as ABSOLUTE URIs — the custom scheme
-  /// (kute://open?deep_link_value=CODE) on Android and either that or the
-  /// AppsFlyer Universal Link (https://kute.onelink.me/...?deep_link_value=CODE)
-  /// on iOS. go_router has no route for them, so without this it renders a
+  /// (kute://open?deep_link_value=CODE, or `r=CODE`) on both phones (the
+  /// AppsFlyer OneLink left the app on 27 November 2026). go_router has no route for them, so without this it renders a
   /// "Page Not Found". We instead register the referral code app-side (works
   /// in debug + release, both platforms — no SDK round-trip needed) and send
   /// the user right back to where they were. Regular in-app navigation uses
@@ -245,12 +328,39 @@ class AppRouter {
   static GoRouterRedirect redirectFor({
     required bool Function() sessionLocked,
     required String initialRoute,
+    bool web = kIsWeb,
+    bool Function(BuildContext context) dollarsShown = _dollarsShown,
+    bool Function() hasWallet = _noWalletKnown,
+    bool Function() guestShareView = _guestShareViewOff,
+    Future<void>? Function() walletsLoading = _walletsLoaded,
   }) {
     // Last in-app location we sat on, so an incoming deep link can register its
     // referral code without yanking the user off their current screen.
     var lastGood = initialRoute;
+    // The web's first landing in the shell this start ([webLandingRedirect]).
+    final landed = ValueNotifier<bool>(false);
     return (context, state) {
       final uri = state.uri;
+      final rootReferral = rootReferralRedirect(uri, locked: sessionLocked());
+      if (rootReferral != null) return rootReferral;
+      if (ShareTarget.isShareLocation(uri)) {
+        String? decide() => shareLocationRedirect(
+              uri,
+              locked: sessionLocked(),
+              hasWallet: hasWallet(),
+              guestView: guestShareView(),
+            );
+        // A COLD START ON A SHARED LINK. The saved wallet list is read from
+        // disk at start, and until it is in, [hasWallet] says "none": a
+        // person WITH a wallet in this browser was shown the no-wallet
+        // guest page instead of their PIN (seen in Safari, 27 November
+        // 2026). So the answer waits for the list. A list that cannot be
+        // read goes to splash, which owns that failure.
+        final loading = walletsLoading();
+        if (loading == null) return decide();
+        return loading.then<String?>((_) => decide(),
+            onError: (Object _) => '/splash');
+      }
       if (uri.hasScheme) {
         handleIncomingLink(uri);
         return claimLinkRedirect(uri, locked: sessionLocked()) ??
@@ -260,14 +370,91 @@ class AppRouter {
       final guard = lockRedirect(
           locked: sessionLocked(), location: state.matchedLocation);
       if (guard != null) return guard;
+      final landing = webLandingRedirect(
+        web: web,
+        locked: sessionLocked(),
+        uri: uri,
+        dollarsShown: () => dollarsShown(context),
+        landed: landed,
+      );
+      if (landing != null) return landing;
       lastGood = state.matchedLocation;
       return null;
     };
   }
 
+  /// The web app's start with a referral code, `/#/?r=CODE` (the invite /
+  /// Earn link): the code becomes the pending referrer exactly as a market
+  /// link's does, then the ordinary start. Null for any other location.
+  @visibleForTesting
+  static String? rootReferralRedirect(Uri uri, {required bool locked}) {
+    if (uri.hasScheme || uri.path != '/') return null;
+    final Map<String, String> q;
+    try {
+      q = uri.queryParameters;
+    } catch (_) {
+      return locked ? '/splash' : '/home';
+    }
+    final code = ShareTarget.normalizeReferral(q[kShareReferralQuery]);
+    if (code != null && ShareTargetIngest.firstSighting(uri)) {
+      ShareTargets.ingestInvite(code);
+    }
+    return locked ? '/splash' : '/home';
+  }
+
+  static bool _noWalletKnown() => false;
+  static bool _guestShareViewOff() => false;
+  static Future<void>? _walletsLoaded() => null;
+
+  /// Where a shared market link (`/s/p/<slug>`, `/s/i/<coin>`;
+  /// services/share_target.dart) goes. Its referral code becomes the
+  /// pending referrer and its market is parked ([ShareTargets.ingest]),
+  /// then:
+  ///   * a refused link: the app's ordinary start (splash, which goes on to
+  ///     the PIN or the start screen; the shell when unlocked);
+  ///   * unlocked with a wallet: the venue's tab in the shell, where the
+  ///     parked market opens on top (app_widget.dart);
+  ///   * locked with a wallet: splash, so the PIN comes first and the
+  ///     market opens after it;
+  ///   * no wallet: the guest view of the market when [guestView] (the
+  ///     page itself, read-only), else splash and onboarding, after which
+  ///     the parked market opens.
+  /// Never more than one `share_link_opened` per link opened.
+  @visibleForTesting
+  static String? shareLocationRedirect(Uri uri,
+      {required bool locked,
+      required bool hasWallet,
+      required bool guestView}) {
+    final parsed = ShareTarget.parseLocation(uri);
+    final walletState = !hasWallet
+        ? 'none'
+        : locked
+            ? 'locked'
+            : 'unlocked';
+    if (parsed == null) {
+      if (ShareTargetIngest.firstSighting(uri)) {
+        ShareTargets.lost('invalid_link');
+      }
+      return locked ? '/splash' : '/home';
+    }
+    if (ShareTargetIngest.firstSighting(uri)) {
+      ShareTargets.ingest(parsed.target,
+          referral: parsed.referral, walletState: walletState);
+    }
+    if (!hasWallet) {
+      if (guestView) return null;
+      return '/splash';
+    }
+    if (locked) return '/splash';
+    return ShareTargets.shellLocationFor(parsed.target);
+  }
+
   static GoRouter createRouter(
     String initialRoute, {
     required bool Function() sessionLocked,
+    bool Function() hasWallet = _noWalletKnown,
+    bool Function() guestShareView = _guestShareViewOff,
+    Future<void>? Function() walletsLoading = _walletsLoaded,
     List<NavigatorObserver> extraObservers = const [],
   }) {
     _firstRouterAt ??= DateTime.now();
@@ -280,8 +467,12 @@ class AppRouter {
       // The bar's count of what is over the tabs (kute_bar_context.dart):
       // one observer here, one on each tab's navigator below.
       observers: [...extraObservers, KuteBarRouteObserver()],
-      redirect:
-          redirectFor(sessionLocked: sessionLocked, initialRoute: initialRoute),
+      redirect: redirectFor(
+          sessionLocked: sessionLocked,
+          initialRoute: initialRoute,
+          hasWallet: hasWallet,
+          guestShareView: guestShareView,
+          walletsLoading: walletsLoading),
       routes: [
         GoRoute(
           path: '/splash',
@@ -289,6 +480,19 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const Splash(),
             state: state,
+            wide: KuteWideMode.column,
+          ),
+        ),
+        // A shared market for a visitor with no wallet (web; the redirect
+        // sends everyone else on, shareLocationRedirect).
+        GoRoute(
+          path: '/s/:venue/:slug',
+          name: ShareGuestScreen.routeName,
+          pageBuilder: (context, state) => _buildFadeScalePage(
+            child: ShareGuestScreen(
+                target: ShareTarget.parseLocation(state.uri)?.target),
+            state: state,
+            wide: KuteWideMode.own,
           ),
         ),
         GoRoute(
@@ -300,6 +504,9 @@ class AppRouter {
               challenge: ShareLinkClaims.challengeFromLink(state.uri),
             ),
             state: state,
+            // The gift beside the brand, its Claim under it: a claim link
+            // is often the first thing a new person opens.
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -308,6 +515,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const Start(),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -320,6 +528,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const PostHogMaskWidget(child: SeedWords()),
             state: state,
+            wide: KuteWideMode.full,
           ),
         ),
         GoRoute(
@@ -328,6 +537,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const OpenPin(),
             state: state,
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -336,6 +546,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const ConfirmPin(),
             state: state,
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -346,6 +557,7 @@ class AppRouter {
             return _buildFadeScalePage(
               child: PasskeyChoice(nextRoute: next),
               state: state,
+              wide: KuteWideMode.split,
             );
           },
         ),
@@ -355,6 +567,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const BetaSurveyScreen(),
             state: state,
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -363,6 +576,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const ReferrerCodeScreen(),
             state: state,
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -371,6 +585,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const ShareCodeScreen(),
             state: state,
+            wide: KuteWideMode.full,
           ),
         ),
         GoRoute(
@@ -384,6 +599,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const SetPin(),
             state: state,
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -398,6 +614,7 @@ class AppRouter {
             return _buildFadeScalePage(
               child: Settings(initialActionKey: extra),
               state: state,
+              wide: KuteWideMode.full,
             );
           },
         ),
@@ -431,6 +648,10 @@ class AppRouter {
           branches: [
             // ── Branch 0: Home (+ its full sub-route tree) ──
             StatefulShellBranch(
+              // On web the app opens on Dollars (webLandingRedirect), so
+              // the Bitcoin branch is built with the shell rather than on
+              // its first visit: its MainScreen starts the background sync.
+              preload: kIsWeb,
               observers: [KuteBarRouteObserver()],
               navigatorKey: _homeBranchKey,
               routes: [
@@ -487,6 +708,7 @@ class AppRouter {
                                 walletId: extras['walletId'] as String?,
                               ),
                               state: state,
+                              wide: KuteWideMode.full,
                             );
                           },
                         ),
@@ -562,31 +784,39 @@ class AppRouter {
                       pageBuilder: (context, state) => _buildFadeScalePage(
                         child: const AddWallet(),
                         state: state,
+                        wide: KuteWideMode.full,
                       ),
                     ),
                     GoRoute(
                       path: '/import-xpub',
                       name: 'importXpub',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) => const XPubImportScreen(),
+                      builder: (context, state) =>
+                          const KutePageFrame(
+                              mode: KuteWideMode.full, child: XPubImportScreen()),
                     ),
                     GoRoute(
                       path: '/import-external-address',
                       name: 'importExternalAddress',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) =>
-                          const ExternalAddressImportScreen(),
+                      builder: (context, state) => const KutePageFrame(
+                          mode: KuteWideMode.full,
+                          child: ExternalAddressImportScreen()),
                     ),
                     GoRoute(
                       path: '/wallet/:walletId',
                       name: 'walletDetail',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) => WalletDetailScreen(
-                        walletId: state.pathParameters['walletId']!,
-                        // Opened from a pending Ledger settlement in Activity
-                        // detail (Phase 5 plan B13).
-                        ledgerAccountView:
-                            state.uri.queryParameters['view'] == 'ledger',
+                      // A phone column on MEDIUM, the window on EXPANDED.
+                      builder: (context, state) => KutePageFrame(
+                        mode: KuteWideMode.full,
+                        child: WalletDetailScreen(
+                          walletId: state.pathParameters['walletId']!,
+                          // Opened from a pending Ledger settlement in
+                          // Activity detail (Phase 5 plan B13).
+                          ledgerAccountView:
+                              state.uri.queryParameters['view'] == 'ledger',
+                        ),
                       ),
                     ),
                     // Ledger investing setup (Wallet hardening Phase 4, P4.3). Reached
@@ -596,10 +826,15 @@ class AppRouter {
                       path: '/ledger/:walletId/investing-setup',
                       name: 'ledgerInvestingSetup',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) => LedgerInvestingSetupScreen(
-                        walletId: state.pathParameters['walletId']!,
-                        fromImport:
-                            state.uri.queryParameters['from'] == 'import',
+                      // A short device prompt with nothing to set beside it
+                      // until pairing starts: the centred column.
+                      builder: (context, state) => KutePageFrame(
+                        mode: KuteWideMode.column,
+                        child: LedgerInvestingSetupScreen(
+                          walletId: state.pathParameters['walletId']!,
+                          fromImport:
+                              state.uri.queryParameters['from'] == 'import',
+                        ),
                       ),
                     ),
                     // The scanner opens as a sheet (scanner_sheet.dart);
@@ -621,6 +856,7 @@ class AppRouter {
                       pageBuilder: (context, state) => _buildFadeScalePage(
                         child: const Settings(),
                         state: state,
+                        wide: KuteWideMode.full,
                       ),
                     ),
                   ],
@@ -750,8 +986,11 @@ class AppRouter {
         GoRoute(
           path: '/affiliate',
           pageBuilder: (context, state) => _buildFadeScalePage(
-            child: const AffiliateScreen(),
+            child:
+                _settingsDetail(state, const AffiliateScreen(), 'affiliate'),
             state: state,
+            wide: KuteWideMode.full,
+            masterDetail: state.extra == kuteSettingsDetailExtra,
           ),
         ),
         // The Portfolio, its own screen over the shell (founder, 31 October
@@ -764,6 +1003,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const PortfolioScreen(),
             state: state,
+            wide: KuteWideMode.own,
           ),
         ),
         // The '/earn' route is gone: the Flashnet USDB Earn product was
@@ -779,6 +1019,7 @@ class AppRouter {
               color: Color(0xFF9D4EDD),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -792,6 +1033,7 @@ class AppRouter {
               color: Color(0xFF3266CC),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -805,6 +1047,7 @@ class AppRouter {
               color: Color(0xFF3266CC),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -818,6 +1061,7 @@ class AppRouter {
               color: Color(0xFFEF4444),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -831,6 +1075,7 @@ class AppRouter {
               color: Color(0xFFFF6B00),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -844,6 +1089,7 @@ class AppRouter {
               color: Color(0xFF8B5CF6),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -852,6 +1098,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const RecoverChoiceScreen(),
             state: state,
+            wide: KuteWideMode.split,
           ),
           routes: [
             GoRoute(
@@ -861,6 +1108,7 @@ class AppRouter {
               pageBuilder: (context, state) => _buildFadeScalePage(
                 child: const PostHogMaskWidget(child: RecoverWallet()),
                 state: state,
+                wide: KuteWideMode.full,
               ),
             ),
           ],
@@ -871,6 +1119,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const SearchModal(),
             state: state,
+            wide: KuteWideMode.own,
           ),
         ),
         GoRoute(
@@ -885,6 +1134,7 @@ class AppRouter {
             child: PostHogMaskWidget(
                 child: BackupWallet(walletId: state.extra as String?)),
             state: state,
+            wide: KuteWideMode.full,
           ),
         ),
         GoRoute(
@@ -900,6 +1150,7 @@ class AppRouter {
               ),
             ),
             state: state,
+            wide: KuteWideMode.full,
           ),
         ),
         GoRoute(
@@ -913,6 +1164,7 @@ class AppRouter {
                       StorageBootState.storageUnavailable),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -920,8 +1172,11 @@ class AppRouter {
           name: 'wallets',
           // Masked: reveals recovery phrases and public keys.
           pageBuilder: (context, state) => _buildFadeScalePage(
-            child: const PostHogMaskWidget(child: WalletsScreen()),
+            child: _settingsDetail(state,
+                const PostHogMaskWidget(child: WalletsScreen()), 'wallets'),
             state: state,
+            wide: KuteWideMode.full,
+            masterDetail: state.extra == kuteSettingsDetailExtra,
           ),
         ),
       ],

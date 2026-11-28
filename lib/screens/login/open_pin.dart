@@ -19,6 +19,10 @@ import 'package:kute/screens/shared/custom_alert_dialog.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_password_field.dart';
+import 'package:kute/screens/shared/password_copy.dart';
+import 'package:kute/platform/unlock_secret.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/services/background_sync_service.dart';
@@ -32,6 +36,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/web_biometrics.dart';
 
 class OpenPin extends ConsumerStatefulWidget {
   const OpenPin({super.key, @visibleForTesting this.localAuth});
@@ -68,6 +74,26 @@ class _OpenPinState extends ConsumerState<OpenPin>
 
   late AnimationController _animationController;
   late Animation<double> _animation;
+
+  /// The vault's secret is a password (a web vault made with one between
+  /// 24 and 27 November 2026, unlock_secret.dart): one field instead of
+  /// the pad. Every other vault takes the PIN.
+  final bool _password = UnlockSecret.current == VaultSecretKind.password;
+  final TextEditingController _field = TextEditingController();
+
+  void _clearEntry() {
+    _field.clear();
+    pin = '';
+  }
+
+  void _submitPassword() {
+    if (_isLocked || _verifying || _field.text.isEmpty) return;
+    setState(() {
+      pin = _field.text;
+      _verifying = true;
+    });
+    _checkPin(context, ref);
+  }
 
   @override
   void initState() {
@@ -206,14 +232,19 @@ class _OpenPinState extends ConsumerState<OpenPin>
             .applyAfterUnlock(dependency, typedPin: typedPin);
 
         if (!context.mounted) return;
-        markSessionUnlocked(ref,
-            method: UnlockMethod.pin,
-            typedPin: typedPin,
-            dependency: dependency);
-        final container = ProviderScope.containerOf(context, listen: false);
-        salHappy();
-        _unlockApp(context, ref, method: 'pin');
-        _scheduleAfterUnlock(container);
+        void finish() {
+          if (!mounted || !context.mounted) return;
+          markSessionUnlocked(ref,
+              method: UnlockMethod.pin,
+              typedPin: typedPin,
+              dependency: dependency);
+          final container = ProviderScope.containerOf(context, listen: false);
+          salHappy();
+          _unlockApp(context, ref, method: 'pin');
+          _scheduleAfterUnlock(container);
+        }
+
+        finish();
       } else if (check == PinCheck.mismatch) {
         await _handleIncorrectPin();
       } else {
@@ -229,7 +260,7 @@ class _OpenPinState extends ConsumerState<OpenPin>
       TrackingService.recordHandled(category, e, st,
           flow: 'unlock', stage: 'pin_check');
       if (mounted && context.mounted) {
-        setState(() => pin = '');
+        setState(_clearEntry);
         showMessageSnackBar(
           context: context,
           message:
@@ -266,7 +297,7 @@ class _OpenPinState extends ConsumerState<OpenPin>
         params: {'result': check.name});
     if (!mounted) return;
     _shakeKeypad();
-    setState(() => pin = '');
+    setState(_clearEntry);
     if (check == PinCheck.noPinMaterial) {
       context.go('/restore_secrets',
           extra: RestoreSecretsReason.secretsMissing);
@@ -286,9 +317,7 @@ class _OpenPinState extends ConsumerState<OpenPin>
     _attempts = outcome.attempts;
     if (!mounted) return;
 
-    setState(() {
-      pin = '';
-    });
+    setState(_clearEntry);
 
     if (outcome.action == PinFailureAction.wipe) {
       TrackingService.walletWiped(
@@ -317,6 +346,9 @@ class _OpenPinState extends ConsumerState<OpenPin>
     // otherwise start a second ceremony over the first and run the
     // unlock path twice.
     if (_isLocked || _biometricInFlight) return;
+    // Web without a platform authenticator: the PIN keypad is the only
+    // way in.
+    if (!PlatformCaps.hasBiometrics) return;
     _biometricInFlight = true;
 
     try {
@@ -329,9 +361,15 @@ class _OpenPinState extends ConsumerState<OpenPin>
       // + `isDeviceSupported`, so we only prompt when biometrics can
       // actually succeed; otherwise fall straight through to the PIN
       // keypad (the always-available fallback).
-      final supported = await _localAuth.isDeviceSupported();
-      final enrolled = await _localAuth.getAvailableBiometrics();
-      if (!supported || enrolled.isEmpty) return;
+      // Web: "enrolled" is this browser's WebAuthn PRF credential (it
+      // opens the vault, see web_biometrics.dart).
+      if (PlatformCaps.isWeb) {
+        if (!WebBiometrics.enrolled) return;
+      } else {
+        final supported = await _localAuth.isDeviceSupported();
+        final enrolled = await _localAuth.getAvailableBiometrics();
+        if (!supported || enrolled.isEmpty) return;
+      }
       if (!mounted || !context.mounted) return;
 
       {
@@ -345,11 +383,14 @@ class _OpenPinState extends ConsumerState<OpenPin>
         TrackingService.track('biometric_prompt_shown',
             params: {'surface': 'cold_start', 'trigger': trigger});
         bool authenticated = await runBiometricPrompt(
-          () => _localAuth.authenticate(
-            localizedReason: reason,
-            persistAcrossBackgrounding: true,
-            biometricOnly: true,
-          ),
+          () => PlatformCaps.isWeb
+              ? WebBiometrics.verify()
+                  .then((r) => r == WebBiometricResult.approved)
+              : _localAuth.authenticate(
+                  localizedReason: reason,
+                  persistAcrossBackgrounding: true,
+                  biometricOnly: true,
+                ),
         );
 
         if (authenticated && mounted) {
@@ -372,12 +413,18 @@ class _OpenPinState extends ConsumerState<OpenPin>
           await recordBiometricUnlockDomainState();
 
           if (!context.mounted) return;
-          markSessionUnlocked(ref,
-              method: UnlockMethod.biometric, dependency: dependency);
-          final container = ProviderScope.containerOf(context, listen: false);
-          salHappy();
-          _unlockApp(context, ref, method: 'biometric');
-          _scheduleAfterUnlock(container);
+          void finish() {
+            if (!mounted || !context.mounted) return;
+            markSessionUnlocked(ref,
+                method: UnlockMethod.biometric, dependency: dependency);
+            final container =
+                ProviderScope.containerOf(context, listen: false);
+            salHappy();
+            _unlockApp(context, ref, method: 'biometric');
+            _scheduleAfterUnlock(container);
+          }
+
+          finish();
         } else if (!authenticated) {
           TrackingService.track('biometric_prompt_cancelled',
               params: {'surface': 'cold_start'});
@@ -488,7 +535,7 @@ class _OpenPinState extends ConsumerState<OpenPin>
     TrackingService.track('forgot_pin_dialog_shown');
     showCustomAlertDialog(
       context: context,
-      title: l10n.forgotPinTitle,
+      title: _password ? PasswordCopy.forgot : l10n.forgotPinTitle,
       content: l10n.forgotPinBody,
       buttons: [
         CustomAlertAction.destructive(
@@ -514,6 +561,7 @@ class _OpenPinState extends ConsumerState<OpenPin>
     _resumeListener?.dispose();
     _lockoutTimer?.cancel();
     _animationController.dispose();
+    _field.dispose();
     super.dispose();
   }
 
@@ -529,7 +577,8 @@ class _OpenPinState extends ConsumerState<OpenPin>
       attemptsMessage = context.l10n
           .lockedForTime(_formatLockoutTime(_lockoutSecondsRemaining));
     } else if (_attempts > 0 && noWipe) {
-      attemptsMessage = context.l10n.incorrectPin;
+      attemptsMessage =
+          _password ? PasswordCopy.wrong : context.l10n.incorrectPin;
     } else if (_attempts > 0) {
       int remainingAttempts = 6 - _attempts;
       if (remainingAttempts == 1) {
@@ -551,8 +600,9 @@ class _OpenPinState extends ConsumerState<OpenPin>
     return PopScope(
       canPop: false,
       child: KutePinScaffold(
+        form: _password,
         title: context.l10n.welcomeBack,
-        salMood: salMoodFor(pin.length),
+        salMood: salMoodFor(_password ? _field.text.length : pin.length),
         // Nothing under the title unless something is wrong. Six dots
         // over a number pad do not need a sentence explaining that a
         // PIN goes in them, and the line was only ever taking up the
@@ -567,14 +617,35 @@ class _OpenPinState extends ConsumerState<OpenPin>
               child: child,
             );
           },
-          child: PinProgressIndicator(currentLength: pin.length),
+          child: _password
+              ? KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: context.l10n.unlock,
+                    enabled: !padInert && _field.text.isNotEmpty,
+                    busy: _verifying,
+                    source: 'open_pin',
+                    onPrimary: _submitPassword,
+                    disabledLabel: PasswordCopy.needPassword,
+                  ),
+                  child: KutePasswordField(
+                    controller: _field,
+                    enabled: !padInert,
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (_) => _submitPassword(),
+                  ),
+                )
+              : PinProgressIndicator(currentLength: pin.length),
         ),
-        keypad: IgnorePointer(
+        keypad: _password
+            ? const SizedBox.shrink()
+            : IgnorePointer(
           ignoring: padInert,
           child: Opacity(
             opacity: padInert ? 0.4 : 1.0,
             child: CustomKeypad(
               chromed: true,
+              // A laptop's keyboard types on the pad too (web only).
+              typeFromKeyboard: true,
               onDigitPressed: (digit) {
                 if (pin.length < 6) {
                   HapticFeedback.lightImpact();
@@ -594,7 +665,9 @@ class _OpenPinState extends ConsumerState<OpenPin>
                   setState(() => pin = pin.substring(0, pin.length - 1));
                 }
               },
-              onBiometricPressed: biometricsEnabled && !padInert
+              onBiometricPressed: biometricsEnabled &&
+                      !padInert &&
+                      (!PlatformCaps.isWeb || WebBiometrics.enrolled)
                   ? () => _checkBiometrics(context, ref)
                   : null,
             ),
@@ -613,7 +686,7 @@ class _OpenPinState extends ConsumerState<OpenPin>
                 },
               )
             : AppTextButton(
-                text: context.l10n.forgotPin2,
+                text: _password ? PasswordCopy.forgot : context.l10n.forgotPin2,
                 onPressed: () {
                   HapticFeedback.lightImpact();
                   _showForgotPinConfirmation(context, ref);

@@ -14,9 +14,8 @@
 //   * Settings > Notifications shows the live status and re-asks only when
 //     the OS still allows it (`notDetermined`); otherwise it opens the OS
 //     app settings, and a grant made there is picked up on resume.
-//   * After any grant the app subscribes to its FCM topics and hands the
-//     push token to AppsFlyer for uninstall measurement — both idempotent,
-//     so the two grant paths cannot double-register.
+//   * After any grant the app subscribes to its FCM topics (idempotent, so
+//     the two grant paths cannot double-register).
 //   * Analytics: `push_permission_requested {surface}` right before the
 //     prompt and `push_permission_result {status}` after it. No token, no
 //     per-setting detail.
@@ -26,7 +25,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:kute/notifications/firebase.dart';
 import 'package:kute/services/once_flags_service.dart';
-import 'package:kute/services/tracking/appsflyer_uninstall_token.dart';
 import 'package:kute/services/tracking_service.dart';
 
 /// Coarse push-permission state, the same three buckets the analytics
@@ -40,17 +38,14 @@ class PushPermissionPorts {
     required this.currentStatus,
     required this.requestPermission,
     required this.subscribeToTopics,
-    required this.registerUninstallToken,
   });
 
   final Future<AuthorizationStatus> Function() currentStatus;
   final Future<AuthorizationStatus> Function() requestPermission;
   /// True when the topic subscription went through.
   final Future<bool> Function() subscribeToTopics;
-  final Future<void> Function() registerUninstallToken;
 
-  /// Production wiring: firebase_messaging + the existing topic and
-  /// AppsFlyer helpers.
+  /// Production wiring: firebase_messaging + the existing topic helper.
   factory PushPermissionPorts.production() => PushPermissionPorts(
         currentStatus: () async => (await FirebaseMessaging.instance
                 .getNotificationSettings())
@@ -59,7 +54,6 @@ class PushPermissionPorts {
             (await FirebaseMessaging.instance.requestPermission())
                 .authorizationStatus,
         subscribeToTopics: FirebaseService.subscribeToTopics,
-        registerUninstallToken: AppsFlyerUninstallToken.register,
       );
 }
 
@@ -84,6 +78,7 @@ abstract final class PushPermission {
   /// Every later call is a no-op, so Home can call this on every mount.
   /// Returns the outcome when a prompt ran, null when it was skipped.
   static Future<PushPermissionStatus?> requestOnceFromHome() async {
+    if (debugPorts == null && !FirebaseService.pushAvailable) return null;
     if (!OnceFlagsService.claimOnce(promptedFlag)) return null;
     final status = await _request(surface: homeSurface);
     if (status == null) {
@@ -106,6 +101,7 @@ abstract final class PushPermission {
   /// a denied result so the funnel always closes.
   static Future<PushPermissionStatus?> _request(
       {required String surface}) async {
+    if (debugPorts == null && !FirebaseService.pushAvailable) return null;
     TrackingService.pushPermissionRequested(surface: surface);
     PushPermissionStatus? status;
     try {
@@ -121,6 +117,9 @@ abstract final class PushPermission {
 
   /// The OS-side status right now, without prompting.
   static Future<PushPermissionStatus> currentStatus() async {
+    if (debugPorts == null && !FirebaseService.pushAvailable) {
+      return PushPermissionStatus.denied;
+    }
     try {
       return _bucket(await _ports.currentStatus());
     } catch (_) {
@@ -149,11 +148,6 @@ abstract final class PushPermission {
       } catch (_) {/* retried on the next grant or resume sync */}
       if (subscribed) OnceFlagsService.claimOnce(_subscribedFlag);
     }
-    // Coalesces and skips an unchanged token, so calling it here and at
-    // AppsFlyer boot cannot send the token twice.
-    try {
-      await ports.registerUninstallToken();
-    } catch (_) {/* best-effort */}
   }
 
   static const String _subscribedFlag = 'push_topics_subscribed_v1';

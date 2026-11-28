@@ -81,6 +81,7 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show kuteWindowIsExpanded;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
@@ -391,6 +392,17 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       final market = await _resolveHlMarket(link.marketSlug);
       if (!mounted) return;
       if (market == null) return _openMarket();
+      // THE DESK (EXPANDED): the market's page with the ticket open in its
+      // side panel, the pick's side and amount in it.
+      if (kuteWindowIsExpanded(context)) {
+        HlMarketDetailSheet.show(context,
+            market: market,
+            source: 'share_claim',
+            initialSide: link.side != 'short',
+            initialUsd: amountUsd,
+            slipSource: 'share_claim');
+        return;
+      }
       await HlOrderSlipSheet.show(
         context,
         ref,

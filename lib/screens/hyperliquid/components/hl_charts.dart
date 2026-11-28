@@ -47,10 +47,21 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show PointMode;
 
-import 'package:flutter/foundation.dart' show listEquals, setEquals;
+import 'package:flutter/foundation.dart' show kIsWeb, listEquals, setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart'
-    show DragStartBehavior, kDoubleTapSlop, kDoubleTapTimeout;
+    show
+        DragStartBehavior,
+        GestureBinding,
+        PointerDeviceKind,
+        PointerPanZoomStartEvent,
+        PointerPanZoomUpdateEvent,
+        PointerScaleEvent,
+        PointerScrollEvent,
+        PointerSignalEvent,
+        TapUpDetails,
+        kDoubleTapSlop,
+        kDoubleTapTimeout;
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 // intl also exports a `TextDirection` (LTR/RTL) that shadows dart:ui's —
@@ -858,6 +869,13 @@ List<double> hlNiceLevels(double lo, double hi, {bool log = false}) {
 /// layer shares is untouched, so drawings / crosshair / markers stay in
 /// register. The host keeps this layer on in the reading view and in
 /// Advanced mode, and fades it in on a scrub anywhere else.
+///
+/// In Advanced mode ([HlCandlestickChart.priceScale]) the same levels are
+/// also the chart's horizontal price lines: [_HlPriceLinesPainter] (this
+/// painter with [gridColor] set) paints only those hairlines across the
+/// plot, under the data, and none of the labels. The tag column is
+/// widened there to hold a label whole ([hlPriceScaleGutter]), so no
+/// level loses its label to the column's width.
 class _HlPriceScalePainter extends CustomPainter {
   final List<HyperliquidCandle> candles;
   final bool renderAsLine;
@@ -878,7 +896,22 @@ class _HlPriceScalePainter extends CustomPainter {
   /// price line), so no label is written over that tag.
   final double? lastValue;
 
+  /// One label for about every [labelSpacing] of the price area's height
+  /// (at least three): the Advanced chart on a tall desktop window gets a
+  /// real scale. Null keeps the reading view's three.
+  final double? labelSpacing;
+
+  /// The labels' size; null: the reading view's 11 sp.
+  final double? labelFontSize;
+
+  /// Set: this instance paints the levels' hairlines across the plot (the
+  /// tag column left clear) in this colour, and no labels.
+  final Color? gridColor;
+
   _HlPriceScalePainter({
+    this.gridColor,
+    this.labelSpacing,
+    this.labelFontSize,
     required this.candles,
     required this.renderAsLine,
     required this.showVolume,
@@ -935,15 +968,34 @@ class _HlPriceScalePainter extends CustomPainter {
     final loPrice = geom.log ? math.exp(geom.loP) : geom.loP;
     final hiPrice =
         geom.log ? math.exp(geom.loP + geom.rangeP) : geom.loP + geom.rangeP;
+    final spacing = labelSpacing;
     final labels = hlPriceAxisLabels(
       loPrice,
       hiPrice,
       decimals: hlPriceDecimals(hiPrice, decimalCap: decimalCap),
+      maxLabels: spacing == null
+          ? 3
+          : (priceH / spacing).floor().clamp(3, 12).toInt(),
     );
     if (labels.isEmpty) return;
 
-    final fontSize = 11.sp;
+    final fontSize = labelFontSize ?? 11.sp;
     final plotW = hlPlotWidth(size.width, tagGutter);
+    final grid = gridColor;
+    if (grid != null) {
+      final paint = Paint()
+        ..color = grid
+        ..strokeWidth = 1;
+      for (final l in labels) {
+        final y = priceH *
+            (1 - (_hlMapPrice(l.value, geom.log) - geom.loP) / geom.rangeP);
+        if (y < 0 || y > priceH) continue;
+        // On the pixel grid, so the hairline is one crisp pixel.
+        final py = y.floorToDouble() + 0.5;
+        canvas.drawLine(Offset(0, py), Offset(plotW, py), paint);
+      }
+      return;
+    }
     // In the column, past the data, their digits ending where the live
     // price pill's do.
     final minLeft = plotW + kPolyTagLead;
@@ -990,9 +1042,35 @@ class _HlPriceScalePainter extends CustomPainter {
       !identical(old.morphSeries, morphSeries) ||
       old.decimalCap != decimalCap ||
       old.labelColor != labelColor ||
+      old.gridColor != gridColor ||
       old.domain != domain ||
       old.tagGutter != tagGutter ||
+      old.labelFontSize != labelFontSize ||
+      old.labelSpacing != labelSpacing ||
       old.lastValue != lastValue;
+}
+
+/// The Advanced chart's horizontal price lines: [_HlPriceScalePainter]'s
+/// levels as hairlines across the plot, under the data (its own type, so
+/// the labels' layer is still the one [_HlPriceScalePainter] on screen).
+class _HlPriceLinesPainter extends _HlPriceScalePainter {
+  _HlPriceLinesPainter.of(_HlPriceScalePainter p, {required Color color})
+      : super(
+          gridColor: color,
+          labelSpacing: p.labelSpacing,
+          labelFontSize: p.labelFontSize,
+          candles: p.candles,
+          renderAsLine: p.renderAsLine,
+          showVolume: p.showVolume,
+          logScale: p.logScale,
+          leadingClose: p.leadingClose,
+          morphSeries: p.morphSeries,
+          decimalCap: p.decimalCap,
+          labelColor: p.labelColor,
+          domain: p.domain,
+          tagGutter: p.tagGutter,
+          lastValue: p.lastValue,
+        );
 }
 
 // ─────────────────────────── tag column ───────────────────────────
@@ -1247,6 +1325,22 @@ double hlChartTagGutter({
   return gutter;
 }
 
+/// The tag column the Advanced chart's price scale needs ([gutter], the
+/// column [hlChartTagGutter] sized for the tags, at least): its widest
+/// label ([priceTemplate], every digit a 0) written at [fontSize] whole
+/// between the column's lead and the 5 px the labels keep from the edge,
+/// as [_HlPriceScalePainter] places them. A label 0.7 px wider than the
+/// price's pill would otherwise be left out at every level (a gold
+/// market's "4,120.0" at the desk's 12 px), and the scale drawn empty.
+double hlPriceScaleGutter({
+  required double gutter,
+  required String priceTemplate,
+  required double fontSize,
+}) {
+  final label = _HlPriceScalePainter._tp(priceTemplate, Colors.white, fontSize);
+  return math.max(gutter, label.width + kPolyTagLead + 5.w + 1);
+}
+
 // ─────────────────────────── candlestick chart ───────────────────────────
 
 /// Indicator lines on the Hyperliquid chart: thinner than the data so
@@ -1359,7 +1453,24 @@ class HlCandlestickChart extends StatefulWidget {
 
   /// Advanced drawing mode: pan/scrub is suspended and pans/taps place,
   /// select or edit drawings instead. The host owns the toolbar + state.
+  /// The Advanced chart editor on an EXPANDED window (the desk; founder,
+  /// 25 November 2026: "there is much more space to make the advanced
+  /// graph on desktop much better"): while [drawingMode], the volume is a
+  /// pane of its own under the plot with real height instead of a thin
+  /// band in it, the indicator panes are taller, the price and date axes
+  /// are larger with more labels, and the dates sit under every pane.
+  /// False everywhere else (phones never set it).
+  final bool desk;
+
   final bool drawingMode;
+
+  /// [drawingMode]'s price scale: its horizontal price lines across the
+  /// plot and their labels in the tag column (the tool rail's Price scale
+  /// button; HlChartLayout.priceScale). Off hides both there; the latest
+  /// price's tag and the crosshair's tag stay. Outside [drawingMode] the
+  /// chart is as before (no lines; a few labels in the reading view, or
+  /// on a scrub).
+  final bool priceScale;
 
   /// When true the plot takes whatever height the parent column leaves
   /// after the fixed rows (scrub label, date axis, indicator panes), so
@@ -1491,6 +1602,7 @@ class HlCandlestickChart extends StatefulWidget {
     this.height = 240,
     this.timeframeLabel,
     this.showVolume = true,
+    this.desk = false,
     this.renderAsLine = false,
     this.fills = const [],
     this.entryPx,
@@ -1501,6 +1613,7 @@ class HlCandlestickChart extends StatefulWidget {
     this.priceLines = const [],
     this.onPriceLineTapped,
     this.drawingMode = false,
+    this.priceScale = true,
     this.armedTool,
     this.armedColorValue,
     this.selectedDrawingId,
@@ -1573,6 +1686,22 @@ class HlCandlestickChart extends StatefulWidget {
 
 class _HlCandlestickChartState extends State<HlCandlestickChart>
     with TickerProviderStateMixin {
+  /// The editor on a desktop window ([HlCandlestickChart.desk]).
+  bool get _deskEditor => widget.desk && widget.drawingMode;
+
+  /// Whether the plot draws its volume band: at the desk the volume is a
+  /// pane of its own instead ([_volumePane]).
+  bool get _plotVolume => _plotsVolume(widget);
+
+  static bool _plotsVolume(HlCandlestickChart chart) =>
+      chart.showVolume && !(chart.desk && chart.drawingMode);
+
+  /// A pane's height under the plot: 76 as designed; at the desk about
+  /// an eighth of the window, 96 to 150.
+  double _paneHeight(BuildContext context) => _deskEditor
+      ? (MediaQuery.sizeOf(context).height * 0.125).clamp(96.0, 150.0)
+      : 76.h;
+
   int? _touchIndex;
 
   /// The finger's height during an Advanced crosshair (the price pill
@@ -1604,6 +1733,412 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   DateTime _lastHistoryRequest = DateTime(0);
 
   static const int _minViewBars = 12;
+
+  // ── mouse (web and desktop; founder, 25 November 2026: a plain drag
+  // with a mouse drew a grey measuring box) ─────────────────────────
+  // The pointer's kind decides: a plain mouse drag pans, the wheel or a
+  // trackpad pinch zooms, hovering shows the crosshair and the price, and
+  // a Shift-drag with a mouse is a quick measure that goes on release.
+  // In Advanced with a tool in hand the mouse draws by desktop rules
+  // (founder, 25 November 2026: "drawing tools not working properly ...
+  // on web"): press, drag, release places it, or click, move, click; the
+  // second point follows the pointer between the clicks; a click that
+  // wobbles a pixel or two is still a click; the cursor says what a press
+  // will do; Escape drops the placing in hand. Touch is as it was: every
+  // branch reads the pointer's kind, never the platform.
+
+  /// The kind of the pointer that last went down on the plot, and
+  /// whether Shift was held then.
+  PointerDeviceKind? _downKind;
+  bool _downShift = false;
+
+  bool get _mouseDown => _downKind == PointerDeviceKind.mouse;
+
+  /// A quick measure (Shift-drag with a mouse) is being dragged out: the
+  /// box is [_quickMeasure], dropped on release, never saved.
+  bool _quickMeasuring = false;
+  ChartDrawing? _quickMeasure;
+
+  /// The mouse is over the plot, showing the crosshair.
+  bool _hovering = false;
+
+  /// The trackpad pinch's last scale (desktop: pan-zoom events).
+  double _panZoomScale = 1;
+
+  /// The armed tool: with a mouse, as with a finger, a drag with a tool
+  /// in hand draws it (the Measure tool included).
+  ChartDrawingTool? get _toolForPointer => widget.armedTool;
+
+  /// Where the mouse went down and where its drag last was (plot
+  /// pixels): a press that moves less than [_kMouseClickSlop] is a click.
+  Offset? _mouseDownAt;
+  Offset? _mouseDragAt;
+  static const double _kMouseClickSlop = 4;
+
+  /// A mouse press that moved less than [_kMouseClickSlop] before it was
+  /// released (the drag recognizer took it after its 2 px slop).
+  bool get _mouseClickWobble {
+    final a = _mouseDownAt, b = _mouseDragAt;
+    return _mouseDown &&
+        a != null &&
+        (b == null || (b - a).distance < _kMouseClickSlop);
+  }
+
+  /// The plot's mouse cursor (drawing mode).
+  MouseCursor _cursor = MouseCursor.defer;
+
+  /// Hit radii with a mouse: a line, a handle (a finger's are wider).
+  static const double _kMouseLineTolerance = 8;
+  static const double _kMouseHandleTolerance = 10;
+
+  /// The editor's own keys on the plot (Escape drops the placing in hand
+  /// before the host puts the tool down); focused by a mouse press.
+  final FocusNode _plotFocus =
+      FocusNode(debugLabel: 'hl-chart-plot', skipTraversal: true);
+
+  /// The browser's context menu is off while the mouse is over the plot
+  /// in the editor (a right-click there does nothing).
+  bool _contextMenuOff = false;
+
+  void _setContextMenuOff(bool off) {
+    if (!kIsWeb || off == _contextMenuOff) return;
+    _contextMenuOff = off;
+    unawaited((off
+            ? BrowserContextMenu.disableContextMenu()
+            : BrowserContextMenu.enableContextMenu())
+        .catchError((Object _) {}));
+  }
+
+  /// A Shift-drag with a mouse that is not placing a tool: the quick
+  /// measure.
+  bool get _quickMeasureGesture =>
+      _mouseDown &&
+      _downShift &&
+      (!widget.drawingMode || widget.armedTool == null);
+
+  void _onPlotPointerDown(PointerDownEvent e) {
+    _downKind = e.kind;
+    _downShift = e.kind == PointerDeviceKind.mouse &&
+        HardwareKeyboard.instance.isShiftPressed;
+    _mouseDownAt = e.kind == PointerDeviceKind.mouse ? e.localPosition : null;
+    _mouseDragAt = null;
+    if (e.kind == PointerDeviceKind.mouse && widget.drawingMode) {
+      // The keys (Escape, Delete) follow the click to the plot.
+      if (!_plotFocus.hasFocus) _plotFocus.requestFocus();
+      _clearPlacementHover();
+    }
+    // A press ends the hover's crosshair: the drag that follows pans.
+    if (_hovering && e.kind == PointerDeviceKind.mouse) {
+      _hovering = false;
+      if (_touchIndex != null) {
+        setState(() {
+          _touchIndex = null;
+          _touchY = null;
+        });
+      }
+    }
+  }
+
+  void _onHover(PointerHoverEvent e, Size plotSize, int dataLen) {
+    if (_pinching || e.kind != PointerDeviceKind.mouse) return;
+    final plotW = plotSize.width;
+    if (widget.drawingMode) {
+      _onEditorHover(e.localPosition, plotSize);
+    } else {
+      _setContextMenuOff(false);
+    }
+    // A tool in hand: the pointer is the tool, never the scrub.
+    if (widget.drawingMode && widget.armedTool != null) return;
+    _hovering = true;
+    final y = e.localPosition.dy;
+    if (widget.drawingMode && y != _touchY) setState(() => _touchY = y);
+    _scrubAt(e.localPosition.dx, plotW, dataLen);
+  }
+
+  void _onHoverExit() {
+    _setContextMenuOff(false);
+    _clearPlacementHover();
+    if (!_hovering) return;
+    _hovering = false;
+    if (_touchIndex != null || _touchY != null) {
+      setState(() {
+        _touchIndex = null;
+        _touchY = null;
+      });
+    }
+  }
+
+  /// The mouse over the editor's plot: the cursor for what a press will
+  /// do, and the tool in hand fed the hover (HlDrawingPlacement.hover):
+  /// the anchors still to place follow the pointer between clicks, and a
+  /// one-point tool previews under it.
+  void _onEditorHover(Offset pos, Size plotSize) {
+    _setContextMenuOff(true);
+    final geom = _drawingGeometry(plotSize);
+    final tool = widget.armedTool;
+    final inPlot = geom != null && pos.dy <= geom.priceH;
+    final cursor = _cursorAt(pos, geom, plotSize.width);
+    if (geom != null &&
+        tool != null &&
+        tool != ChartDrawingTool.text &&
+        inPlot) {
+      final placement = _placementFor(tool);
+      if (!placement.dragging) {
+        setState(() {
+          _cursor = cursor;
+          placement.hover(_pointAt(geom, pos));
+        });
+        return;
+      }
+    } else {
+      _clearPlacementHover();
+    }
+    if (cursor != _cursor) setState(() => _cursor = cursor);
+  }
+
+  /// The mouse left the plot or pressed: nothing follows it any more.
+  void _clearPlacementHover() {
+    final placement = _placement;
+    if (placement == null) return;
+    final before = (placement.preview, placement.ghost);
+    placement.clearHover();
+    if (before.$1 != null || before.$2 != null) setState(() {});
+  }
+
+  /// What the mouse cursor says over [pos] in the editor: the precise
+  /// cross with a tool in hand, grab over empty plot (a drag pans), move
+  /// over a drawing, a resize arrow over the selected drawing's handles
+  /// and on the price axis.
+  MouseCursor _cursorAt(Offset pos, KuteDrawingGeometry? geom, double plotW) {
+    if (widget.armedTool != null) return SystemMouseCursors.precise;
+    if (geom == null) return SystemMouseCursors.basic;
+    if (pos.dy > geom.priceH) return SystemMouseCursors.basic;
+    final selected = _selectedDrawing();
+    if (selected != null && !selected.locked) {
+      final handle = kuteHitTestHandle(selected, geom, pos,
+          tolerance: _kMouseHandleTolerance);
+      if (handle != null) return _handleCursor(selected);
+    }
+    final hit = kuteHitTestDrawings(widget.drawings, geom, pos,
+        tolerance: _kMouseLineTolerance);
+    if (hit != null) {
+      final drawing = widget.drawings.firstWhere((d) => d.id == hit);
+      return drawing.locked
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.move;
+    }
+    if (_onAxisStrip(pos, plotW)) return SystemMouseCursors.resizeUpDown;
+    return SystemMouseCursors.grab;
+  }
+
+  static MouseCursor _handleCursor(ChartDrawing drawing) {
+    switch (drawing.tool) {
+      case ChartDrawingTool.level:
+      case ChartDrawingTool.priceLine:
+      case ChartDrawingTool.horizontalRay:
+        return SystemMouseCursors.resizeUpDown;
+      case ChartDrawingTool.verticalLine:
+        return SystemMouseCursors.resizeLeftRight;
+      default:
+        return SystemMouseCursors.resizeUpLeftDownRight;
+    }
+  }
+
+  /// The cursor while a mouse drag is under way, else the hover's.
+  MouseCursor get _plotCursor {
+    if (!widget.drawingMode) return MouseCursor.defer;
+    if (_mouseDown) {
+      if (_panningView) return SystemMouseCursors.grabbing;
+      if (_axisDragging) return SystemMouseCursors.resizeUpDown;
+      if (_placement?.dragging == true || _quickMeasuring) {
+        return SystemMouseCursors.precise;
+      }
+      if (_edited != null) {
+        return _draggingBody
+            ? SystemMouseCursors.move
+            : _handleCursor(_edited!);
+      }
+    }
+    return _cursor;
+  }
+
+  /// The plot's keys in the editor: Escape drops what the mouse holds (a
+  /// drag in progress, then a first point waiting for its second);
+  /// anything else, and Escape with nothing in hand, goes on to the
+  /// editor's own keys (put the tool down, let the selection go, Delete).
+  KeyEventResult _onPlotKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape ||
+        !widget.drawingMode) {
+      return KeyEventResult.ignored;
+    }
+    if (_quickMeasuring) {
+      _endQuickMeasure();
+      return KeyEventResult.handled;
+    }
+    if (_placement?.dragging == true || _edited != null) {
+      _cancelDrawingGesture();
+      return KeyEventResult.handled;
+    }
+    if (_placement?.active == true) {
+      // The anchors already down (a click-click or a channel's clicks).
+      setState(_clearPlacement);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// A mouse press released within [_kMouseClickSlop] of where it went
+  /// down, which the drag recognizer took: undo what the wobble did and
+  /// read it as the click it was.
+  void _mouseWobbleAsTap(Size plotSize) {
+    final at = _mouseDownAt!;
+    if (_panningView) {
+      _panningView = false;
+      if (_viewEndOffset != _panStartOffset) {
+        setState(() => _viewEndOffset = _panStartOffset);
+      }
+    }
+    if (_axisDragging) {
+      setState(() {
+        _axisDragging = false;
+        _axisStartDomain = null;
+      });
+    }
+    if (_placement?.dragging == true ||
+        _edited != null ||
+        _dragGeometry != null) {
+      setState(_resetDrawingInteraction);
+    }
+    _onDrawTapUp(
+      TapUpDetails(kind: PointerDeviceKind.mouse, localPosition: at),
+      plotSize,
+    );
+  }
+
+  /// The wheel zooms (down: out, up: in) around the pointer; a sideways
+  /// scroll (a trackpad's two fingers on the web) pans. A browser's
+  /// trackpad pinch arrives as a scale signal and zooms. The page under
+  /// the chart does not scroll meanwhile.
+  void _onPointerSignal(PointerSignalEvent e, double plotW) {
+    if (_pinching) return;
+    if (e is PointerScrollEvent) {
+      final d = e.scrollDelta;
+      GestureBinding.instance.pointerSignalResolver.register(e, (event) {
+        if (d.dx.abs() > d.dy.abs()) {
+          _panByPixels(-d.dx, plotW);
+        } else if (d.dy != 0) {
+          _zoomBy(math.exp(-d.dy / 300), e.localPosition.dx, plotW);
+        }
+      });
+    } else if (e is PointerScaleEvent) {
+      GestureBinding.instance.pointerSignalResolver.register(e, (event) {
+        _zoomBy(e.scale, e.localPosition.dx, plotW);
+      });
+    }
+  }
+
+  /// A desktop trackpad's pinch (its two-finger pan pans through the
+  /// gesture detector, as a drag does).
+  void _onPanZoomStart(PointerPanZoomStartEvent e) {
+    _panZoomScale = 1;
+    // Two fingers on a trackpad: never a click, never a drawing.
+    _downKind = PointerDeviceKind.trackpad;
+    _downShift = false;
+    _mouseDownAt = null;
+    _mouseDragAt = null;
+  }
+
+  void _onPanZoomUpdate(PointerPanZoomUpdateEvent e, double plotW) {
+    if (e.scale <= 0) return;
+    final step = e.scale / _panZoomScale;
+    _panZoomScale = e.scale;
+    if ((step - 1).abs() > 0.001) _zoomBy(step, e.localPosition.dx, plotW);
+  }
+
+  /// Zooms the view by [factor] (over 1: fewer bars, in) around [focalX],
+  /// as a pinch does: at the live edge the newest bar stays on the right;
+  /// panned back, the bar under the pointer stays under it.
+  void _zoomBy(double factor, double focalX, double plotW) {
+    final total = widget.candles.length;
+    if (total == 0 || plotW <= 0 || !factor.isFinite || factor <= 0) return;
+    final startBars = math.min(_effectiveViewBars ?? total, total);
+    final minBars = math.min(_minViewBars, total);
+    final bars = (startBars / factor).round().clamp(minBars, total).toInt();
+    if (bars >= total && factor < 0.999) _requestMoreHistory();
+    final right = _viewEndOffset > 0
+        ? (1 - (focalX / plotW).clamp(0.0, 1.0))
+        : 0.0;
+    final maxOffset = (total - bars).clamp(0, total);
+    var offset =
+        (_viewEndOffset + right * (startBars - bars)).round().clamp(0, maxOffset);
+    if (bars >= total) offset = 0;
+    if (bars != (_viewBars ?? total) || offset != _viewEndOffset) {
+      setState(() {
+        _viewBars = bars;
+        _viewEndOffset = offset;
+      });
+    }
+  }
+
+  /// Pans the view by [dx] pixels (right: back in time), as a drag does.
+  void _panByPixels(double dx, double plotW) {
+    final total = widget.candles.length;
+    if (total == 0 || plotW <= 0) return;
+    final bars = math.min(_effectiveViewBars ?? total, total);
+    final slot = plotW / bars;
+    final step = (dx / slot).round();
+    if (step == 0) return;
+    final maxOffset = (total - bars).clamp(0, total);
+    final wanted = _viewEndOffset + step;
+    if (wanted > maxOffset) _requestMoreHistory();
+    final offset = wanted.clamp(0, maxOffset).toInt();
+    if (offset != _viewEndOffset) {
+      setState(() {
+        _viewBars = bars;
+        _viewEndOffset = offset;
+      });
+    }
+  }
+
+  /// The quick measure: a Shift-drag with a mouse drags out the measuring
+  /// box (the Measure tool's), gone on release.
+  void _onQuickMeasureDown(Offset pos, Size size) {
+    final geom = _drawingGeometry(size);
+    if (geom == null) return;
+    final point = _pointAt(geom, pos);
+    _dismissFillTip();
+    setState(() {
+      _quickMeasuring = true;
+      _dragGeometry = geom;
+      _drawingCandles = _tape;
+      _dragStartPosition = pos;
+      _touchIndex = null;
+      _quickMeasure = ChartDrawing(
+        id: 'quick-measure',
+        tool: ChartDrawingTool.dateAndPriceRange,
+        points: [point, point],
+      );
+    });
+  }
+
+  void _onQuickMeasureUpdate(Offset pos) {
+    final geom = _dragGeometry;
+    final draft = _quickMeasure;
+    if (geom == null || draft == null) return;
+    setState(() => _quickMeasure = draft.withPoint(1, _pointAt(geom, pos)));
+  }
+
+  void _endQuickMeasure() {
+    if (!_quickMeasuring) return;
+    setState(() {
+      _quickMeasuring = false;
+      _quickMeasure = null;
+      _dragGeometry = null;
+      _drawingCandles = null;
+      _dragStartPosition = null;
+    });
+  }
 
   // ── price scale (TradingView-style autoscale) ─────────────────────
   /// Autoscale on: the scale fits the bars on screen. Off after the user
@@ -1952,7 +2487,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// per pixel), up stretches it, about the middle of the shown domain.
   void _onAxisDrag(double y, Size size) {
     final d0 = _axisStartDomain;
-    final priceH = _hlPriceAreaHeight(size.height, widget.showVolume);
+    final priceH = _hlPriceAreaHeight(size.height, _plotVolume);
     if (d0 == null || priceH <= 0) return;
     final f = math.exp((y - _axisStartY) / priceH * 1.6);
     final mid = (d0.lo + d0.hi) / 2;
@@ -2151,7 +2686,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       fills: widget.fills,
       size: size,
       renderAsLine: _asLine,
-      showVolume: widget.showVolume,
+      showVolume: _plotVolume,
       logScale: widget.logScale,
       leadingClose: candles.last.close,
       domain: _shownDomain,
@@ -2333,6 +2868,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   @override
   void dispose() {
+    _setContextMenuOff(false);
+    _plotFocus.dispose();
     _fillTipTimer?.cancel();
     _pulse.dispose();
     _morph.dispose();
@@ -2368,7 +2905,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (_tradeDrag != null) return;
     _dismissFillTip();
     final pos = d.localPosition;
-    final priceH = _hlPriceAreaHeight(size.height, widget.showVolume);
+    final priceH = _hlPriceAreaHeight(size.height, _plotVolume);
     final total = widget.candles.length;
     _gestureStart = pos;
     _axisCandidate = _onAxisStrip(pos, size.width) &&
@@ -2592,7 +3129,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final geom = _hlPriceGeometry(
       candles: candles,
       renderAsLine: _asLine,
-      showVolume: widget.showVolume,
+      showVolume: _plotVolume,
       height: size.height,
       logScale: widget.logScale,
       leadingClose: _asLine ? leadingClose : null,
@@ -2719,6 +3256,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     // A drag that placed nothing yet is undone; anchors already down by
     // earlier taps stay (they are the placement's, not this pointer's).
     _placement?.cancelDrag();
+    _quickMeasure = null;
     _edited = null;
     _dragPointIndex = -1;
     _dragGeometry = null;
@@ -2751,7 +3289,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (geom == null || d.localPosition.dy > geom.priceH) return;
     // Freeze the tape and its exact price/time mapping for this pointer.
     // Live ticks must not autoscale the chart underneath a dragged handle.
-    final tool = widget.armedTool;
+    final tool = _toolForPointer;
     setState(() {
       _dragGeometry = geom;
       _drawingCandles = _tape;
@@ -2803,7 +3341,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     // instead of (de)selecting drawings.
     if (_onFillMarkerTap(pos, size)) return;
     if (_onPriceLineTap(pos, size)) return;
-    final hit = kuteHitTestDrawings(widget.drawings, geom, pos);
+    final hit = kuteHitTestDrawings(widget.drawings, geom, pos,
+        tolerance: _mouseDown ? _kMouseLineTolerance : 12);
     if (hit != widget.selectedDrawingId) {
       if (hit != null) HapticFeedback.selectionClick();
       widget.onDrawingSelected?.call(hit);
@@ -2812,12 +3351,26 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   void _onDrawPanStart(DragStartDetails d, Size size) {
     _dismissFillTip();
+    // A trackpad's two-finger scroll pans the chart, a tool in hand or
+    // not (a press of the pad, a click, is what draws).
+    if (d.kind == PointerDeviceKind.trackpad) {
+      setState(() {
+        _resetDrawingInteraction();
+        _panningView = true;
+        _panStartX = d.localPosition.dx;
+        _panStartOffset = _viewEndOffset;
+        _panBars = math.min(
+            _effectiveViewBars ?? widget.candles.length, widget.candles.length);
+      });
+      return;
+    }
     final geom = _dragGeometry;
     if (geom == null) return;
     // onPanStart normally arrives only after touch slop. Use the original
     // down point so short lines and small handles do not jump or miss.
     final pos = _dragStartPosition ?? d.localPosition;
-    final tool = widget.armedTool;
+    // A measuring tool under a plain mouse drag is the cursor: it pans.
+    final tool = _toolForPointer;
     if (tool == ChartDrawingTool.text) return;
     if (tool != null) {
       // Placement: the next anchor (the second, from a fresh start)
@@ -2836,10 +3389,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     ];
     var selected = _selectedDrawing();
     if (selected != null && selected.locked) selected = null;
-    var handle =
-        selected == null ? null : kuteHitTestHandle(selected, geom, pos);
+    final mouse = _mouseDown;
+    var handle = selected == null
+        ? null
+        : kuteHitTestHandle(selected, geom, pos,
+            tolerance: mouse ? _kMouseHandleTolerance : 28);
     if (handle == null) {
-      final hit = kuteHitTestDrawings(movable, geom, pos);
+      final hit = kuteHitTestDrawings(movable, geom, pos,
+          tolerance: mouse ? _kMouseLineTolerance : 12);
       if (hit == null && _onAxisStrip(pos, geom.width)) {
         // The price axis (the left strip, or the tag column with the
         // scale's labels): a vertical drag scales it by hand and turns
@@ -2873,7 +3430,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         return;
       }
       selected = widget.drawings.firstWhere((drawing) => drawing.id == hit);
-      handle = kuteHitTestHandle(selected, geom, pos);
+      handle = kuteHitTestHandle(selected, geom, pos,
+          tolerance: mouse ? _kMouseHandleTolerance : 28);
     }
     if (selected == null) return;
     final drawing = selected;
@@ -3011,6 +3569,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     }
     if (widget.logScale != old.logScale) _resetScale(jump: true);
     if (widget.drawingMode != old.drawingMode && !widget.drawingMode) {
+      _setContextMenuOff(false);
+      _cursor = MouseCursor.defer;
       // Leaving editing mode keeps the view the user panned to.
       _pointers.clear();
       _pinching = false;
@@ -3047,7 +3607,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         _asLine != _isLine(old) ||
         widget.style != old.style ||
         widget.logScale != old.logScale ||
-        widget.showVolume != old.showVolume ||
+        // The plotted volume on both sides: at the desk the plot has none
+        // while showVolume is on, and comparing it with the old widget's
+        // raw showVolume read every live tick as a change and dropped the
+        // drawing in hand (a mouse could never finish one there).
+        _plotVolume != _plotsVolume(old) ||
         widget.magnet != old.magnet ||
         widget.height != old.height) {
       _touchIndex = null;
@@ -3362,7 +3926,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
               final plotSize = Size(plotW, constraints.maxHeight);
               final drawing = widget.drawingMode;
               final scrubAllowed = !drawing || widget.armedTool == null;
-              return Listener(
+              // The editor's plot keys (Escape first drops what the
+              // mouse holds); outside the editor it takes no focus.
+              return Focus(
+                focusNode: _plotFocus,
+                canRequestFocus: drawing,
+                onKeyEvent: _onPlotKey,
+                child: Listener(
                 // Flutter reports a canceled, already-accepted pan as onPanEnd.
                 // Discard first at the raw pointer boundary so it cannot commit.
                 onPointerCancel: (e) {
@@ -3374,39 +3944,81 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                 onPointerDown: _onPointerDown,
                 onPointerMove: (e) => _onPointerMove(e, plotW),
                 onPointerUp: (e) => _onPointerUp(e.pointer),
-                child: GestureDetector(
+                // Mouse and trackpad (web, desktop): the wheel and a
+                // pinch zoom; touch never sends these.
+                onPointerSignal: (e) => _onPointerSignal(e, plotW),
+                onPointerPanZoomStart: _onPanZoomStart,
+                onPointerPanZoomUpdate: (e) => _onPanZoomUpdate(e, plotW),
+                child: MouseRegion(
+                  // Hovering a mouse shows the crosshair and the price;
+                  // in the editor it also sets the cursor and previews
+                  // the tool in hand.
+                  cursor: _plotCursor,
+                  onHover: !scrubAllowed && !drawing
+                      ? null
+                      : (e) => _onHover(e, plotSize, candles.length),
+                  onExit: (_) => _onHoverExit(),
+                  child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   dragStartBehavior: DragStartBehavior.down,
                   onPanDown: (d) {
                     if (_pinching) return;
+                    // Shift-drag with a mouse: the quick measure.
+                    if (_quickMeasureGesture) {
+                      _onQuickMeasureDown(d.localPosition, plotSize);
+                      return;
+                    }
                     drawing
                         ? _onDrawPanDown(d, plotSize)
                         : _onTradePanDown(d, plotSize);
                   },
                   onTapUp: (d) {
                     if (_pinching) return;
+                    if (_quickMeasuring) {
+                      _endQuickMeasure();
+                      return;
+                    }
                     drawing
                         ? _onDrawTapUp(d, plotSize)
                         : _onTradeTapUp(d, plotSize);
                   },
                   onPanStart: (d) {
-                    if (_pinching) return;
+                    if (_pinching || _quickMeasuring) return;
                     drawing
                         ? _onDrawPanStart(d, plotSize)
                         : _onNormalPanStart(d, plotSize);
                   },
                   onPanUpdate: (d) {
                     if (_pinching) return;
+                    if (_mouseDownAt != null) _mouseDragAt = d.localPosition;
+                    if (_quickMeasuring) {
+                      _onQuickMeasureUpdate(d.localPosition);
+                      return;
+                    }
                     drawing
                         ? _onDrawPanUpdate(d, plotSize)
                         : _onNormalPanUpdate(d, plotSize);
                   },
                   onPanEnd: (_) {
                     if (_pinching) return;
+                    if (_quickMeasuring) {
+                      _endQuickMeasure();
+                      return;
+                    }
+                    // A mouse click that wobbled past the drag's 2 px
+                    // slop: a click, as on a desktop.
+                    if (drawing && _mouseClickWobble) {
+                      _mouseWobbleAsTap(plotSize);
+                      return;
+                    }
                     drawing ? _onDrawPanEnd(plotSize) : _onNormalPanEnd();
                   },
                   onPanCancel: () {
                     if (_pinching) return;
+                    if (_quickMeasuring) {
+                      _endQuickMeasure();
+                      return;
+                    }
                     drawing ? _cancelDrawingGesture() : _onNormalPanEnd();
                   },
                   // Outside editing mode the crosshair is a long press
@@ -3449,6 +4061,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             });
                           }
                         },
+                  // The pointer's kind and Shift, read before the gesture
+                  // detector above hears the press (a child sees a pointer
+                  // event first).
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: _onPlotPointerDown,
                   // The price domain glides to each new autoscale target
                   // (see scaleTarget above). Inside it, live-tick endpoint
                   // smoothing (line mode): the tween is keyed on the
@@ -3492,8 +4110,59 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             : null;
                         final leadingClose =
                             (_asLine && !morphing) ? lead : null;
+                        // The price scale's levels: the labels in the tag
+                        // column and, in Advanced, the price lines.
+                        _HlPriceScalePainter scalePainter() =>
+                            _HlPriceScalePainter(
+                              // Advanced: a label every ~70 px (~56 at
+                              // the desk, larger).
+                              labelSpacing: _deskEditor
+                                  ? 56
+                                  : widget.drawingMode
+                                      ? 70
+                                      : null,
+                              labelFontSize: widget.drawingMode
+                                  ? _scaleLabelFontSize
+                                  : null,
+                              candles: candles,
+                              renderAsLine: _asLine,
+                              showVolume: _plotVolume,
+                              logScale: widget.logScale,
+                              leadingClose: leadingClose,
+                              morphSeries: morphSeries,
+                              decimalCap: widget.decimalCap,
+                              labelColor: c.textTertiary,
+                              domain: domain,
+                              tagGutter: gutter,
+                              lastValue: morphSeries != null &&
+                                      morphSeries.isNotEmpty
+                                  ? morphSeries.last
+                                  : (_asLine
+                                      ? (leadingClose ?? candles.last.close)
+                                      : candles.last.close),
+                            );
+                        // Advanced with its price scale on: the scale's
+                        // levels as hairlines across the plot.
+                        final priceLinesShown =
+                            widget.drawingMode && widget.priceScale;
                         return Stack(
                           children: [
+                            // ── Price lines (Advanced, under the data).
+                            if (priceLinesShown)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: RepaintBoundary(
+                                    child: CustomPaint(
+                                      key: const ValueKey(
+                                          'hl-chart-price-lines-grid'),
+                                      size: Size.infinite,
+                                      painter: _HlPriceLinesPainter.of(
+                                          scalePainter(),
+                                          color: c.border),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             Positioned.fill(
                               child: RepaintBoundary(
                                 child: CustomPaint(
@@ -3506,7 +4175,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         isDark ? Colors.black : Colors.white,
                                     labelFg: c.textPrimary,
                                     decimalCap: widget.decimalCap,
-                                    showVolume: widget.showVolume,
+                                    showVolume: _plotVolume,
                                     renderAsLine: _asLine,
                                     fills: widget.fills,
                                     entryPx: widget.entryPx,
@@ -3551,7 +4220,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         log: domain.log,
                                         priceH: _hlPriceAreaHeight(
                                             chartSize.height,
-                                            widget.showVolume),
+                                            _plotVolume),
                                         plotW: plotW,
                                         up: AppColors.marketUp,
                                         down: AppColors.marketDown,
@@ -3560,13 +4229,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                   ),
                                 ),
                               ),
-                            // ── Price scale (at most three labels in the
-                            // tag column, no hairlines). Always on in the
-                            // reading view and in Advanced mode; anywhere
-                            // else it rides the crosshair's 120ms fade
-                            // while the user scrubs. The shared price
-                            // geometry never shifts.
-                            Positioned.fill(
+                            // ── Price scale (labels in the tag column).
+                            // Always on in the reading view and in
+                            // Advanced mode, where its Price scale switch
+                            // (HlCandlestickChart.priceScale) can leave it
+                            // out with the price lines; anywhere else it
+                            // rides the crosshair's 120ms fade while the
+                            // user scrubs. The shared price geometry
+                            // never shifts.
+                            if (!widget.drawingMode || widget.priceScale)
+                              Positioned.fill(
                                 child: IgnorePointer(
                                   child: AnimatedOpacity(
                                     opacity: (widget.drawingMode ||
@@ -3582,26 +4254,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     curve: Curves.easeOut,
                                     child: RepaintBoundary(
                                       child: CustomPaint(
+                                        key: const ValueKey(
+                                            'hl-chart-price-scale-labels'),
                                         size: Size.infinite,
-                                        painter: _HlPriceScalePainter(
-                                          candles: candles,
-                                          renderAsLine: _asLine,
-                                          showVolume: widget.showVolume,
-                                          logScale: widget.logScale,
-                                          leadingClose: leadingClose,
-                                          morphSeries: morphSeries,
-                                          decimalCap: widget.decimalCap,
-                                          labelColor: c.textTertiary,
-                                          domain: domain,
-                                          tagGutter: gutter,
-                                          lastValue: morphSeries != null &&
-                                                  morphSeries.isNotEmpty
-                                              ? morphSeries.last
-                                              : (_asLine
-                                                  ? (leadingClose ??
-                                                      candles.last.close)
-                                                  : candles.last.close),
-                                        ),
+                                        painter: scalePainter(),
                                       ),
                                     ),
                                   ),
@@ -3614,6 +4270,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             if (widget.drawings.isNotEmpty ||
                                 widget.priceLines.isNotEmpty ||
                                 _placement?.active == true ||
+                                _placement?.ghost != null ||
+                                _quickMeasure != null ||
                                 _edited != null)
                               Positioned(
                                 left: 0,
@@ -3624,9 +4282,18 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                   child: RepaintBoundary(
                                     child: CustomPaint(
                                       painter: KuteChartDrawingsPainter(
-                                        drawings:
-                                            _paintedDrawings(c.textTertiary),
-                                        draft: _placingPreview,
+                                        // A mouse's one-point preview
+                                        // paints whole (a draft of one
+                                        // point is only its anchor).
+                                        drawings: _placement?.ghost == null
+                                            ? _paintedDrawings(c.textTertiary)
+                                            : [
+                                                ..._paintedDrawings(
+                                                    c.textTertiary),
+                                                _placement!.ghost!,
+                                              ],
+                                        draft:
+                                            _quickMeasure ?? _placingPreview,
                                         selectedId: widget.drawingMode
                                             ? widget.selectedDrawingId
                                             : null,
@@ -3650,7 +4317,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           leadingClose,
                                           morphSeries != null,
                                           _asLine,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           isDark,
                                           domain,
@@ -3698,7 +4365,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           leadingClose,
                                           morphSeries != null,
                                           _asLine,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           domain,
                                         ),
@@ -3733,7 +4400,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           last,
                                           leadingClose,
                                           morphSeries != null,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           domain,
                                         ),
@@ -3796,7 +4463,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           leadingClose,
                                           morphSeries != null,
                                           _asLine,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           isDark,
                                           domain,
@@ -3861,7 +4528,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           leadingClose,
                                           morphSeries != null,
                                           _asLine,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           isDark,
                                           domain,
@@ -3907,7 +4574,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           plotBottom: _hlPriceGeometry(
                                             candles: candles,
                                             renderAsLine: _asLine,
-                                            showVolume: widget.showVolume,
+                                            showVolume: _plotVolume,
                                             height: size.height,
                                             logScale: widget.logScale,
                                           ).priceH,
@@ -3928,7 +4595,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                               .millisecondsSinceEpoch,
                                           last,
                                           _asLine,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           isDark,
                                           domain,
@@ -4020,7 +4687,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                       y: _touchY!,
                                       plotW: plotW,
                                       priceH: _hlPriceAreaHeight(
-                                          chartSize.height, widget.showVolume),
+                                          chartSize.height, _plotVolume),
                                       price: (y) {
                                         final g = _drawingGeometry(
                                           Size(plotW, chartSize.height),
@@ -4078,7 +4745,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                 top: math.max(
                                   0.0,
                                   _hlPriceAreaHeight(chartSize.height,
-                                          widget.showVolume) -
+                                          _plotVolume) -
                                       30,
                                 ),
                                 child: HlAutoScalePill(
@@ -4093,7 +4760,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             // ── Drawing: the loupe over the finger while
                             // a point is placed or moved, and the
                             // selected drawing's floating toolbar.
-                            if (widget.drawingMode && _loupeAt != null)
+                            // A finger's magnifier: a mouse pointer covers
+                            // nothing, so it has none.
+                            if (widget.drawingMode &&
+                                _loupeAt != null &&
+                                !_mouseDown &&
+                                _downKind != PointerDeviceKind.trackpad)
                               Positioned(
                                 left: 0,
                                 top: 0,
@@ -4105,7 +4777,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     plot: Size(
                                         plotW,
                                         _hlPriceAreaHeight(chartSize.height,
-                                            widget.showVolume)),
+                                            _plotVolume)),
                                   ),
                                 ),
                               ),
@@ -4117,7 +4789,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                     ),
                   ),
                   ),
+                  ),
                 ),
+                ),
+              ),
               );
             },
           ),
@@ -4128,7 +4803,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         // The signals' dates and caption, under the plot, off the data.
         if (kuteSignalBandRows(widget.signals) > 0)
           _signalBand(c, isDark, candles),
-        if (widget.drawingMode && candles.isNotEmpty) _dateAxis(c, candles),
+        if (widget.drawingMode && candles.isNotEmpty && !_deskEditor)
+          _dateAxis(c, candles),
+        // At the desk the volume is a pane of its own.
+        if (_deskEditor && widget.showVolume) _volumePane(c, candles),
         // The oscillators, one pane each, in the order switched on.
         for (final pane in _indVis.panes)
           if (pane.key == kHlFundingKey && widget.funding != null)
@@ -4157,6 +4835,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
               gutter: gutter,
             ),
           ),
+        // At the desk the dates run under every pane, as on TradingView.
+        if (_deskEditor && candles.isNotEmpty) _dateAxis(c, candles),
         if (widget.footer != null) widget.footer!,
         if (widget.showSummary && widget.summaryBelow) ...[
           SizedBox(height: 8.h),
@@ -4286,6 +4966,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         decimalCap: widget.decimalCap);
     final entryTag = (widget.entryPx ?? 0) > 0;
     final reference = tape.isEmpty ? 0.0 : tape.last.close;
+    // Advanced: the scale's labels are held whole too (sized a tenth
+    // past the tape's high, where an autoscaled axis can label), whether
+    // or not they are shown, so switching them never moves the data.
+    final scaleFont = widget.drawingMode ? _scaleLabelFontSize : null;
+    final scaleTemplate = scaleFont == null
+        ? null
+        : hlPriceTagTemplate(_range.lo, _range.hi * 1.1,
+            decimalCap: widget.decimalCap);
     final key = (
       width,
       template,
@@ -4293,10 +4981,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       widget.signals.levels,
       entryTag,
       hlPriceDecimals(reference, decimalCap: widget.decimalCap),
+      scaleTemplate,
+      scaleFont,
     );
     if (key == _gutterKey) return _gutter;
     _gutterKey = key;
-    return _gutter = hlChartTagGutter(
+    final gutter = hlChartTagGutter(
       width: width,
       priceTemplate: template,
       entryTag: entryTag,
@@ -4305,7 +4995,18 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
           formatHlPriceLike(p, reference, decimalCap: widget.decimalCap),
       signalLevels: widget.signals.levels,
     );
+    return _gutter = scaleTemplate == null
+        ? gutter
+        : hlPriceScaleGutter(
+            gutter: gutter,
+            priceTemplate: scaleTemplate,
+            fontSize: scaleFont!,
+          );
   }
+
+  /// The price scale's label size: 12 at the desk, the reading view's
+  /// 11 sp elsewhere.
+  double get _scaleLabelFontSize => _deskEditor ? 12 : 11.sp;
 
   /// Tag rects from the last signal band paint, for tap hit-testing.
   final List<ChartSignalHit> _bandHits = [];
@@ -4373,13 +5074,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// under two days shows the clock time, with the day on the first
   /// label, and a longer window shows dates.
   Widget _dateAxis(AppColorsExtension c, List<HyperliquidCandle> candles) {
-    if (candles.isEmpty) return SizedBox(height: 16.h);
+    // At the desk: larger dates, one about every 170 px of the plot.
+    final desk = _deskEditor;
+    final axisH = desk ? 24.0 : 16.h;
+    if (candles.isEmpty) return SizedBox(height: axisH);
     final span = candles.last.openTime.difference(candles.first.openTime);
     final intraday = span < const Duration(days: 2);
     final multiYear = span > const Duration(days: 365);
     final style = TextStyle(
       color: c.textTertiary,
-      fontSize: 10.sp,
+      fontSize: desk ? 12 : 10.sp,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final locale = kuteChartLocale(context);
@@ -4394,11 +5098,29 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       // the lower one, which num.clamp throws on).
       final labelW = 80.w;
       final maxLeft = math.max(0.0, w - labelW);
-      for (final fraction in const [0.08, 0.36, 0.64, 0.92]) {
+      final count = desk ? (plotW / 170).floor().clamp(4, 14) : 4;
+      final fractions = desk
+          ? [for (var i = 0; i < count; i++) (i + 0.5) / count]
+          : const [0.08, 0.36, 0.64, 0.92];
+      // At the desk, more labels than days on screen: the date where the
+      // day changes, the time of day between, never one date twice.
+      final byDay = desk &&
+          !intraday &&
+          !multiYear &&
+          span.inHours < 24 * fractions.length;
+      DateTime? lastDay;
+      for (final fraction in fractions) {
         final index = (fraction * n).floor().clamp(0, n - 1);
         final time = candles[index].openTime.toLocal();
-        final text = intraday
-            ? (fraction == 0.08
+        final day = DateTime(time.year, time.month, time.day);
+        final newDay = day != lastDay;
+        lastDay = day;
+        final text = byDay
+            ? (newDay
+                ? DateFormat.MMMd(locale).format(time)
+                : kuteChartClock(time, locale))
+            : intraday
+            ? (fraction == fractions.first
                 ? kuteChartDayTime(time, locale)
                 : kuteChartClock(time, locale))
             : multiYear
@@ -4426,9 +5148,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         ));
       }
       return SizedBox(
-        height: 16.h,
+        height: axisH,
         width: double.infinity,
-        child: Stack(clipBehavior: Clip.none, children: labels),
+        child: Padding(
+          padding: EdgeInsets.only(top: desk ? 6 : 0),
+          child: Stack(clipBehavior: Clip.none, children: labels),
+        ),
       );
     });
   }
@@ -4439,7 +5164,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// with its name and the current value of each line at its top left
   /// (the scrubbed bar's while the crosshair is up).
   Widget _pane(AppColorsExtension c, String label,
-      _HlPanePainter Function(double gutter) painter) {
+      _HlPanePainter Function(double gutter) painter,
+      {String? value, Color? valueColor}) {
     final series = painter(0).series;
     const tabular = [FontFeature.tabularFigures()];
     return Column(
@@ -4452,7 +5178,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
           color: c.border,
         ),
         SizedBox(
-          height: 76.h,
+          height: _paneHeight(context),
           width: double.infinity,
           child: Stack(
             children: [
@@ -4481,6 +5207,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                         text: label,
                         style: TextStyle(color: c.textTertiary),
                       ),
+                      if (value != null)
+                        TextSpan(
+                          text: '  $value',
+                          style: TextStyle(
+                            color: valueColor ?? c.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       for (final (values, color) in series)
                         if (_valueAt(values) case final v?)
                           TextSpan(
@@ -4510,6 +5244,42 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   }
 
   /// [values] at the scrubbed bar, else its newest finite value.
+  /// The volume as a pane of its own at the desk
+  /// ([HlCandlestickChart.desk]): each bar's volume in its candle's
+  /// colour, autoscaled to the bars on screen, aligned with the plot's
+  /// bars; its name and the scrubbed (else the latest) bar's volume at
+  /// its top left, as the indicator panes have theirs.
+  Widget _volumePane(AppColorsExtension c, List<HyperliquidCandle> candles) {
+    final volumes = [for (final k in candles) k.volume];
+    final colors = [
+      for (final k in candles)
+        k.close >= k.open ? AppColors.marketUp : AppColors.marketDown,
+    ];
+    final ti = _touchIndex;
+    final at = ti != null && ti >= 0 && ti < candles.length
+        ? ti
+        : candles.length - 1;
+    return KeyedSubtree(
+      key: const ValueKey('hl-chart-volume-pane'),
+      child: _pane(
+        c,
+        context.l10n.chartVolume,
+        (gutter) => _HlPanePainter(
+          series: const [],
+          histogram: volumes,
+          histogramColors: colors,
+          fixedRange: (0, double.infinity),
+          selectedIndex: _touchIndex,
+          labelColor: c.textTertiary,
+          hairlineColor: c.textTertiary,
+          gutter: gutter,
+        ),
+        value: at < 0 ? null : hlLegendVolume(candles[at].volume),
+        valueColor: at < 0 ? null : colors[at],
+      ),
+    );
+  }
+
   double? _valueAt(List<double> values) {
     final ti = _touchIndex;
     if (ti != null && ti >= 0 && ti < values.length) {
@@ -4533,7 +5303,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final geom = _hlPriceGeometry(
       candles: candles,
       renderAsLine: true,
-      showVolume: widget.showVolume,
+      showVolume: _plotVolume,
       height: size.height,
       logScale: widget.logScale,
       leadingClose: leadingClose,
@@ -4638,7 +5408,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final geom = _hlPriceGeometry(
       candles: candles,
       renderAsLine: _asLine,
-      showVolume: widget.showVolume,
+      showVolume: _plotVolume,
       height: size.height,
       logScale: widget.logScale,
       domain: _shownDomain,
@@ -6239,7 +7009,12 @@ class _HlPanePainter extends CustomPainter {
     this.fixedRange,
     this.gutter = 0,
     this.hairlineColor,
+    this.histogramColors,
   });
+
+  /// Each histogram bar's own colour (the volume pane: its candle's);
+  /// null colours them by sign.
+  final List<Color>? histogramColors;
 
   /// The crosshair's vertical line through the pane at [selectedIndex]
   /// (none when null).
@@ -6259,8 +7034,9 @@ class _HlPanePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (series.isEmpty || size.width <= 0) return;
-    final n = series.first.$1.length;
+    if ((series.isEmpty && histogram == null) || size.width <= 0) return;
+    final n =
+        series.isNotEmpty ? series.first.$1.length : histogram!.length;
     if (n == 0) return;
     // Autoscaled to the visible values (and the guide levels, so 30/70
     // or 20/80 stay in view); a bounded oscillator never pads past its
@@ -6282,6 +7058,11 @@ class _HlPanePainter extends CustomPainter {
     for (final l in levels) {
       if (l < lo) lo = l;
       if (l > hi) hi = l;
+    }
+    // The volume pane's bars stand on zero and leave its name room.
+    if (histogramColors != null) {
+      if (lo > 0) lo = 0;
+      hi = lo + (hi - lo) * 1.3;
     }
     final bounds = fixedRange;
     if (!lo.isFinite || !hi.isFinite) {
@@ -6341,7 +7122,10 @@ class _HlPanePainter extends CustomPainter {
         final v = hist[i];
         if (!v.isFinite) continue;
         final y = toY(v);
-        final color = (v >= 0 ? histogramUp : histogramDown) ?? labelColor;
+        final own = histogramColors;
+        final color = own != null && i < own.length
+            ? own[i]
+            : (v >= 0 ? histogramUp : histogramDown) ?? labelColor;
         canvas.drawRect(
             Rect.fromLTRB((i + 0.5) * slot - barW / 2, math.min(y, zero),
                 (i + 0.5) * slot + barW / 2, math.max(y, zero)),

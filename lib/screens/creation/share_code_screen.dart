@@ -3,6 +3,8 @@ import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -22,7 +24,7 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/creation/referrer_code_screen.dart'
     show referrerCodeStepAllowed;
-import 'package:kute/services/appsflyer_service.dart';
+import 'package:kute/services/share_target.dart' show webInviteLink;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -124,7 +126,8 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
       return;
     }
     _tick();
-    _poll = Timer.periodic(const Duration(milliseconds: _tickMs), (_) => _tick());
+    _poll =
+        Timer.periodic(const Duration(milliseconds: _tickMs), (_) => _tick());
   }
 
   Future<void> _tick() async {
@@ -204,14 +207,9 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
       _code = code;
       _phase = _Phase.ready;
     });
-    // Instant local OneLink (when a template is configured), then upgrade to
-    // a branded short link if it resolves. No website fallback.
-    final local = AppsFlyerService.shareLink(code);
-    if (local != null && mounted) setState(() => _shareLink = local);
-    final branded = await AppsFlyerService.brandedInviteLink(code);
-    if (branded != null && branded.isNotEmpty && mounted) {
-      setState(() => _shareLink = branded);
-    }
+    // The web app's start with the code on it (services/share_target.dart;
+    // founder, 27 November 2026: the web always, no AppsFlyer link).
+    if (mounted) setState(() => _shareLink = webInviteLink(code));
   }
 
   void _finish() {
@@ -242,7 +240,7 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
   void _copyLink() {
     final link = _shareLink ??
         (_code != null && _code!.isNotEmpty
-            ? AppsFlyerService.shareLink(_code!)
+            ? webInviteLink(_code!)
             : null);
     final toCopy = link ?? _code;
     if (toCopy == null || toCopy.isEmpty) return;
@@ -263,7 +261,7 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
   Future<void> _share() async {
     final link = _shareLink ??
         (_code != null && _code!.isNotEmpty
-            ? AppsFlyerService.shareLink(_code!)
+            ? webInviteLink(_code!)
             : null);
     TrackingService.affiliateShareOpened(method: 'onboarding');
     _shared = true;
@@ -288,53 +286,87 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
     if (_blocked) return Scaffold(backgroundColor: c.background);
+    final wide = kuteIsExpanded(context);
+    // Two phone-wide columns: the code card's QR at about a phone's size,
+    // the card whole above the floating bar.
+    final side = kuteWidePadding(context,
+        maxWidth: 2 * KuteLayout.paneWidth + kuteWideGap);
+    final intro = <Widget>[
+      Center(
+        // "Invite friends, earn together" is good news and asks
+        // nobody to check a number, so Sal gets to be pleased
+        // about it instead of standing there.
+        child: SalSprite(
+          clip: 'happy',
+          size: 48.sp,
+          fallback: KuteDogCheer(size: 48.sp),
+        ),
+      ),
+      SizedBox(height: 24.h),
+      Text(
+        context.l10n.shareCodeTitle,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: c.textPrimary,
+          fontSize: 22.sp,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
+        ),
+      ),
+      SizedBox(height: 6.h),
+      Text(
+        _topRatePct == null
+            ? context.l10n.walletsShareCodeEarnDescriptionNoRate
+            : context.l10n.walletsShareCodeEarnDescription(
+                commissionRateText(_topRatePct!)),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: c.textSecondary,
+          fontSize: 15.sp,
+          height: 1.4,
+        ),
+      ),
+    ];
     return Scaffold(
       backgroundColor: c.background,
       body: Container(
         decoration: AppDecorations.screenGradient(context),
         child: SafeArea(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            padding: wide
+                ? EdgeInsets.only(left: side.left, right: side.right)
+                : EdgeInsets.symmetric(horizontal: 24.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(height: 24.h),
-                Center(
-                  // "Invite friends, earn together" is good news and asks
-                  // nobody to check a number, so Sal gets to be pleased
-                  // about it instead of standing there.
-                  child: SalSprite(
-                    clip: 'happy',
-                    size: 48.sp,
-                    fallback: KuteDogCheer(size: 48.sp),
-                  ),
-                ),
-                SizedBox(height: 24.h),
-                Text(
-                  context.l10n.shareCodeTitle,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 22.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                SizedBox(height: 6.h),
-                Text(
-                  _topRatePct == null
-                      ? context.l10n.walletsShareCodeEarnDescriptionNoRate
-                      : context.l10n.walletsShareCodeEarnDescription(
-                          commissionRateText(_topRatePct!)),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 15.sp,
-                    height: 1.4,
-                  ),
-                ),
-                SizedBox(height: 28.h),
-                Expanded(child: _body(c)),
+                if (wide)
+                  // EXPANDED (round three; founder, 25 November 2026: "it
+                  // must be all occupying full screen when we can"): the
+                  // code card on the left, Sal and what the code earns on
+                  // the right, each at a readable width.
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _body(c)),
+                        const SizedBox(width: kuteWideGap),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: intro,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else ...[
+                  ...intro,
+                  SizedBox(height: 28.h),
+                  Expanded(child: _body(c)),
+                ],
                 // THE BAR IS THE BUTTON (kute_bar_context.dart): Start
                 // using Kute is the floating Sal bar's primary action, on
                 // once the code is there.
@@ -402,6 +434,17 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
 
   Widget _codeCard(AppColorsExtension c) {
     final code = _code ?? '';
+    Widget qr(String link) => RepaintBoundary(
+          key: _qrKey,
+          child: Container(
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14.r),
+            ),
+            child: buildQrCode(link, context),
+          ),
+        );
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(16.w),
@@ -427,17 +470,12 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
                 letterSpacing: 3)),
         SizedBox(height: 16.h),
         if (_shareLink != null)
-          RepaintBoundary(
-            key: _qrKey,
-            child: Container(
-              padding: EdgeInsets.all(12.w),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14.r),
-              ),
-              child: buildQrCode(_shareLink!, context),
-            ),
-          ),
+          // EXPANDED: the QR square at the card's width (its own size is
+          // half the window, which a phone-wide card would stretch tall).
+          if (kuteIsExpanded(context))
+            AspectRatio(aspectRatio: 1, child: qr(_shareLink!))
+          else
+            qr(_shareLink!),
         SizedBox(height: 16.h),
         Row(children: [
           Expanded(

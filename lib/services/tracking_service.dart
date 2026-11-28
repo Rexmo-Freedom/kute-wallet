@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
@@ -11,7 +10,6 @@ import 'package:flutter/widgets.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/helpers/auth_grant.dart' show ReauthRequired;
 import 'package:kute/models/affiliate_model.dart';
-import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/once_flags_service.dart';
 import 'package:kute/services/advisor/sal_chip_templates.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -25,6 +23,7 @@ import 'package:local_auth/local_auth.dart'
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Unified analytics wrapper.
 ///
@@ -165,7 +164,7 @@ class TrackingService {
     final id = crashlyticsUserId(
         deviceId == null || deviceId.isEmpty ? 'unknown' : deviceId);
     debugCrashlyticsObserver?.call('user', 'user_id', id);
-    if (kDebugMode) return;
+    if (kDebugMode || !PlatformCaps.hasCrashlytics) return;
     try {
       unawaited(FirebaseCrashlytics.instance
           .setUserIdentifier(id)
@@ -206,12 +205,6 @@ class TrackingService {
     final previousCode = _lastAffiliateCode;
     _lastAffiliateCode = affiliateCode;
     if (_muted) return;
-    // Tag AppsFlyer with the same affiliate_code so its rows are filterable
-    // by the same id as PostHog + the backend. Set before the PostHog call
-    // so it lands even if the PostHog SDK is still warming up.
-    if (affiliateCode.isNotEmpty) {
-      AppsFlyerService.setAffiliateCode(affiliateCode);
-    }
     try {
       // A code rename (admin rename reaching this device through /me or
       // /auth/wallet) with no device UUID: the identity IS the code, so
@@ -264,70 +257,6 @@ class TrackingService {
       await Posthog().alias(alias: affiliateCode);
       await _storage.write(key: key, value: affiliateCode);
     } catch (_) {/* alias is best-effort; retried next boot if it failed */}
-  }
-
-  // ─── Website → app identity link ─────────────────────────────────
-  //
-  // The website puts the visitor's PostHog distinct id on every store /
-  // download link as `af_sub2` (and inside the Play install referrer).
-  // AppsFlyer hands it back in the install conversion data or a deep-link
-  // payload; aliasing it onto this device's distinct_id stitches the
-  // pre-install web journey and the app journey into one PostHog person.
-  // The id is only ever a PostHog anonymous UUID or an affiliate code the
-  // website already aliased — it is never a referral code and never binds
-  // a referrer.
-
-  static const _webVisitorAliasKey = 'kute_aliased_web_visitor';
-  static Future<void>? _webVisitorAlias;
-
-  static final RegExp _uuidPattern = RegExp(
-      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
-  static final RegExp _affiliateCodePattern = RegExp(r'^[A-Z0-9]{3,32}$');
-
-  /// True when [raw] can be a website PostHog distinct id: a UUID (the
-  /// anonymous id) or an affiliate code (upper-case, the partner the site
-  /// identified). Anything else (URLs, emails, bech32 / base58 addresses,
-  /// sentinel strings) is refused.
-  static bool looksLikeWebVisitorId(String? raw) {
-    if (raw == null) return false;
-    final id = raw.trim();
-    if (id.isEmpty || id.length > 64) return false;
-    if (_uuidPattern.hasMatch(id)) return true;
-    return _affiliateCodePattern.hasMatch(id);
-  }
-
-  /// Alias the website visitor id [webId] onto this install's distinct_id,
-  /// once per install. Fire-and-forget: never awaited by startup, capped
-  /// at 2 s, skipped while muted (debug build or opt-out) and when the
-  /// id is not a plausible PostHog distinct id. Sets the person property
-  /// `web_visitor_linked` so linked installs can be segmented. The id
-  /// itself is never sent as an event property.
-  static Future<void> aliasWebVisitor(String? webId) {
-    final pending = _webVisitorAlias;
-    if (pending != null) return pending;
-    final run = _aliasWebVisitorOnce(webId);
-    _webVisitorAlias = run;
-    return run.whenComplete(() {
-      if (identical(_webVisitorAlias, run)) _webVisitorAlias = null;
-    });
-  }
-
-  static Future<void> _aliasWebVisitorOnce(String? webId) async {
-    if (_muted || !looksLikeWebVisitorId(webId)) return;
-    final id = webId!.trim();
-    // The install's own distinct_id is not a web visitor.
-    if (id == _deviceId) return;
-    try {
-      if (await _storage.read(key: _webVisitorAliasKey) != null) return;
-      if (_muted) return;
-      await Posthog()
-          .alias(alias: id)
-          .timeout(const Duration(seconds: 2));
-      // Persisted only after the SDK accepted the alias, so a failure
-      // retries on the next payload instead of being lost.
-      await _storage.write(key: _webVisitorAliasKey, value: 'done');
-      setUserPropertyValue('web_visitor_linked', true);
-    } catch (_) {/* best-effort; retried on the next payload */}
   }
 
   /// Returns the device UUID (available after initialize()).
@@ -394,7 +323,7 @@ class TrackingService {
       setUserProperty('app_version', info.version);
       setUserProperty('build_number', info.buildNumber);
     } catch (_) {}
-    setUserProperty('platform', Platform.isIOS ? 'ios' : 'android');
+    setUserProperty('platform', PlatformOs.iosOrAndroid);
   }
 
   /// Call after wallet creation / login to tag the user session.
@@ -1021,7 +950,7 @@ class TrackingService {
     ];
     debugCrashObserver?.call(envelope, safeStack, safeReason, log);
     debugCrashExtrasObserver?.call(safeInformation, fatal);
-    if (kDebugMode) return;
+    if (kDebugMode || !PlatformCaps.hasCrashlytics) return;
     try {
       if (log != null) FirebaseCrashlytics.instance.log(log);
       FirebaseCrashlytics.instance.recordError(
@@ -1264,7 +1193,7 @@ class TrackingService {
     if (_crashKeys[key] == v) return;
     _crashKeys[key] = v;
     debugCrashlyticsObserver?.call('key', key, v);
-    if (kDebugMode) return;
+    if (kDebugMode || !PlatformCaps.hasCrashlytics) return;
     try {
       unawaited(FirebaseCrashlytics.instance
           .setCustomKey(key, v)
@@ -1438,7 +1367,7 @@ class TrackingService {
     }
     final line = b.toString();
     debugCrashlyticsObserver?.call('log', event, line);
-    if (kDebugMode) return;
+    if (kDebugMode || !PlatformCaps.hasCrashlytics) return;
     try {
       unawaited(
           FirebaseCrashlytics.instance.log(line).catchError((Object _) {}));
@@ -1759,14 +1688,14 @@ class TrackingService {
     String? hardwareDevice, // 'ledger', 'jade', 'keystone', etc.
     String?
         authMode, // 'passkey', 'mnemonic', 'imported', 'signer', 'watch_only'
+    String? passkeyHome, // passkey wallets: 'breez' | 'kute' (the RP used)
   }) {
     track('wallet_created', params: {
       'type': type,
       if (hardwareDevice != null) 'hardware_device': hardwareDevice,
       if (authMode != null) 'auth_mode': authMode,
+      if (passkeyHome != null) 'passkey_home': passkeyHome,
     });
-    // AppsFlyer registration milestone (once per device, gated inside).
-    AppsFlyerService.completeRegistration(method: type);
   }
 
   static void walletAddStarted() => track('wallet_add_started');
@@ -2060,6 +1989,30 @@ class TrackingService {
 
   static void seedUnavailableBannerTapped() =>
       track('seed_unavailable_banner_tapped');
+
+  /// The web home's "get the app" notice (get_app_notice.dart) was on
+  /// screen; once per session per [surface] (`bitcoin` | `dollars`).
+  /// [platform] is the browser's kind (`ios` | `android` | `laptop`).
+  static void getAppBannerShown(
+          {required String surface, required String platform}) =>
+      track('get_app_banner_shown',
+          params: {'surface': surface, 'platform': platform});
+
+  /// A store button on it was tapped: [store] is `app_store` or
+  /// `google_play`.
+  static void getAppBannerStoreTapped({
+    required String store,
+    required String surface,
+    required String platform,
+  }) =>
+      track('get_app_banner_store_tapped',
+          params: {'store': store, 'surface': surface, 'platform': platform});
+
+  /// Its close control was tapped; it stays away for 30 days.
+  static void getAppBannerDismissed(
+          {required String surface, required String platform}) =>
+      track('get_app_banner_dismissed',
+          params: {'surface': surface, 'platform': platform});
 
   /// iOS replaced the recovery phrase on [surface] with a notice because
   /// the screen is being recorded or mirrored.
@@ -2401,10 +2354,6 @@ class TrackingService {
     });
     if (purpose == 'conversion_leg') return;
     markMoneyAction('receive', venue: network);
-    // AppsFlyer activation milestone — first incoming funds (once per
-    // device, gated inside). Historical txs are seeded without emitting
-    // transactionReceived, so this only fires on a genuinely new receive.
-    AppsFlyerService.walletFunded();
     // Affiliate activation: count this receive toward the ">10 transactions"
     // rule.
     _bumpAffiliateActivity();
@@ -2692,11 +2641,6 @@ class TrackingService {
     // the swap providers that flow through swapCompleted; Polymarket
     // reports from polymarketBetPlaced.
     final lp = provider.toLowerCase();
-    // AppsFlyer conversion signal — completed swaps only (this method
-    // only fires on completion; initiated/failed swaps never reach it).
-    if (_backendSwapProviders.contains(lp)) {
-      AppsFlyerService.purchaseCompleted(provider: lp);
-    }
     if (_backendSwapProviders.contains(lp) && providerOrderId != null) {
       AffiliateService.logProviderEvent(
         provider: lp,
@@ -2968,9 +2912,6 @@ class TrackingService {
     // First-bet referee-conversion signal — gates once per device so
     // we don't double-count attribution after the first qualifying bet.
     affiliateRefereeConverted(provider: 'polymarket', amountUsd: amount);
-    // AppsFlyer conversion signal — a placed bet is a completed
-    // revenue-bearing order (builder fee).
-    AppsFlyerService.purchaseCompleted(provider: 'polymarket');
     // Affiliate-aware backend logging. provider_order_id is Polymarket's real
     // order hash (orderID) so the backend can join it to the builder trade and
     // attribute the exact fee_usdc. If the CLOB didn't return one, fall back to
@@ -3073,8 +3014,6 @@ class TrackingService {
       if (pnl != null) 'pnl_direction': pnl >= 0 ? 'gain' : 'loss',
       ...orderJoinParams(providerOrderId),
     });
-    // AppsFlyer conversion signal — sells carry a builder fee too.
-    AppsFlyerService.purchaseCompleted(provider: 'polymarket');
     // Backend provider_events row for the "withdrawal" side of a bet
     // (sell → USDC). provider_order_id is the sell's real order hash so the
     // backend attributes the exact fee_usdc; synthetic fallback (which dedups
@@ -4149,8 +4088,6 @@ class TrackingService {
           .disable()
           .timeout(const Duration(seconds: 2), onTimeout: () {});
     } catch (_) {}
-    // AppsFlyer shares the same opt-out: stop() halts all SDK traffic.
-    await AppsFlyerService.setEnabled(false);
   }
 
   /// The user opted back in: tracking resumes and this install is
@@ -4173,7 +4110,6 @@ class TrackingService {
       final language = _appLanguage;
       if (language != null) setAppLanguage(language);
     }
-    await AppsFlyerService.setEnabled(true);
   }
 
   static void _dropPendingUserProperties() {
@@ -5875,7 +5811,7 @@ class TrackingService {
       ..sort();
     final firstMoneyAction = firstMoneyActionAt;
     final props = <String, Object>{
-      'platform': Platform.isIOS ? 'ios' : 'android',
+      'platform': PlatformOs.iosOrAndroid,
       if (_packageVersion != null) 'app_version': _packageVersion!,
       if (_packageBuild != null) 'build_number': _packageBuild!,
       if (country != null && country.isNotEmpty) 'country': country,
@@ -5957,37 +5893,6 @@ class TrackingService {
       if (value.length > 100) value = value.substring(0, 100);
       setUserProperty(key, value);
     }
-  }
-
-  /// The AppsFlyer install-attribution person properties. Campaign NAMES
-  /// only: AppsFlyer's campaign / adset / ad ids are never read.
-  static const List<String> installAttributionKeys = [
-    'af_media_source',
-    'af_campaign',
-    'af_adset',
-    'af_ad',
-    'af_channel',
-    'af_status',
-  ];
-
-  /// Writes the install's AppsFlyer attribution as person properties with
-  /// `$set_once`, so the first campaign an install came from is never
-  /// overwritten. Keys outside [installAttributionKeys] are ignored. Skipped
-  /// while muted (debug build or the user's opt-out).
-  static void setInstallAttributionOnce(Map<String, String> attribution) {
-    if (_muted) return;
-    final props = <String, Object>{
-      for (final key in installAttributionKeys)
-        if (attribution[key] case final value? when value.isNotEmpty)
-          key: value,
-    };
-    if (props.isEmpty) return;
-    try {
-      Posthog().capture(
-        eventName: r'$set',
-        userPropertiesSetOnce: scrubProperties(props),
-      );
-    } catch (_) {/* never crash on tracking */}
   }
 
   // ─── Sal (AI advisor) ───────────────────────────────────────────
@@ -6144,6 +6049,7 @@ class TrackingService {
     String? scriptType, // native_segwit | taproot | nested_segwit | legacy
     String? network, // bitcoin | testnet | signet | spark
     String? source, // onboarding | add_wallet
+    String? passkeyHome, // passkey wallets: breez | kute (the RP used)
   }) =>
       track('wallet_added', params: {
         'wallet_kind': walletKind,
@@ -6152,6 +6058,7 @@ class TrackingService {
         if (scriptType != null) 'script_type': scriptType,
         if (network != null) 'network': network,
         if (source != null) 'source': source,
+        if (passkeyHome != null) 'passkey_home': passkeyHome,
       });
 
   // ─── Wallet guards ───────────────────────────────────────────────

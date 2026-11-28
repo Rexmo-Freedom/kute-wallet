@@ -62,12 +62,21 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/screens/shared/market_groups.dart'
+    show kMarketGridGutter, marketSquaresPerRow;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/providers/hyperliquid_sparkline_provider.dart'
+    show hyperliquidSparklineProvider;
+import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
+    show HlLineSparkline;
+import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart'
+    show hlSparklineWithLivePrice;
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show HlBrowseSub, HlBrowseTab, hlMarketMatchesTab;
 import 'package:kute/screens/home/components/action_pill.dart'
@@ -369,6 +378,29 @@ double hlMovingNowCardHeight(BuildContext context) {
   return content > least ? content : least;
 }
 
+/// The least width a square's foot needs on EXPANDED to give its line
+/// the half beside the name and the price ([_HlMoverWideFoot]); a
+/// narrower foot draws the line across the square, under the logo row.
+const double _kWideFootLineMinWidth = 240;
+
+/// The room a square on EXPANDED gains when its line runs across it
+/// under the logo row ([_kWideFootLineMinWidth]).
+const double _kLineAcrossRoom = 44;
+
+/// A square's height on EXPANDED in a [width] wide slot: [height] (or
+/// [hlMovingNowCardHeight]), or, when its foot is too narrow for the line
+/// beside the name and the price, tall enough for the line across it
+/// ([_kLineAcrossRoom] over a phone square's height).
+double hlMovingNowCardHeightAt(BuildContext context, double width,
+    {double? height}) {
+  final least = hlMovingNowCardHeight(context);
+  final base = height ?? least;
+  if (!width.isFinite || width - 2 * _kPad.w >= _kWideFootLineMinWidth) {
+    return base;
+  }
+  return math.max(base, least + _kLineAcrossRoom);
+}
+
 /// How many of a Watchlist of [count] markets are squares (see the file
 /// header): full rows of two only, four at most; the rest are rows.
 int hlWatchlistSquareCount(int count) => count >= kHlMoverCardMax
@@ -410,7 +442,7 @@ class HlMovingNowStrip extends StatelessWidget {
     final tap = onTap;
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
-      child: ActivitySquareGrid(children: [
+      child: HlSquaresRow(children: [
         for (final m in markets.take(kHlMoverCardMax))
           HlMovingNowCard(
             key: ValueKey('hl-mover-${m.kind.name}-${m.wireCoin}'),
@@ -424,6 +456,72 @@ class HlMovingNowStrip extends StatelessWidget {
   }
 }
 
+/// The squares two by two (the home's "Latest" squares,
+/// [ActivitySquareGrid]); WIDE (MEDIUM and EXPANDED, kute_layout.dart) in a
+/// space that holds four at a phone square's width or more, the four in
+/// one row, 10 apart, each as tall as a phone's. A phone is untouched.
+class HlSquaresRow extends StatelessWidget {
+  const HlSquaresRow({super.key, required this.children});
+
+  final List<Widget> children;
+
+  /// The least width four squares in one row need.
+  static const double kOneRowMinWidth = 600;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!KuteLayout.isWide(context) || children.length != kHlMoverCardMax) {
+      return ActivitySquareGrid(children: children);
+    }
+    // EXPANDED: the Dollars page's grid (market_groups.dart): four in a
+    // row when four fit at a phone square's width, else two by two, the
+    // grid's gutter between them either way, so their edges are the list
+    // columns'.
+    if (KuteLayout.isExpanded(context)) {
+      return LayoutBuilder(builder: (context, box) {
+        const gap = kMarketGridGutter;
+        if (marketSquaresPerRow(box.maxWidth) == 4) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0) const SizedBox(width: gap),
+                Expanded(child: children[i]),
+              ],
+            ],
+          );
+        }
+        Widget pair(int i) => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: children[i]),
+                const SizedBox(width: gap),
+                Expanded(child: children[i + 1]),
+              ],
+            );
+        return Column(
+          children: [pair(0), const SizedBox(height: gap), pair(2)],
+        );
+      });
+    }
+    return LayoutBuilder(builder: (context, box) {
+      if (box.maxWidth < kOneRowMinWidth) {
+        return ActivitySquareGrid(children: children);
+      }
+      final gap = 10.w;
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) SizedBox(width: gap),
+            Expanded(child: children[i]),
+          ],
+        ],
+      );
+    });
+  }
+}
+
 /// The four squares while their logos are still unknown
 /// ([hlStripWithLogos]): each square's ground at its height, the logo's
 /// circle and the name and price bars where they will land, shimmering.
@@ -434,26 +532,35 @@ class HlMovingNowStripSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final decoration = PremiumGroupContainer.decorationOf(context);
     final height = hlMovingNowCardHeight(context);
+    Widget square(double height) => Container(
+          height: height,
+          decoration: decoration,
+          padding: EdgeInsets.all(_kPad.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SkeletonCircle(kHlMoverCardIcon.w),
+              const Spacer(),
+              SkeletonBar(64.w, 12.h),
+              SizedBox(height: 8.h),
+              SkeletonBar(96.w, 20.h),
+            ],
+          ),
+        );
+    final expanded = KuteLayout.isExpanded(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
       child: KuteSkeleton(
-        child: ActivitySquareGrid(children: [
+        child: HlSquaresRow(children: [
           for (var i = 0; i < kHlMoverCardMax; i++)
-            Container(
-              height: height,
-              decoration: decoration,
-              padding: EdgeInsets.all(_kPad.w),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SkeletonCircle(kHlMoverCardIcon.w),
-                  const Spacer(),
-                  SkeletonBar(64.w, 12.h),
-                  SizedBox(height: 8.h),
-                  SkeletonBar(96.w, 20.h),
-                ],
-              ),
-            ),
+            if (expanded)
+              // As tall as the square it stands for
+              // ([hlMovingNowCardHeightAt]).
+              LayoutBuilder(
+                  builder: (context, box) => square(
+                      hlMovingNowCardHeightAt(context, box.maxWidth)))
+            else
+              square(height),
         ]),
       ),
     );
@@ -478,7 +585,12 @@ class HlMovingNowCard extends ConsumerStatefulWidget {
     this.onTap,
     this.source = kHlMovingNowSource,
     this.blankUntilLogo = true,
+    this.height,
   });
+
+  /// The square's height; null for [hlMovingNowCardHeight] (a featured
+  /// category page's squares are taller, [HlFeaturedSquares]).
+  final double? height;
 
   @override
   ConsumerState<HlMovingNowCard> createState() => _HlMovingNowCardState();
@@ -527,11 +639,60 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
     final name =
         hlFriendlyName(m.underlyingTicker) ?? m.unitAssetName ?? m.coin;
 
+    final figures = <Widget>[
+      Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: _nameStyle(context),
+      ),
+      SizedBox(height: 4.h),
+      // A price too wide for the square (BTC's) shrinks rather
+      // than overflow it.
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: RollingNumberText(
+          text: formatHlListPrice(price, decimalCap: m.pxDecimalCap),
+          style: _priceStyle(context),
+        ),
+      ),
+    ];
+
     final decoration = PremiumGroupContainer.decorationOf(context);
     final radius = decoration.borderRadius as BorderRadius?;
+    // On EXPANDED a square too narrow for its line beside the name and
+    // the price draws it across the square, the square that much taller
+    // ([hlMovingNowCardHeightAt]).
+    if (KuteLayout.isExpanded(context)) {
+      return LayoutBuilder(
+          builder: (context, box) => _square(
+              hlMovingNowCardHeightAt(context, box.maxWidth,
+                  height: widget.height),
+              decoration,
+              radius,
+              changeColor,
+              change,
+              figures,
+              price));
+    }
+    return _square(widget.height ?? hlMovingNowCardHeight(context),
+        decoration, radius, changeColor, change, figures, price);
+  }
+
+  Widget _square(
+      double height,
+      BoxDecoration decoration,
+      BorderRadius? radius,
+      Color changeColor,
+      double? change,
+      List<Widget> figures,
+      double price) {
+    final c = context.colors;
+    final m = widget.market;
     return KutePressable(
       child: Container(
-        height: hlMovingNowCardHeight(context),
+        height: height,
         decoration: decoration,
         child: Material(
           color: Colors.transparent,
@@ -547,27 +708,33 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ClipOval(
-                        // A blank plate until the logo paints, never the
-                        // letter tile or a glyph (only markets with a
-                        // logo are on the strip); the Watchlist's keep
-                        // the logo's usual fallback.
-                        child: HlCoinIcon(
-                          coin: m.coin,
-                          wireCoin: m.wireCoin,
-                          category: m.category,
-                          iconUrl: m.iconUrl,
-                          size: kHlMoverCardIcon,
-                          placeholder: widget.blankUntilLogo
-                              ? Container(
-                                  width: kHlMoverCardIcon.w,
-                                  height: kHlMoverCardIcon.w,
-                                  color: c.surfaceElevated,
-                                )
-                              : null,
+                      // Web: no icon when the build shipped no logo for
+                      // the market (hlLogoShown): the card keeps its
+                      // name and figures, nothing stands in for the logo.
+                      if (hlLogoShown(
+                          m.coin, m.wireCoin, m.iconUrl, m.category)) ...[
+                        ClipOval(
+                          // A blank plate until the logo paints, never the
+                          // letter tile or a glyph (only markets with a
+                          // logo are on the strip); the Watchlist's keep
+                          // the logo's usual fallback.
+                          child: HlCoinIcon(
+                            coin: m.coin,
+                            wireCoin: m.wireCoin,
+                            category: m.category,
+                            iconUrl: m.iconUrl,
+                            size: kHlMoverCardIcon,
+                            placeholder: widget.blankUntilLogo
+                                ? Container(
+                                    width: kHlMoverCardIcon.w,
+                                    height: kHlMoverCardIcon.w,
+                                    color: c.surfaceElevated,
+                                  )
+                                : null,
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 8.w),
+                        SizedBox(width: 8.w),
+                      ],
                       Expanded(
                         child: Align(
                           alignment: Alignment.topRight,
@@ -584,25 +751,16 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
                       ),
                     ],
                   ),
-                  const Spacer(),
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: _nameStyle(context),
-                  ),
-                  SizedBox(height: 4.h),
-                  // A price too wide for the square (BTC's) shrinks rather
-                  // than overflow it.
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: RollingNumberText(
-                      text: formatHlListPrice(price,
-                          decimalCap: m.pxDecimalCap),
-                      style: _priceStyle(context),
-                    ),
-                  ),
+                  if (KuteLayout.isExpanded(context))
+                    Expanded(
+                        child: _HlMoverWideFoot(
+                            market: m,
+                            price: price,
+                            figures: figures))
+                  else ...[
+                    const Spacer(),
+                    ...figures,
+                  ],
                 ],
               ),
             ),
@@ -610,5 +768,189 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
         ),
       ),
     );
+  }
+}
+
+/// THE SQUARE'S FOOT ON A DESKTOP (EXPANDED; founder, 24 November 2026:
+/// the squares "occupy full screen" and were mostly empty): the name over
+/// the price on the left as on a phone, and the market's line filling
+/// the rest of the square beside them, from under the logo row to the
+/// price's foot: the browse cards' own sparkline ([HlLineSparkline], the
+/// search rows' and the share cards' daily closes,
+/// [hyperliquidSparklineProvider]) ending on the live price, coloured by
+/// its own move. A square too narrow for both (under
+/// [_kWideFootLineMinWidth]), or a market whose series is not there, is
+/// the phone's foot: the name and the price at the bottom.
+class _HlMoverWideFoot extends ConsumerWidget {
+  const _HlMoverWideFoot({
+    required this.market,
+    required this.price,
+    required this.figures,
+  });
+
+  final HlMarket market;
+  final double price;
+
+  /// The name over the price, as the phone's square draws them.
+  final List<Widget> figures;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: figures,
+    );
+    return LayoutBuilder(builder: (context, box) {
+      final series = ref.watch(hyperliquidSparklineProvider(market.wireCoin));
+      final closes = series == null
+          ? const <double>[]
+          : hlSparklineWithLivePrice(series.closes, price);
+      // Too narrow to stand beside the name and the price: the line
+      // across the square between the logo row and them (the square
+      // made taller for it, [hlMovingNowCardHeightAt]).
+      if (box.maxWidth < _kWideFootLineMinWidth) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 10),
+                child: LayoutBuilder(
+                  builder: (context, line) => HlLineSparkline(
+                    closes: closes,
+                    width: line.maxWidth,
+                    height: line.maxHeight,
+                    strokeWidth: 1.6,
+                    baseline: false,
+                  ),
+                ),
+              ),
+            ),
+            ...figures,
+          ],
+        );
+      }
+      const gap = 16.0;
+      final textWidth = (box.maxWidth - gap) * 0.45;
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(width: textWidth, child: text),
+          const SizedBox(width: gap),
+          Expanded(
+            child: Padding(
+              // Clear of the day's move over it, level with the price's
+              // foot under it.
+              padding: const EdgeInsets.only(top: 10, bottom: 2),
+              child: LayoutBuilder(
+                builder: (context, line) => HlLineSparkline(
+                  closes: closes,
+                  width: line.maxWidth,
+                  height: line.maxHeight,
+                  strokeWidth: 1.6,
+                  baseline: false,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+/// A FEATURED CATEGORY PAGE on a desktop (EXPANDED; founder, 24 November
+/// 2026, of five indices as thin rows on an empty window: "See these
+/// screens are missing something"): a short list is drawn as the squares
+/// Trending leads with on a laptop (the logo, the day's move, the name,
+/// the price and the market's line, [HlMovingNowCard]), in an even grid.
+///
+/// The least width a featured square stands at: its line still drawn
+/// beside the name and the price ([_HlMoverWideFoot]).
+const double kHlFeaturedSquareMinWidth = 264;
+
+/// The widest a featured square grows when a row holds few of them.
+const double kHlFeaturedSquareMaxWidth = 420;
+
+/// The most featured squares in one row.
+const int kHlFeaturedColumnsMax = 6;
+
+/// How many featured squares stand in a row [width] wide (the list's 16
+/// already out): as many as hold [kHlFeaturedSquareMinWidth], up to
+/// [kHlFeaturedColumnsMax]; zero when fewer than two do (a page that
+/// narrow keeps its rows).
+int hlFeaturedColumns(double width) {
+  if (!width.isFinite || width <= 0) return 0;
+  final fit = ((width + kMarketGridGutter) /
+          (kHlFeaturedSquareMinWidth + kMarketGridGutter))
+      .floor();
+  return fit < 2 ? 0 : math.min(fit, kHlFeaturedColumnsMax);
+}
+
+/// Whether a list of [count] markets in a [width] wide page is featured:
+/// up to two rows of squares ([hlFeaturedColumns]).
+bool hlFeaturedFits(int count, double width) =>
+    count > 0 && count <= 2 * hlFeaturedColumns(width);
+
+/// [markets] as featured squares ([hlFeaturedFits]), row by row: in as few
+/// rows as the width allows, then as few squares a row as fill them (five
+/// in a row of four are three over two), every square as wide as the
+/// first row's ([kHlFeaturedSquareMaxWidth] at most) and a little taller
+/// than Trending's, the rows on the list's left edge. [onTap] opens a market as its list row would.
+class HlFeaturedSquares extends StatelessWidget {
+  const HlFeaturedSquares({
+    super.key,
+    required this.markets,
+    required this.onTap,
+  });
+
+  final List<HlMarket> markets;
+  final void Function(HlMarket market) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, box) {
+      const gap = kMarketGridGutter;
+      final columns = math.max(1, hlFeaturedColumns(box.maxWidth));
+      final rows = (markets.length + columns - 1) ~/ columns;
+      final perRow = (markets.length + rows - 1) ~/ rows;
+      final width = math.min(kHlFeaturedSquareMaxWidth,
+          (box.maxWidth - gap * (perRow - 1)) / perRow);
+      // A little taller than Trending's, the line given the room: a
+      // short page reads as a few proper cards.
+      final least = hlMovingNowCardHeight(context);
+      final height = math.max(least, math.min(width * 0.6, least * 1.4));
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var r = 0; r < rows; r++) ...[
+            if (r > 0) const SizedBox(height: gap),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = r * perRow;
+                    i < math.min(markets.length, (r + 1) * perRow);
+                    i++) ...[
+                  if (i > r * perRow) const SizedBox(width: gap),
+                  SizedBox(
+                    width: width,
+                    child: HlMovingNowCard(
+                      key: ValueKey(
+                          'hl-featured-${markets[i].kind.name}-${markets[i].wireCoin}'),
+                      market: markets[i],
+                      // Every market shown whatever its logo.
+                      blankUntilLogo: false,
+                      height: height,
+                      onTap: () => onTap(markets[i]),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ],
+      );
+    });
   }
 }

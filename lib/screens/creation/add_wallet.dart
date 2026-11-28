@@ -1,5 +1,4 @@
 import 'package:kute/models/evm_derivation_version.dart';
-import 'dart:io';
 import 'dart:math';
 import 'package:kute/screens/creation/bitcoin_wallet_setup.dart';
 import 'package:kute/models/add_wallet_model.dart';
@@ -14,12 +13,15 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_page_route.dart' show KutePageFrame;
+import 'package:kute/screens/shared/kute_wide_page_parts.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +29,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 class AddWallet extends ConsumerStatefulWidget {
   const AddWallet({super.key});
@@ -119,13 +122,17 @@ class _AddWalletState extends ConsumerState<AddWallet> {
           'wallet_kind': 'hot',
         });
         if (mounted) {
-          showMessageSnackBar(context: context, message: context.l10n.pleaseSetUpPINFirst, error: true);
+          showMessageSnackBar(
+              context: context,
+              message: context.l10n.pleaseSetUpPINFirst,
+              error: true);
           context.push('/set_pin');
         }
         return;
       }
 
-      final walletId = '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1000)}';
+      final walletId =
+          '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1000)}';
       final mnemonic = await authModel.generateMnemonic();
       await authModel.setMnemonic(walletId, mnemonic);
 
@@ -145,7 +152,10 @@ class _AddWalletState extends ConsumerState<AddWallet> {
         ..invalidate(polymarketBalanceProvider);
 
       // Set up Polymarket account in background (Safe deploy + credentials)
-      provisionPolymarketAccount(mnemonic: mnemonic, walletId: walletId, evmDerivationVersion: EvmDerivationVersion.standardBip39);
+      provisionPolymarketAccount(
+          mnemonic: mnemonic,
+          walletId: walletId,
+          evmDerivationVersion: EvmDerivationVersion.standardBip39);
 
       TrackingService.walletCreated(type: 'new');
       TrackingService.walletAdded(
@@ -154,7 +164,9 @@ class _AddWalletState extends ConsumerState<AddWallet> {
         network: 'spark',
         source: 'add_wallet',
       );
-      TrackingService.setWalletProperties(walletType: 'new', walletCount: ref.read(settingsProvider).wallets.length);
+      TrackingService.setWalletProperties(
+          walletType: 'new',
+          walletCount: ref.read(settingsProvider).wallets.length);
       _completed = true;
       TrackingService.clearFlowContext('wallet_add');
 
@@ -279,8 +291,7 @@ class _AddWalletState extends ConsumerState<AddWallet> {
 
     // Hide Spark hot wallet options when the user already has one.
     final wallets = ref.watch(settingsProvider.select((s) => s.wallets));
-    final hasHotWallet = wallets.any(
-        (w) => w.isSparkWallet);
+    final hasHotWallet = wallets.any((w) => w.isSparkWallet);
 
     // Every option is drawn whatever the policy says; a withheld one is
     // refused at the tap by [_offered]. See
@@ -291,6 +302,135 @@ class _AddWalletState extends ConsumerState<AddWallet> {
     final otherWallet = state.otherWallet;
     final trackingWallets = state.trackingWallets;
 
+    /// A section: its header over its cards, two side by side.
+    Widget section(String title, List<_OptionCard> cards) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _SectionHeader(title: title),
+            _OptionGrid(cards: cards),
+          ],
+        );
+    final sections = <Widget>[
+      // Every option is a card, two side by side, under its
+      // section's header (founder, 4 November 2026: every
+      // option on Add wallet as the square cards, not list
+      // rows), as tall as what it holds ([_OptionCard]).
+      if (!hasHotWallet)
+        section(context.l10n.walletsSpendingAccountSection, [
+          for (final wallet in state.hotWallets)
+            _optionCard(
+              wallet,
+              subtitle: wallet.subtitleIn(context.l10n),
+              onTap: () {
+                // The inline create stays on this
+                // screen, so the hub keeps owning
+                // its abandon.
+                if (wallet.id == 'create_spark') {
+                  TrackingService.walletTypeSelected(wallet.id);
+                } else {
+                  _pick(wallet.id);
+                }
+                notifier.selectWallet(wallet.id, wallet.type);
+                if (wallet.id == 'create_spark') {
+                  _createWalletDirectly();
+                } else if (wallet.id == 'recover_spark') {
+                  context.push('/recover_wallet');
+                }
+              },
+            ),
+        ]),
+
+      // Hardware = "I have a device": the ones the app
+      // pairs with natively over Bluetooth side by side
+      // (AddWalletState.bluetoothWallets), then "Other
+      // wallet" full width under them, any other signer's
+      // public key by QR code, file or paste.
+      if (hardwareWallets.isNotEmpty || otherWallet != null)
+        section(context.l10n.walletsHardwareWalletsSection, [
+          for (final option in hardwareWallets)
+            _optionCard(
+              option,
+              subtitle: context.l10n.bluetooth,
+              onTap: () => _openXpubImport(option),
+            ),
+          if (otherWallet != null)
+            _optionCard(
+              otherWallet,
+              subtitle: context.l10n.addWalletOtherSubtitle,
+              onTap: () => _openXpubImport(otherWallet),
+            ),
+        ]),
+
+      // Bitcoin: another 12-word wallet, and one address
+      // watched (view only), side by side.
+      section(context.l10n.bitcoin, [
+        _optionCard(
+          _kBitcoinWalletOption,
+          subtitle: _kBitcoinWalletOption.subtitleIn(context.l10n),
+          onTap: () async {
+            if (!await _offered('bitcoin')) return;
+            if (!context.mounted) return;
+            _pick('bitcoin');
+            Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => const KutePageFrame(
+                    mode: KuteWideMode.full, child: BitcoinWalletSetup())));
+          },
+        ),
+        for (final wallet in trackingWallets)
+          _optionCard(
+            wallet,
+            subtitle: wallet.subtitleIn(context.l10n),
+            onTap: () async {
+              if (!await _offered(wallet.type)) return;
+              if (!context.mounted) return;
+              _pick(wallet.id);
+              notifier.selectWallet(wallet.id, wallet.type);
+              context.pushNamed('importExternalAddress');
+            },
+          ),
+      ]),
+      section(context.l10n.comingSoon2, [
+        _comingSoonCard(
+          feature: 'open_banking',
+          title: context.l10n.walletsBank,
+          icon: BootstrapIcons.bank2,
+          message: context.l10n.walletsBankConnectionsComingSoon,
+        ),
+        _comingSoonCard(
+          feature: 'exchange_import',
+          title: context.l10n.walletsExchange,
+          icon: BootstrapIcons.currency_exchange,
+          message: context.l10n.walletsExchangeImportComingSoon,
+        ),
+        _comingSoonCard(
+          feature: 'wallet_connect',
+          title: context.l10n.walletsWalletConnect,
+          icon: Icons.wifi_rounded,
+          message: context.l10n.walletsWalletConnectComingSoon,
+        ),
+        _comingSoonCard(
+          feature: 'nostr_wallet_connect',
+          title: context.l10n.walletsNostrWalletConnect,
+          icon: Icons.bolt_rounded,
+          message: context.l10n.walletsNostrWalletConnectComingSoon,
+        ),
+      ]),
+    ];
+    final wide = kuteIsExpanded(context);
+    // The page's sides: on EXPANDED the page gutters, the back button and
+    // the title on the left one.
+    final side = wide
+        ? kuteWidePadding(context)
+        : EdgeInsets.symmetric(horizontal: 20.w);
+
+    final back = KuteBackButton(
+      onPressed: () {
+        if (_isCreating) return;
+        HapticFeedback.lightImpact();
+        context.pop();
+      },
+    );
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: context.colors.background,
@@ -299,14 +439,10 @@ class _AddWalletState extends ConsumerState<AddWallet> {
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        centerTitle: true,
-        leading: KuteBackButton(
-          onPressed: () {
-            if (_isCreating) return;
-            HapticFeedback.lightImpact();
-            context.pop();
-          },
-        ),
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? side.left + 40 : null,
+        leading: wide ? kuteWideLeading(side.left, back) : back,
         title: Text(
           context.l10n.addWallet,
           style: TextStyle(
@@ -325,22 +461,31 @@ class _AddWalletState extends ConsumerState<AddWallet> {
             // Ambient Glow (dark mode only)
             if (context.isDark)
               Positioned(
-                top: -100.h, left: 0, right: 0, height: 400.h,
-                child: Container(
+                top: -100.h,
+                left: 0,
+                right: 0,
+                height: 400.h,
+                child: KuteFullBleed(
+                    child: Container(
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
-                      center: Alignment.topCenter, radius: 1.0,
-                      colors: [context.colors.surfaceLight.withValues(alpha:0.4), Colors.transparent],
+                      center: Alignment.topCenter,
+                      radius: 1.0,
+                      colors: [
+                        context.colors.surfaceLight.withValues(alpha: 0.4),
+                        Colors.transparent
+                      ],
                     ),
                   ),
-                ),
+                )),
               ),
             Positioned.fill(
               child: SafeArea(
-                bottom: Platform.isAndroid,
+                bottom: PlatformOs.isAndroid,
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 32.h),
+                  padding:
+                      EdgeInsets.fromLTRB(side.left, 4.h, side.right, 32.h),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -348,121 +493,19 @@ class _AddWalletState extends ConsumerState<AddWallet> {
                       // removed — the AppBar back button already frames the
                       // screen; sections start straight away.
                       SizedBox(height: 8.h),
-
-                      // Every option is a card, two side by side, under its
-                      // section's header (founder, 4 November 2026: every
-                      // option on Add wallet as the square cards, not list
-                      // rows), as tall as what it holds ([_OptionCard]).
-                      if (!hasHotWallet) ...[
-                        _SectionHeader(title: context.l10n.walletsSpendingAccountSection),
-                        _OptionGrid(cards: [
-                          for (final wallet in state.hotWallets)
-                            _optionCard(
-                              wallet,
-                              subtitle: wallet.subtitleIn(context.l10n),
-                              onTap: () {
-                                // The inline create stays on this
-                                // screen, so the hub keeps owning
-                                // its abandon.
-                                if (wallet.id == 'create_spark') {
-                                  TrackingService.walletTypeSelected(
-                                      wallet.id);
-                                } else {
-                                  _pick(wallet.id);
-                                }
-                                notifier.selectWallet(wallet.id, wallet.type);
-                                if (wallet.id == 'create_spark') {
-                                  _createWalletDirectly();
-                                } else if (wallet.id == 'recover_spark') {
-                                  context.push('/recover_wallet');
-                                }
-                              },
-                            ),
-                        ]),
-                        SizedBox(height: 20.h),
-                      ],
-
-                      // Hardware = "I have a device": the ones the app
-                      // pairs with natively over Bluetooth side by side
-                      // (AddWalletState.bluetoothWallets), then "Other
-                      // wallet" full width under them, any other signer's
-                      // public key by QR code, file or paste.
-                      if (hardwareWallets.isNotEmpty || otherWallet != null) ...[
-                        _SectionHeader(title: context.l10n.walletsHardwareWalletsSection),
-                        _OptionGrid(cards: [
-                          for (final option in hardwareWallets)
-                            _optionCard(
-                              option,
-                              subtitle: context.l10n.bluetooth,
-                              onTap: () => _openXpubImport(option),
-                            ),
-                          if (otherWallet != null)
-                            _optionCard(
-                              otherWallet,
-                              subtitle: context.l10n.addWalletOtherSubtitle,
-                              onTap: () => _openXpubImport(otherWallet),
-                            ),
-                        ]),
-                        SizedBox(height: 20.h),
-                      ],
-
-                      // Bitcoin: another 12-word wallet, and one address
-                      // watched (view only), side by side.
-                      _SectionHeader(title: context.l10n.bitcoin),
-                      _OptionGrid(cards: [
-                        _optionCard(
-                          _kBitcoinWalletOption,
-                          subtitle: _kBitcoinWalletOption.subtitleIn(context.l10n),
-                          onTap: () async {
-                            if (!await _offered('bitcoin')) return;
-                            if (!context.mounted) return;
-                            _pick('bitcoin');
-                            Navigator.of(context).push(MaterialPageRoute<void>(
-                                builder: (_) => const BitcoinWalletSetup()));
-                          },
-                        ),
-                        for (final wallet in trackingWallets)
-                          _optionCard(
-                            wallet,
-                            subtitle: wallet.subtitleIn(context.l10n),
-                            onTap: () async {
-                              if (!await _offered(wallet.type)) return;
-                              if (!context.mounted) return;
-                              _pick(wallet.id);
-                              notifier.selectWallet(wallet.id, wallet.type);
-                              context.pushNamed('importExternalAddress');
-                            },
-                          ),
-                      ]),
-                      SizedBox(height: 20.h),
-                      _SectionHeader(title: context.l10n.comingSoon2),
-                      _OptionGrid(cards: [
-                        _comingSoonCard(
-                          feature: 'open_banking',
-                          title: context.l10n.walletsBank,
-                          icon: BootstrapIcons.bank2,
-                          message: context.l10n.walletsBankConnectionsComingSoon,
-                        ),
-                        _comingSoonCard(
-                          feature: 'exchange_import',
-                          title: context.l10n.walletsExchange,
-                          icon: BootstrapIcons.currency_exchange,
-                          message: context.l10n.walletsExchangeImportComingSoon,
-                        ),
-                        _comingSoonCard(
-                          feature: 'wallet_connect',
-                          title: context.l10n.walletsWalletConnect,
-                          icon: Icons.wifi_rounded,
-                          message: context.l10n.walletsWalletConnectComingSoon,
-                        ),
-                        _comingSoonCard(
-                          feature: 'nostr_wallet_connect',
-                          title: context.l10n.walletsNostrWalletConnect,
-                          icon: Icons.bolt_rounded,
-                          message:
-                              context.l10n.walletsNostrWalletConnectComingSoon,
-                        ),
-                      ]),
+                      if (wide)
+                        // EXPANDED (round three; founder, 25 November
+                        // 2026: "it must be all occupying full screen
+                        // when we can"): the sections side by side,
+                        // each its own pairs of cards as on a phone
+                        // (three columns from about 1200 wide, two
+                        // under it), never a card stretched across.
+                        KuteColumns(children: sections)
+                      else
+                        for (var i = 0; i < sections.length; i++) ...[
+                          if (i > 0) SizedBox(height: 20.h),
+                          sections[i],
+                        ],
                     ],
                   ),
                 ),
@@ -471,8 +514,10 @@ class _AddWalletState extends ConsumerState<AddWallet> {
             if (_isCreating)
               Positioned.fill(
                 child: Container(
-                  color: Colors.black.withValues(alpha:0.7),
-                  child: Center(child: LoadingAnimationWidget.staggeredDotsWave(color: context.colors.accent, size: 40)),
+                  color: Colors.black.withValues(alpha: 0.7),
+                  child: Center(
+                      child: LoadingAnimationWidget.staggeredDotsWave(
+                          color: context.colors.accent, size: 40)),
                 ),
               ),
           ],

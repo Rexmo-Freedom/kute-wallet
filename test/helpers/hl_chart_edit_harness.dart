@@ -24,6 +24,7 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_orderbook_provider.dart';
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidActivityFillsProvider;
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_rail.dart'
     show hlGroupOf;
@@ -151,7 +152,9 @@ Future<void> pumpHlEditSheet(
       aiEnabledProvider.overrideWith((ref) async => false),
     ],
     child: ScreenUtilInit(
-      designSize: const Size(430, 932),
+      // As the app: the phone design below 600, the window itself above
+      // (one design pixel is one logical pixel on a laptop).
+      designSize: KuteLayout.designSizeFor(Size(width, height)),
       builder: (_, __) => MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: theme ??

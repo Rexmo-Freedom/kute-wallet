@@ -38,6 +38,9 @@ import 'package:kute/models/add_wallet_model.dart';
 import 'package:kute/models/send_tx_model.dart';
 import 'package:kute/providers/add_wallet_provider.dart';
 import 'package:kute/providers/qr_scanner_provider.dart';
+import 'package:kute/platform/camera_permission_state.dart';
+import 'package:kute/platform/in_app_browser.dart';
+import 'package:kute/platform/web_edge_colors.dart';
 import 'package:kute/screens/scanner/scanner_camera.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/services/add_wallet_capabilities.dart';
@@ -54,7 +57,10 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show KuteDialogRoute;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,6 +71,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// What the scanner does with a code.
 enum ScannerMode {
@@ -125,7 +132,17 @@ class ScannerSheetPage<T> extends Page<T> {
   final ScannerMode mode;
 
   @override
-  Route<T> createRoute(BuildContext context) => ModalBottomSheetRoute<T>(
+  Route<T> createRoute(BuildContext context) {
+    // EXPANDED: the panel every sheet is there (kute_dialog.dart), as the
+    // in-app Scan button's sheet already is (showAppBottomSheet); never a
+    // bottom sheet under a laptop's top bar.
+    if (kuteWindowIsExpanded(context)) {
+      return KuteDialogRoute<T>(
+        settings: this,
+        builder: (_) => ScannerSheet(mode: mode),
+      );
+    }
+    return ModalBottomSheetRoute<T>(
         settings: this,
         isScrollControlled: true,
         useSafeArea: true,
@@ -133,8 +150,11 @@ class ScannerSheetPage<T> extends Page<T> {
         barrierLabel: MaterialLocalizations.of(context).scrimLabel,
         // The app's sheet motion (lib/theme/kute_motion.dart).
         sheetAnimationStyle: KuteMotion.sheetStyle(context),
-        builder: (_) => ScannerSheet(mode: mode),
+        // A centred form from MEDIUM up (kute_wide_frames.dart).
+        constraints: kuteSheetConstraints(context),
+        builder: (_) => KuteSheetMedia(child: ScannerSheet(mode: mode)),
       );
+  }
 }
 
 class ScannerSheet extends ConsumerStatefulWidget {
@@ -254,6 +274,9 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
   /// forever, so it is detected (via the scanner's own error code and
   /// permission_handler) and surfaced as an "open Settings" notice instead.
   Future<void> _safeStart() async {
+    // The camera itself said the permission is off (the one way a browser
+    // tells: there is no permission_handler answer for it there).
+    var refused = false;
     for (var attempt = 0; attempt < 5; attempt++) {
       if (!mounted || _camera == null || _closing) return;
       try {
@@ -267,6 +290,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
         }
         return;
       } on ScannerCameraDenied {
+        refused = true;
         break;
       } on ScannerCameraUnavailable {
         if (!mounted || _closing) return;
@@ -280,7 +304,8 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
         await Future.delayed(const Duration(milliseconds: 300));
       }
     }
-    final denied = await _isCameraDenied();
+    final denied = refused || await _isCameraDenied();
+    if (denied) _reportCameraRefused();
     if (!mounted || _closing) return;
     setState(() {
       _cameraDenied = denied;
@@ -288,7 +313,23 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     });
   }
 
+  /// `scanner_camera_refused {permission_state, browser}`: the camera was
+  /// refused without the scanner ever running. On the web the browser's
+  /// own stored answer says which case it is: `denied` is a setting (the
+  /// site's or the browser's), `prompt` a refusal with no question asked
+  /// (founder's iPhone, 27 November 2026: Safari never asked). Categorical
+  /// values only.
+  void _reportCameraRefused() {
+    unawaited(cameraPermissionState().then((state) {
+      TrackingService.track('scanner_camera_refused', params: {
+        'permission_state': state,
+        'browser': InAppBrowser.kind,
+      });
+    }).catchError((Object _) {}));
+  }
+
   Future<bool> _isCameraDenied() async {
+    if (!PlatformCaps.hasPermissionHandler) return false;
     try {
       final status = await Permission.camera.status;
       return status.isDenied ||
@@ -306,7 +347,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
   Future<void> _openCameraSettings() async {
     HapticFeedback.lightImpact();
     TrackingService.track('scanner_open_camera_settings');
-    await openAppSettings();
+    if (PlatformCaps.hasPermissionHandler) await openAppSettings();
   }
 
   /// Tap-to-retry handler — the failed camera is in a bad state, so swap
@@ -317,6 +358,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     setState(() {
       _camera = _newCamera();
       _cameraError = false;
+      _cameraDenied = false;
     });
     WidgetsBinding.instance
         .addPostFrameCallback((_) => unawaited(old?.dispose()));
@@ -1142,22 +1184,19 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
       ref.listen<QrScannerState>(qrScannerProvider, _onMultiPart);
     }
     final l10n = context.l10n;
+    // A panel on EXPANDED (kute_dialog.dart): no drag handle.
+    final inPanel = KuteDialogScope.inDialog(context);
 
     // The whole sheet is the camera (founder decision, October 2026): no
     // header, the preview runs from under the sheet's rounded top corners
     // to its bottom edge, and the drag handle and the close X float over
     // the video. Shorter than the full-height sheets so it reads as a
     // sheet over the page, the send sheet's first-step height.
-    // The bar explains the scanner (founder, 31 October 2026): "What can
-    // I scan?", tapping sends the question to Sal.
+    // No bar over the scanner (founder, 27 November 2026: "get rid of the
+    // button what I can scan, no need"; it was "What can I scan?" since
+    // 31 October 2026): the bar slides away while the scanner is up.
     return KuteBarContextScope(
-      barContext: KuteBarContext(
-        label: context.l10n.barScannerLabel,
-        sublabel: context.l10n.barAskSalSub,
-        clip: 'curious',
-        question: context.l10n.barScannerQuestion,
-        source: 'scanner',
-      ),
+      barContext: const KuteBarContext.hidden(),
       child: PopScope<Object?>(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _onClosing();
@@ -1173,31 +1212,42 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _preview(context, multi),
-                // The drag handle, over the video.
-                Positioned(
-                  top: 12.h,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      width: 36.w,
-                      height: 4.h,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(2),
+                // The field is black to its bottom edge: the web says so
+                // to Safari, whose bottom bar takes it
+                // (web_edge_colors.dart).
+                WebEdgeColor(
+                    color: Colors.black, child: _preview(context, multi)),
+                // The drag handle, over the video. None in a panel on
+                // EXPANDED: nothing there is dragged.
+                if (!inPanel)
+                  Positioned(
+                    top: 12.h,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        width: 36.w,
+                        height: 4.h,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
                   ),
-                ),
                 Positioned(
                   top: MediaQuery.paddingOf(context).top + 16.w,
                   left: 16.w,
-                  child: _ScannerControl(
-                    key: const ValueKey('scanner-close'),
-                    icon: Icons.close_rounded,
-                    label: l10n.close,
-                    onPressed: _close,
+                  // In a panel the one close: the panel draws no X of its
+                  // own beside it (kute_wide_frames.dart,
+                  // KuteDialogCloseMark).
+                  child: KuteDialogCloseMark(
+                    child: _ScannerControl(
+                      key: const ValueKey('scanner-close'),
+                      icon: Icons.close_rounded,
+                      label: l10n.close,
+                      onPressed: _close,
+                    ),
                   ),
                 ),
               ],
@@ -1238,7 +1288,22 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
           // Camera permission denied: retrying can never succeed, so
           // point at the OS Settings instead of the retry loop. The
           // photo control stays usable.
-          if (_cameraDenied)
+          if (_cameraDenied && kIsWeb)
+            // A browser has no Settings page the app can open: the person
+            // allows the camera for this site in the address bar, and
+            // Try Again asks the browser once more (English only on this
+            // experimental branch).
+            _CameraOff(
+              message: 'Camera access is off',
+              detail: 'Allow the camera for this site in your browser, '
+                  'then try again.',
+              action: AppButton(
+                text: l10n.tryAgain,
+                compact: true,
+                onPressed: _retryCamera,
+              ),
+            )
+          else if (_cameraDenied)
             _CameraOff(
               message: l10n.scannerCameraAccessOff,
               action: AppButton(
@@ -1362,13 +1427,21 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
             Positioned(
               left: 16.w,
               bottom: bottomInset,
+              // No flash control on a camera without a torch (a laptop's,
+              // a browser's).
               child: ValueListenableBuilder<bool>(
-                valueListenable: camera.torchOn,
-                builder: (context, isOn, _) => _ScannerControl(
-                  key: const ValueKey('scanner-torch'),
-                  icon: isOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
-                  label: l10n.flash,
-                  onPressed: () => _toggleTorch(isOn),
+                valueListenable: camera.hasTorch,
+                builder: (context, hasTorch, child) =>
+                    hasTorch ? child! : const SizedBox.shrink(),
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: camera.torchOn,
+                  builder: (context, isOn, _) => _ScannerControl(
+                    key: const ValueKey('scanner-torch'),
+                    icon:
+                        isOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                    label: l10n.flash,
+                    onPressed: () => _toggleTorch(isOn),
+                  ),
                 ),
               ),
             ),

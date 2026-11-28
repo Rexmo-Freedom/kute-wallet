@@ -15,6 +15,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart' show KuteBarPrimaryButton;
+import 'package:kute/screens/home/components/kute_bar_trade_row.dart'
+    show KuteBarShareSlot;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -75,7 +77,12 @@ class PolySlipHeader extends StatelessWidget {
     this.leading,
     this.maxLines = 5,
     this.chip,
+    this.closable = true,
+    this.onClose,
   });
+
+  /// The close X's action; null: the route's own back (maybePop).
+  final VoidCallback? onClose;
 
   final String marketQuestion;
   final String? marketImage;
@@ -91,6 +98,11 @@ class PolySlipHeader extends StatelessWidget {
   /// A small chip over the title (send mode's "For Ana",
   /// screens/share/send_pick_session.dart); null: none.
   final Widget? chip;
+
+  /// The close X at the row's end; a slip open in a wide market page's
+  /// side panel (bet_slip_in_place.dart) closes the panel with it
+  /// ([onClose]).
+  final bool closable;
 
   @override
   Widget build(BuildContext context) {
@@ -109,19 +121,20 @@ class PolySlipHeader extends StatelessWidget {
           if (leading != null) ...[
             leading!,
             SizedBox(width: 10.w),
-          ] else if (img != null && img.isNotEmpty) ...[
-            PolyCrestImage(
+          ] else if (img != null && img.isNotEmpty)
+            // Web: only a picture the backend routes draw; else none, and
+            // no gap (PolyPictureLead).
+            PolyPictureLead(
               url: img,
               size: 36.sp,
               radius: 10.r,
+              gap: 10.w,
               fallback: Container(
                 width: 36.sp,
                 height: 36.sp,
                 color: c.surfaceLight,
               ),
             ),
-            SizedBox(width: 10.w),
-          ],
           Expanded(
             // The whole question, never cut: up to five lines, in a
             // smaller face the longer it runs.
@@ -147,7 +160,7 @@ class PolySlipHeader extends StatelessWidget {
             trailing!,
             SizedBox(width: 8.w),
           ],
-          const KuteCloseButton(),
+          if (closable) KuteCloseButton(onPressed: onClose),
         ],
       ),
     );
@@ -415,6 +428,60 @@ class PolySlipCta extends StatelessWidget {
     final fg = tint == null
         ? contrastingOnColor(color)
         : slipCtaLabelColor(fill: fill, side: tint.side, neutral: neutral);
+    final primary = KuteBarContext.primary(
+      label: label,
+      onPrimary: onTap,
+      enabled: enabled,
+      busy: isBusy,
+      tapWhileBusy: tapWhileBusy,
+      busyLabel:
+          isBusy ? (busyLabel ?? context.l10n.betPlacingOrderEllipsis) : null,
+      style: KuteBarPrimaryStyle(
+        fill: fill,
+        foreground: fg,
+        radius: KuteBarPrimaryButton.radius,
+        fontWeight: FontWeight.w800,
+      ),
+      category: SearchCategory.predictions,
+      source: 'slip',
+      disabledLabel: disabledLabel,
+    );
+    // A slip open in place on a wide market page (bet_slip_in_place.dart)
+    // has no floating bar under it: the bar's own button, the same
+    // context, is drawn here, in the slip, in the app's palette as the bar
+    // draws it.
+    if (PolySlipInPlace.maybeOf(context) case final inPlace?) {
+      return Padding(
+        key: const ValueKey('poly-slip-cta-in-place'),
+        padding: EdgeInsets.symmetric(vertical: 10.h),
+        // The bar's pair, as the Investing ticket in place draws it:
+        // the button and the round Sal button at its right, centred.
+        child: Theme(
+          data: inPlace.theme,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: KuteBarPrimaryButton(barContext: primary, onAsk: () {}),
+              ),
+              KuteBarShareSlot(
+                share: inPlace.share,
+                onTap: (_) {
+                  final share = inPlace.share;
+                  final direct = share?.brag ??
+                      share?.send ??
+                      share?.open ??
+                      share?.barContext?.directAction;
+                  if (direct == null) return;
+                  HapticFeedback.lightImpact();
+                  direct();
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return KuteBarContextScope(
       barContext: KuteBarContext.primary(
         label: label,
@@ -442,6 +509,26 @@ class PolySlipCta extends StatelessWidget {
           height: kuteBarScrollClearance.h),
     );
   }
+}
+
+/// Marks a slip open in place on a wide market page
+/// (bet_slip_in_place.dart): its [PolySlipCta] draws the bar's button in
+/// the slip, in [theme] (the app's, outside the slip's side tint).
+class PolySlipInPlace extends InheritedWidget {
+  const PolySlipInPlace(
+      {super.key, required this.theme, this.share, required super.child});
+
+  final ThemeData theme;
+
+  /// The page's round Sal button beside the slip's button; null for none.
+  final KuteBarShare? share;
+
+  static PolySlipInPlace? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PolySlipInPlace>();
+
+  @override
+  bool updateShouldNotify(PolySlipInPlace old) =>
+      old.theme != theme || old.share != share;
 }
 
 /// What went wrong, told on the ticket the person is still looking at.

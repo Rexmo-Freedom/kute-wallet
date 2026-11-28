@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:kute/services/secure_storage.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Keychain writes and deletes that never touch a synced iCloud Keychain
 /// twin.
@@ -25,7 +25,7 @@ class KeychainLocal {
   final String service;
   final TargetPlatform? platform;
 
-  bool get _native => (platform ?? defaultTargetPlatform) == TargetPlatform.iOS;
+  bool get _native => (platform ?? PlatformOs.nativeTarget) == TargetPlatform.iOS;
 
   Future<void> writeLocalOnly({
     required String key,

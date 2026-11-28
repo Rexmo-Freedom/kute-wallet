@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/seed_word_tile.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -35,8 +36,10 @@ import 'package:kute/services/secure/legacy_keychain_rescue.dart';
 import 'package:kute/services/secure/recovery_check.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/secret_store.dart';
+import 'package:kute/services/secure/web_vault/web_vault.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// How the Restore wallets screen was reached.
 enum RestoreSecretsReason {
@@ -115,7 +118,7 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
       RecoveryCheck.derive(phrase, version: wallet.evmDerivationVersion);
 
   bool get _offerLegacyCopies =>
-      widget.offerLegacyCopies ?? defaultTargetPlatform == TargetPlatform.iOS;
+      widget.offerLegacyCopies ?? PlatformOs.nativeTarget == TargetPlatform.iOS;
 
   static String _v2Key(String walletId) => 'v2:wallet:$walletId.mnemonic';
 
@@ -130,15 +133,32 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
   WalletConfig? _wallet(String id) =>
       ref.read(settingsProvider).wallets.where((w) => w.id == id).firstOrNull;
 
+  /// Web: presence only (key names are not secret), so a locked vault is
+  /// never read here and nothing waits for an unlock.
   Future<bool> _present(SecretStore store, String key) async =>
-      await store.read(key: key) is SecretPresent;
+      WebVault.instance != null
+          ? await store.containsKey(key: key)
+          : await store.read(key: key) is SecretPresent;
+
+  /// A stored copy for a comparison. Web, locked: unknown, read as absent
+  /// instead of waiting for an unlock that this screen does not run.
+  Future<SecretRead> _readForCompare(SecretStore store, String key) async {
+    final web = WebVault.instance;
+    if (web != null && !web.unlocked) return const SecretAbsent();
+    return store.read(key: key);
+  }
 
   Future<void> _probe() async {
     final local = SecretStores.local;
     final synced = SecretStores.synced;
-    final pinHash = await local.read(key: 'pin_hash');
-    final legacyPin = await local.read(key: 'pin');
-    _hasPinMaterial = pinHash is! SecretAbsent || legacyPin is! SecretAbsent;
+    final web = WebVault.instance;
+    if (web != null) {
+      _hasPinMaterial = web.hasPinMaterial;
+    } else {
+      final pinHash = await local.read(key: 'pin_hash');
+      final legacyPin = await local.read(key: 'pin');
+      _hasPinMaterial = pinHash is! SecretAbsent || legacyPin is! SecretAbsent;
+    }
 
     for (final wallet in ref.read(settingsProvider).wallets) {
       final row = _rows.putIfAbsent(wallet.id, _RowState.new);
@@ -250,7 +270,7 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
       return;
     }
     if (stored == null) {
-      final local = await SecretStores.local.read(key: _v2Key(walletId));
+      final local = await _readForCompare(SecretStores.local, _v2Key(walletId));
       if (local is SecretPresent &&
           RecoveryCheck.normalize(local.value) != phrase) {
         _trackRestoreFailed('phrase', 'mismatch');
@@ -301,7 +321,7 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
   /// Writes the V2 copy for [walletId] unless a synced copy with the same
   /// phrase already serves it. Nothing is ever deleted.
   Future<bool> _writeSeed(String walletId, String phrase) async {
-    final synced = await SecretStores.synced.read(key: _v2Key(walletId));
+    final synced = await _readForCompare(SecretStores.synced, _v2Key(walletId));
     if (synced is SecretPresent &&
         RecoveryCheck.normalize(synced.value) == phrase) {
       return true;
@@ -383,13 +403,20 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
     TrackingService.seedRestoreStarted(method: 'passkey');
     TrackingService.setFlowStep('passkey');
     _setBusy(wallet.id, true);
-    final loader = widget.loadPasskeyMnemonic ?? PasskeyService.getMnemonic;
+    final loader = widget.loadPasskeyMnemonic;
     String? mnemonic;
     try {
-      mnemonic = await loader(
-        label: wallet.passkeyLabel,
-        legacy: wallet.passkeyProvider == null,
-      );
+      // Routed on the wallet's marker (legacy / Breez home / Kute's home);
+      // an unknown marker yields nothing.
+      mnemonic = loader != null
+          ? await loader(
+              label: wallet.passkeyLabel,
+              legacy: wallet.passkeyProvider == null,
+            )
+          : await PasskeyService.getMnemonicFor(
+              label: wallet.passkeyLabel,
+              provider: wallet.passkeyProvider,
+            );
     } catch (_) {}
     final stored = wallet.recoveryCheckAddress;
     var restored = mnemonic != null;
@@ -473,7 +500,7 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
   /// it was.
   Future<bool> _offerLegacyRescue() async {
     final rescue = widget.rescue ??
-        (defaultTargetPlatform == TargetPlatform.iOS
+        (PlatformOs.nativeTarget == TargetPlatform.iOS
             ? LegacyKeychainRescue()
             : null);
     if (rescue == null) return false;
@@ -497,8 +524,11 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
     setState(() {});
     try {
       final pending = await rescue.apply(scan, source: source);
-      final pinHash = await SecretStores.local.read(key: 'pin_hash');
-      if (pinHash is SecretPresent) _rescuedPendingPin.addAll(pending);
+      final web = WebVault.instance;
+      final hasHash = web != null
+          ? web.hasPinMaterial
+          : await SecretStores.local.read(key: 'pin_hash') is SecretPresent;
+      if (hasHash) _rescuedPendingPin.addAll(pending);
     } catch (_) {
       // Reported by the rescue; the rows below show what is readable now.
     }
@@ -522,65 +552,118 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final wallets = ref.watch(settingsProvider.select((s) => s.wallets));
+    if (kuteIsExpanded(context)) return _buildWide(wallets);
     return Scaffold(
       backgroundColor: c.background,
       body: SafeArea(
         child: ListView(
           padding: EdgeInsets.fromLTRB(20.w, 32.h, 20.w, 24.h),
           children: [
-            Text(
-              context.l10n.restoreSecretsTitle,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 26.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-                height: 1.1,
-              ),
-            ),
+            _title(),
             SizedBox(height: 10.h),
-            Text(
-              context.l10n.restoreSecretsBody,
-              style: TextStyle(
-                color: c.textSecondary,
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w500,
-                height: 1.35,
-              ),
-            ),
+            _body(),
             SizedBox(height: 24.h),
             for (final wallet in wallets) ...[
-              _RestoreWalletRow(
-                wallet: wallet,
-                state: _rows[wallet.id] ?? _RowState(),
-                onEnterPhrase: () => _enterPhrase(wallet),
-                onUseLegacyCopy: () => _useLegacyCopy(wallet),
-                onUsePasskey: () => _usePasskey(wallet),
-                onUsePhraseInstead: _addAsNewWallet,
-              ),
+              _walletRow(wallet),
               SizedBox(height: 12.h),
             ],
             if (widget.reason != RestoreSecretsReason.storageUnavailable) ...[
               SizedBox(height: 4.h),
-              AppTextButton(
-                key: const ValueKey('restore-start-fresh'),
-                text: context.l10n.restoreStartFresh,
-                textColor: c.error,
-                onPressed: _startFresh,
-              ),
+              _startFreshButton(),
             ],
             // THE BAR IS THE BUTTON (kute_bar_context.dart): Done is the
             // floating Sal bar's primary action; Start fresh sits above it.
-            KuteBarContextScope(
-              barContext: KuteBarContext.primary(
-                label: context.l10n.done,
-                onPrimary: _done,
-                source: 'restore_secrets',
-                disabledLabel: null,
-              ),
-              child: SizedBox(height: kuteBarScrollClearance.h),
-            ),
+            _donePrimary(SizedBox(height: kuteBarScrollClearance.h)),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _title() {
+    final c = context.colors;
+    return Text(
+      context.l10n.restoreSecretsTitle,
+      style: TextStyle(
+        color: c.textPrimary,
+        fontSize: 26.sp,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.5,
+        height: 1.1,
+      ),
+    );
+  }
+
+  Widget _body() {
+    final c = context.colors;
+    return Text(
+      context.l10n.restoreSecretsBody,
+      style: TextStyle(
+        color: c.textSecondary,
+        fontSize: 15.sp,
+        fontWeight: FontWeight.w500,
+        height: 1.35,
+      ),
+    );
+  }
+
+  Widget _walletRow(WalletConfig wallet) => _RestoreWalletRow(
+        wallet: wallet,
+        state: _rows[wallet.id] ?? _RowState(),
+        onEnterPhrase: () => _enterPhrase(wallet),
+        onUseLegacyCopy: () => _useLegacyCopy(wallet),
+        onUsePasskey: () => _usePasskey(wallet),
+        onUsePhraseInstead: _addAsNewWallet,
+      );
+
+  Widget _startFreshButton() => AppTextButton(
+        key: const ValueKey('restore-start-fresh'),
+        text: context.l10n.restoreStartFresh,
+        textColor: context.colors.error,
+        onPressed: _startFresh,
+      );
+
+  Widget _donePrimary(Widget child) => KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: context.l10n.done,
+          onPrimary: _done,
+          source: 'restore_secrets',
+          disabledLabel: null,
+        ),
+        child: child,
+      );
+
+  /// EXPANDED (round three): the title, the explanation and Start fresh in
+  /// a column on the left gutter, the wallets as a grid of their cards
+  /// across the rest of the window (seed_word_tile.dart, KuteSeedWidePage).
+  Widget _buildWide(List<WalletConfig> wallets) {
+    return Scaffold(
+      backgroundColor: context.colors.background,
+      body: SafeArea(
+        child: KuteSeedWidePage(
+          top: 32,
+          side: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _title(),
+              SizedBox(height: 10.h),
+              _body(),
+              if (widget.reason != RestoreSecretsReason.storageUnavailable) ...[
+                SizedBox(height: 16.h),
+                _startFreshButton(),
+              ],
+              _donePrimary(const SizedBox.shrink()),
+            ],
+          ),
+          main: KuteGrid(
+            minItemWidth: 300,
+            maxColumns: 3,
+            gap: 12,
+            rowGap: 12,
+            // The cards of a row as tall as the tallest.
+            equalHeight: true,
+            children: [for (final wallet in wallets) _walletRow(wallet)],
+          ),
         ),
       ),
     );

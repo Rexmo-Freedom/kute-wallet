@@ -56,6 +56,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -126,25 +127,52 @@ class PortfolioScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final section = ref.watch(portfolioSectionProvider);
+    final title = Text(
+      context.l10n.walletPortfolioAction,
+      style: TextStyle(
+        color: c.textPrimary,
+        fontSize: 20.sp,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.3,
+      ),
+    );
+    // EXPANDED (investments_portfolio.dart, WIDE): the back button on the
+    // page's left gutter (the top bar's), over the total's edge, the title
+    // beside it, the page across the window.
+    final PreferredSizeWidget appBar = KuteLayout.isExpanded(context)
+        ? PreferredSize(
+            preferredSize: const Size.fromHeight(kToolbarHeight),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                key: const ValueKey('portfolio-wide-header'),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
+                child: SizedBox(
+                  height: kToolbarHeight,
+                  child: Row(
+                    children: [
+                      const KuteBackButton(fallbackRoute: '/usd'),
+                      const SizedBox(width: 12),
+                      title,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          )
+        : AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            centerTitle: true,
+            leading: const KuteBackButton(fallbackRoute: '/usd'),
+            title: title,
+          );
     return Scaffold(
       backgroundColor: c.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        leading: const KuteBackButton(fallbackRoute: '/usd'),
-        title: Text(
-          context.l10n.walletPortfolioAction,
-          style: TextStyle(
-            color: c.textPrimary,
-            fontSize: 20.sp,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.3,
-          ),
-        ),
-      ),
+      appBar: appBar,
       body: Container(
         decoration: AppDecorations.screenGradient(context),
         child: SafeArea(

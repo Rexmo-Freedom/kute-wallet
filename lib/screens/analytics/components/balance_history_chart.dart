@@ -261,7 +261,7 @@ class _BalanceHistoryChartState extends ConsumerState<BalanceHistoryChart> {
       values: hasHistory ? values : const [],
       times: hasHistory ? times : null,
       goal: shownGoal,
-      height: kKuteTrendPlotHeight.h,
+      height: BalanceChartPlotHeight.of(context),
       onScrub: (p) => setState(() => _scrub = p),
       onScrubStart: () => TrackingService.analyticsChartScrubbed(
           chart: widget.trackingChart, view: 'line'),
@@ -297,4 +297,26 @@ double? balanceChartChange(List<double> values) {
   if (lo < hi * 0.1) return null;
   final percent = (to - base) / base * 100;
   return kutePercentDirection(percent) == 0 ? null : percent;
+}
+
+/// The balance chart's plot height under [child]: the Bitcoin home's
+/// right column on a laptop gives a taller plot on a tall window
+/// (bitcoin_home_panes.dart); elsewhere the plot is the phone's
+/// ([kKuteTrendPlotHeight]).
+class BalanceChartPlotHeight extends InheritedWidget {
+  const BalanceChartPlotHeight(
+      {super.key, required this.height, required super.child});
+
+  final double height;
+
+  /// The plot height [context] is under, else the phone's.
+  static double of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<BalanceChartPlotHeight>()
+          ?.height ??
+      kKuteTrendPlotHeight.h;
+
+  @override
+  bool updateShouldNotify(BalanceChartPlotHeight oldWidget) =>
+      height != oldWidget.height;
 }

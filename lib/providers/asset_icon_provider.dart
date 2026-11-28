@@ -11,6 +11,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/helpers/svg_class_styles.dart';
+import 'package:kute/platform/web_image.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/icon_cache/icon_disk_cache.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -187,7 +188,17 @@ class _NetworkIcon extends StatelessWidget {
       height: size,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(size / 2),
-        child: CachedNetworkImage(
+        // Web: the artwork hosts send no CORS headers, so the browser's
+        // <img> draws it (lib/platform/web_image.dart).
+        child: kIsWeb
+            ? WebNetworkImage(
+                url: url,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                error: _FallbackIcon(code: code, size: size),
+              )
+            : CachedNetworkImage(
           imageUrl: url,
           width: size,
           height: size,
@@ -230,6 +241,13 @@ class SafeSvgNetwork extends StatefulWidget {
   /// requested this session are skipped.
   static Future<void> prefetch(Iterable<String> urls) async {
     if (!IconCaches.prefetchEnabled) return;
+    if (kIsWeb) {
+      // The <img> loads the web draws with (no fetch: no CORS there).
+      await WebImageLoader.prefetch(
+          [for (final u in urls) if (_isSvgUrl(u) && _requested.add(u)) u],
+          concurrency: prefetchConcurrency);
+      return;
+    }
     await runBounded(
       [for (final u in urls) if (_isSvgUrl(u) && _requested.add(u)) u],
         prefetchConcurrency,
@@ -299,6 +317,8 @@ class _SafeSvgNetworkState extends State<SafeSvgNetwork> {
   }
 
   void _start() {
+    // Web draws through an <img> (see build); nothing is fetched here.
+    if (kIsWeb) return;
     final cached = _cache[widget.url];
     if (cached != null) {
       if (cached.isNotEmpty) _touch(widget.url);
@@ -453,6 +473,19 @@ class _SafeSvgNetworkState extends State<SafeSvgNetwork> {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      // The artwork hosts send no CORS headers, so the bytes cannot be
+      // read on web; the browser's <img> draws the SVG instead (and
+      // paints everything flutter_svg needed repairs for).
+      return WebNetworkImage(
+        url: widget.url,
+        width: widget.width,
+        height: widget.height,
+        fit: BoxFit.contain,
+        placeholder: widget.fallback,
+        error: widget.fallback,
+      );
+    }
     if (_loading) return widget.fallback;
     if (_hasError || _svgData == null) return widget.fallback;
     return SvgPicture.string(

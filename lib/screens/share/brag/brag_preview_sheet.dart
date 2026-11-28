@@ -48,6 +48,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:share_plus/share_plus.dart';
 
+import 'package:kute/platform/web_image.dart' show WebImagesOff;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_history.dart' show BalanceRange;
 import 'package:kute/models/portfolio_performance.dart'
@@ -57,8 +58,6 @@ import 'package:kute/providers/unified_search_provider.dart'
 import 'package:kute/screens/share/brag/brag_card.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
 import 'package:kute/screens/share/brag/pnl_share_card.dart';
-import 'package:kute/screens/share/cards/share_card_copy.dart'
-    show withGetKuteLine;
 import 'package:kute/screens/share/cards/share_card_frame.dart'
     show ShareCardSal, kShareCardRadius, kShareCardSize;
 import 'package:kute/screens/share/share_market_sheet.dart'
@@ -98,10 +97,9 @@ Future<void> showBragPnlPreviewSheet(BuildContext context,
     );
 
 /// The share text: "{title} on Kute {link}?ref={code}".
-String bragShareText(BuildContext context, BragData data) => withGetKuteLine(
-    context.l10n,
+String bragShareText(BuildContext context, BragData data) =>
     context.l10n.bragShareText(
-        data.title, shareLinkWithReferral(data.link, code: data.referralCode)));
+        data.title, shareLinkWithReferral(data.link, code: data.referralCode));
 
 class BragPreviewSheet extends ConsumerStatefulWidget {
   /// [data] null: the portfolio card, from the live providers; with
@@ -201,6 +199,7 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
       if (opened) {
         TrackingService.track('brag_shared', params: {
           'kind': data.kind.name,
+          'link_kind': 'web',
           'card': data is BragPnl
               ? 'pnl'
               : data is BragWin
@@ -263,15 +262,19 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
                 child: FittedBox(
                   child: RepaintBoundary(
                     key: _boundary,
-                    child: data is BragPnl
-                        ? PnlShareCard(
-                            data: data,
-                            mark: ShareCardSal.peek(),
-                            lineSeed: _lineSeed)
-                        : BragCard(
-                            data: data,
-                            mark: ShareCardSal.peek(),
-                            lineSeed: _lineSeed),
+                    // Captured with toImage, which cannot hold the web's
+                    // <img> views: on web the logos draw their stand-ins.
+                    child: WebImagesOff(
+                      child: data is BragPnl
+                          ? PnlShareCard(
+                              data: data,
+                              mark: ShareCardSal.peek(),
+                              lineSeed: _lineSeed)
+                          : BragCard(
+                              data: data,
+                              mark: ShareCardSal.peek(),
+                              lineSeed: _lineSeed),
+                    ),
                   ),
                 ),
               ),

@@ -34,6 +34,7 @@ import 'package:http/http.dart' as http;
 import 'package:kute/constants/hyperliquid_constants.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/services/hyperliquid/hl_twap_rules.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_signing.dart';
 import 'package:kute/services/security/address_guard.dart';
@@ -169,6 +170,16 @@ class HlOrderResult {
   final double avgPx;
   final String? error;
 
+  /// A scale order: how many of its [legsTotal] legs the venue took. Null
+  /// for every other order.
+  final int? legsPlaced;
+  final int? legsTotal;
+
+  /// A parent order whose attached take-profit / stop-loss leg the venue
+  /// refused while it took the parent: the position is open without it.
+  final bool takeProfitRejected;
+  final bool stopLossRejected;
+
   const HlOrderResult({
     required this.kind,
     this.oid,
@@ -176,12 +187,87 @@ class HlOrderResult {
     this.filledSz = 0,
     this.avgPx = 0,
     this.error,
+    this.legsPlaced,
+    this.legsTotal,
+    this.takeProfitRejected = false,
+    this.stopLossRejected = false,
   });
 
   bool get isFilled => kind == HlOrderResultKind.filled;
+
+  /// Some legs of a scale order were refused.
+  bool get legsMissing =>
+      legsPlaced != null && legsTotal != null && legsPlaced! < legsTotal!;
+}
+
+/// The legs of a scale order exactly as [HyperliquidExchangeService.
+/// placeScaleOrder] sends them: [count] prices evenly spread from [startPx]
+/// to [endPx] and [totalSize] split equally, both wire-rounded. The ticket
+/// reads the same legs to check each one against the venue minimum at its
+/// own price before Confirm.
+List<({String px, String sz})> hlScaleLegs({
+  required HlMarket market,
+  required double totalSize,
+  required double startPx,
+  required double endPx,
+  required int count,
+}) {
+  if (count < 2) return const [];
+  final legSize = roundSize(totalSize / count, market.szDecimals);
+  final step = (endPx - startPx) / (count - 1);
+  return [
+    for (var i = 0; i < count; i++)
+      (
+        px: roundPrice(startPx + step * i,
+            szDecimals: market.szDecimals, isSpot: market.isSpot),
+        sz: legSize,
+      ),
+  ];
+}
+
+/// The client order ids of a scale order's legs, derived from [base] (one
+/// [newHlCloid]) so every leg is found by its own id after a send with no
+/// answer: the base's last byte is the leg's index (scale tops out at 50).
+List<String> hlScaleLegCloids(String base, int count) {
+  final stem = base.substring(0, base.length - 2);
+  return [
+    for (var i = 0; i < count; i++)
+      '$stem${i.toRadixString(16).padLeft(2, '0')}',
+  ];
 }
 
 // ────────────────────────────── service ────────────────────────────────
+
+/// The venue's per-order answer to a batch cancel, by order id.
+class HlCancelReport {
+  const HlCancelReport({
+    required this.cancelled,
+    required this.gone,
+    required this.failed,
+  });
+
+  /// Cancelled by this action ("success").
+  final List<int> cancelled;
+
+  /// No longer resting when the cancel arrived: already cancelled, filled
+  /// or never placed. Not a failure, and not counted as cancelled here.
+  final List<int> gone;
+
+  /// Refused for any other reason: still resting as far as anyone knows.
+  final List<({int oid, String reason})> failed;
+
+  /// Off the book either way (prunable from local state).
+  Set<int> get done => {...cancelled, ...gone};
+}
+
+/// The cancel error the venue answers for an order that is no longer
+/// resting: "Order was never placed, already canceled, or filled."
+bool hlCancelErrorMeansGone(String reason) {
+  final r = reason.toLowerCase();
+  return r.contains('never placed') ||
+      r.contains('already canceled') ||
+      r.contains('already cancelled');
+}
 
 class HyperliquidExchangeService {
   HyperliquidExchangeService({
@@ -411,6 +497,8 @@ class HyperliquidExchangeService {
 
   /// Batch cancel — one signed L1 action for the whole list (the
   /// cancel action is natively a list; cancel-all costs one submit).
+  /// Strict: any status but success throws. Callers that can treat an
+  /// order already gone as done read [cancelOrdersReport] instead.
   Future<void> cancelOrders(List<({int assetId, int oid})> cancels) async {
     if (cancels.isEmpty) return;
     final expectedCount = cancels.length;
@@ -427,11 +515,22 @@ class HyperliquidExchangeService {
     _requireCancelSuccess(body, expectedCount: 1);
   }
 
+  /// The one door every leverage write takes, spending wallet and Ledger
+  /// alike. Leverage and cross margin are blocked in this app
+  /// ([kHlMaxOfferedLeverage], [kHlCrossMarginOffered]): anything else is
+  /// refused here, before it is signed, whatever a caller computed.
   Future<void> updateLeverage({
     required int assetId,
     required bool isCross,
     required int leverage,
   }) async {
+    if (leverage < 1 ||
+        leverage > kHlMaxOfferedLeverage ||
+        (isCross && !kHlCrossMarginOffered)) {
+      throw ArgumentError(
+          'Leverage is 1x isolated in this app (asked ${leverage}x'
+          '${isCross ? ' cross' : ''})');
+    }
     final body = await _submitL1Action(buildUpdateLeverageAction(
       assetId: assetId,
       isCross: isCross,
@@ -563,11 +662,15 @@ class HyperliquidExchangeService {
       ));
     }
 
+    // Which trigger each status after the parent's answers for.
+    final legKinds = <String>[];
     if (takeProfitPx != null && takeProfitPx > 0) {
       addTrigger(takeProfitPx, 'tp');
+      legKinds.add('tp');
     }
     if (stopLossPx != null && stopLossPx > 0) {
       addTrigger(stopLossPx, 'sl');
+      legKinds.add('sl');
     }
     final body = await _submitL1Action(buildOrderAction(
       orders: wires,
@@ -584,6 +687,14 @@ class HyperliquidExchangeService {
     final result = _orderResultFromBody(body, cloid: cloid);
     final childError = _firstStatusErrorAfter(body, index: 0);
     if (childError != null) {
+      final statuses = _statusesOf(body);
+      bool refused(String kind) {
+        final i = legKinds.indexOf(kind) + 1;
+        if (i <= 0 || i >= statuses.length) return false;
+        final st = statuses[i];
+        return st is Map<String, dynamic> && st['error'] != null;
+      }
+
       return HlOrderResult(
         kind: result.kind,
         oid: result.oid,
@@ -591,6 +702,8 @@ class HyperliquidExchangeService {
         filledSz: result.filledSz,
         avgPx: result.avgPx,
         error: 'TP/SL was not placed: $childError',
+        takeProfitRejected: refused('tp'),
+        stopLossRejected: refused('sl'),
       );
     }
     return result;
@@ -606,21 +719,29 @@ class HyperliquidExchangeService {
     required double endPx,
     required int count,
     bool reduceOnly = false,
+    List<String>? legCloids,
     HlBuilderFee? builder,
   }) async {
     if (count < 2) throw ArgumentError('scale order needs >= 2 legs');
-    final legSize = totalSize / count;
-    final step = (endPx - startPx) / (count - 1);
+    if (legCloids != null && legCloids.length != count) {
+      throw ArgumentError('one cloid per scale leg');
+    }
+    final legs = hlScaleLegs(
+        market: market,
+        totalSize: totalSize,
+        startPx: startPx,
+        endPx: endPx,
+        count: count);
     final orders = <HlOrderWire>[
-      for (var i = 0; i < count; i++)
+      for (var i = 0; i < legs.length; i++)
         HlOrderWire(
           assetId: market.assetId,
           isBuy: isBuy,
-          px: roundPrice(startPx + step * i,
-              szDecimals: market.szDecimals, isSpot: market.isSpot),
-          sz: roundSize(legSize, market.szDecimals),
+          px: legs[i].px,
+          sz: legs[i].sz,
           reduceOnly: reduceOnly,
           orderType: limitOrderType('Gtc'),
+          cloid: legCloids?[i],
         ),
     ];
     final body = await _submitL1Action(
@@ -631,38 +752,64 @@ class HyperliquidExchangeService {
     // NOTHING placed, and report "n of m" with the first error when
     // only some did.
     final statuses = _statusesOf(body);
+    if (statuses.isEmpty) {
+      throw HyperliquidApiException(statusCode: 200, body: jsonEncode(body));
+    }
     var placed = 0;
     String? firstError;
+    int? oid;
+    String? cloid;
+    var filledSz = 0.0;
+    var filledNotional = 0.0;
     for (final st in statuses) {
-      if (st is Map<String, dynamic> && st['error'] != null) {
+      if (st is! Map<String, dynamic>) continue;
+      if (st['error'] != null) {
         firstError ??= st['error'].toString();
-      } else {
+        continue;
+      }
+      final resting = st['resting'];
+      final filled = st['filled'];
+      if (resting is Map<String, dynamic>) {
         placed++;
+        oid ??= _toIntOrNull(resting['oid']);
+        cloid ??= resting['cloid'] as String?;
+      } else if (filled is Map<String, dynamic>) {
+        placed++;
+        oid ??= _toIntOrNull(filled['oid']);
+        cloid ??= filled['cloid'] as String?;
+        final sz = double.tryParse('${filled['totalSz']}') ?? 0;
+        final px = double.tryParse('${filled['avgPx']}') ?? 0;
+        filledSz += sz;
+        filledNotional += sz * px;
       }
     }
-    if (placed == 0 && firstError != null) {
-      throw _rejectionFromReason(firstError);
+    if (placed == 0) {
+      if (firstError != null) throw _rejectionFromReason(firstError);
+      throw HyperliquidApiException(statusCode: 200, body: jsonEncode(body));
     }
-    final result = _orderResultFromBody(body, cloid: null);
-    if (firstError != null) {
-      return HlOrderResult(
-        kind: result.kind,
-        oid: result.oid,
-        cloid: result.cloid,
-        filledSz: result.filledSz,
-        avgPx: result.avgPx,
-        error: 'Only $placed of ${orders.length} legs placed. $firstError',
-      );
-    }
-    return result;
+    return HlOrderResult(
+      kind: filledSz > 0 ? HlOrderResultKind.filled : HlOrderResultKind.resting,
+      oid: oid,
+      cloid: cloid ?? legCloids?.first,
+      filledSz: filledSz,
+      avgPx: filledSz > 0 ? filledNotional / filledSz : 0,
+      error: firstError == null
+          ? null
+          : 'Only $placed of ${orders.length} legs placed. $firstError',
+      legsPlaced: placed,
+      legsTotal: orders.length,
+    );
   }
 
-  /// The exchange's documented TWAP bounds. These are SERVER rules, not
-  /// preferences: a shorter/cheaper TWAP passes any looser local check
-  /// and then rejects server-side with a raw error.
-  static const int minTwapMinutes = 5;
-  static const int maxTwapMinutes = 7 * 24 * 60; // 7 days
-  static const double minTwapNotionalUsd = 100;
+  static int? _toIntOrNull(Object? v) =>
+      v is int ? v : (v is num ? v.toInt() : int.tryParse('$v'));
+
+  /// The exchange's documented TWAP bounds ([HlTwapRules]). These are
+  /// SERVER rules, not preferences: a shorter/cheaper TWAP passes any
+  /// looser local check and then rejects server-side with a raw error.
+  static const int minTwapMinutes = HlTwapRules.minMinutes;
+  static const int maxTwapMinutes = HlTwapRules.maxMinutes;
+  static const double minTwapNotionalUsd = HlTwapRules.minNotionalUsd;
 
   /// A TWAP order — the exchange slices [size] into sub-orders spread over
   /// [durationMinutes] and works them itself. Signed as an L1 action via
@@ -724,6 +871,7 @@ class HyperliquidExchangeService {
     required double referencePrice,
     bool reduceOnly = false,
     void Function()? beforeSend,
+    TrailingStopLookup? lookup,
   }) async {
     trail.validate(
       market: market,
@@ -746,6 +894,7 @@ class HyperliquidExchangeService {
     return TrailingStopGuard().run(
       address: walletAddress,
       assetId: market.assetId,
+      lookup: lookup,
       send: (persist, markStarted) async {
         final body = await _submitL1Action(
           action,
@@ -1320,6 +1469,62 @@ class HyperliquidExchangeService {
     final twapId = running is Map<String, dynamic> ? running['twapId'] : null;
     if (twapId is! int || twapId <= 0) throw unknown;
     return HlOrderResult(kind: HlOrderResultKind.resting, oid: twapId);
+  }
+
+  /// The cancel acknowledgement read per order ([cancelOrdersReport]).
+  /// The shape is checked exactly as [_requireCancelSuccess] checks it: an
+  /// envelope that is not one known status per requested order throws.
+  static HlCancelReport cancelReportFromBody(Map<String, dynamic> body,
+      List<({int assetId, int oid})> cancels) {
+    final response = body['response'];
+    final data = (response is Map<String, dynamic>) ? response['data'] : null;
+    final statuses = (data is Map<String, dynamic>) ? data['statuses'] : null;
+    const unknown = HyperliquidApiException(
+        statusCode: 200, body: 'Unconfirmed cancellation acknowledgement');
+    if (body['status'] != 'ok' ||
+        response is! Map<String, dynamic> ||
+        response['type'] != 'cancel' ||
+        statuses is! List ||
+        cancels.isEmpty ||
+        statuses.length != cancels.length) {
+      throw unknown;
+    }
+    final cancelled = <int>[];
+    final gone = <int>[];
+    final failed = <({int oid, String reason})>[];
+    for (var i = 0; i < statuses.length; i++) {
+      final status = statuses[i];
+      final oid = cancels[i].oid;
+      if (status == 'success') {
+        cancelled.add(oid);
+        continue;
+      }
+      if (status is! Map<String, dynamic> ||
+          status.length != 1 ||
+          status['error'] is! String ||
+          (status['error'] as String).isEmpty) {
+        throw unknown;
+      }
+      final reason = status['error'] as String;
+      if (hlCancelErrorMeansGone(reason)) {
+        gone.add(oid);
+      } else {
+        failed.add((oid: oid, reason: reason));
+      }
+    }
+    return HlCancelReport(cancelled: cancelled, gone: gone, failed: failed);
+  }
+
+  /// Batch cancel read per order: what the venue cancelled, what was no
+  /// longer resting (already cancelled, filled or never placed) and what
+  /// it refused. Throws only when the acknowledgement itself is unclear.
+  Future<HlCancelReport> cancelOrdersReport(
+      List<({int assetId, int oid})> cancels) async {
+    if (cancels.isEmpty) {
+      return const HlCancelReport(cancelled: [], gone: [], failed: []);
+    }
+    final body = await _submitL1Action(buildCancelAction(cancels));
+    return cancelReportFromBody(body, cancels);
   }
 
   /// A cancellation is confirmed only by one exact success per requested

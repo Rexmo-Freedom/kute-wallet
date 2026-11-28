@@ -68,6 +68,7 @@ import '../../helpers/ink_contrast.dart';
 import '../../helpers/render_png.dart';
 import '../../helpers/shell_bar_harness.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/hl_flat_positions.dart';
 
 /// The Dollars door: what is added, then the order placed right after it
 /// ("Add \$X · \$Y on Yes", "Add \$X · Long \$Y").
@@ -268,6 +269,7 @@ Future<void> _pumpSlip(WidgetTester tester,
   installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
+      hlFlatPositionsOverride,
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
             currency: 'USD',
             language: 'en',

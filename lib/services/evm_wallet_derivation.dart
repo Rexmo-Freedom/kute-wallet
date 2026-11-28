@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:crypto/crypto.dart' show sha256;
 import 'dart:convert';
 import 'dart:isolate';
@@ -133,14 +133,21 @@ abstract final class EvmWalletDerivation {
         _inFlight.remove(key);
       });
 
+  /// [Isolate.run] off the UI isolate. A browser has no background
+  /// isolates (dart:isolate's spawn throws UnsupportedError there), so on
+  /// the web the same pure derivation runs on the page's thread, after the
+  /// caller's frame: a short pause in place of an error.
+  static Future<R> _offThread<R>(R Function() work) =>
+      kIsWeb ? Future(work) : Isolate.run(work);
+
   // The closures below capture only their parameters, so nothing else
   // from the caller is copied into the background isolate.
   static Future<WalletCredentials> _spawn(
           String mnemonic, EvmDerivationVersion version, int index) =>
-      Isolate.run(() => _compute(mnemonic, version, index));
+      _offThread(() => _compute(mnemonic, version, index));
 
   static Future<({WalletCredentials legacy, WalletCredentials standard})>
-      _spawnBoth(String mnemonic) => Isolate.run(
+      _spawnBoth(String mnemonic) => _offThread(
           () => (
                 legacy: _compute(
                     mnemonic, EvmDerivationVersion.legacySha256, 0),

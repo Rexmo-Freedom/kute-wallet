@@ -1,13 +1,30 @@
+import 'package:kute/platform/web_image.dart' show WebImagesOn;
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/usd/components/dollars_activity_tab.dart'
+    show DollarsActivityTab;
+import 'package:kute/screens/shared/kute_side_panel.dart';
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show HlPositionRow, HlSpotRow, PortfolioCardList;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart'
     show kKuteMarketChartHeight;
-import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show KuteStillWhenCovered, kuteReduceMotion, kuteMotion, kArrivalDuration;
+import 'package:kute/screens/shared/kute_detail_panes.dart'
+    show kuteDetailPaneWidth;
+import 'package:kute/screens/shared/kute_desk_market.dart'
+    show KuteWheelRelay, kuteMarketFormFactor;
+import 'package:kute/screens/shared/kute_desk_trade_buttons.dart';
+import 'package:kute/screens/shared/position_rows_card.dart'
+    show PositionStatTile, PositionStatTiles, positionTileValueStyle;
+import 'package:kute/theme/kute_motion.dart' show KuteMotion;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart';
@@ -20,7 +37,20 @@ import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/hyperliquid/components/open_orders_sheet.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
+import 'package:kute/helpers/hyperliquid_error_message.dart'
+    show hlTradeErrorMessage;
+import 'package:kute/services/hyperliquid/hl_trigger_guard.dart'
+    show HlTriggerCrossedException;
+import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
+    show HyperliquidOrderNotPlacedException, HyperliquidOrderUnconfirmedException;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show advancedTradingOffered;
+import 'package:kute/screens/hyperliquid/components/hl_protect_rules.dart';
+import 'package:kute/screens/hyperliquid/components/hl_protection_rows.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
@@ -67,6 +97,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RendererBinding;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -144,12 +175,23 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
   /// ordinary page.
   final SendPickSession? sendPick;
 
+  /// THE DESK (EXPANDED): the page opens with the order ticket already in
+  /// its side panel on this side (true Long / Buy, false Short / Sell),
+  /// [initialUsd] typed in, counted as a ticket opened from [slipSource]
+  /// (Sal's prefill, a claimed pick). Null: the page at rest.
+  final bool? initialSide;
+  final double? initialUsd;
+  final String? slipSource;
+
   const HlMarketDetailSheet(
       {super.key,
       required this.market,
       this.ledgerWalletId,
       this.source = 'market_list',
-      this.sendPick});
+      this.sendPick,
+      this.initialSide,
+      this.initialUsd,
+      this.slipSource});
 
   static const routeName = 'hyperliquid-market-detail-sheet';
 
@@ -157,16 +199,23 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
       {required HlMarket market,
       String? ledgerWalletId,
       String source = 'market_list',
-      SendPickSession? sendPick}) {
+      SendPickSession? sendPick,
+      bool? initialSide,
+      double? initialUsd,
+      String? slipSource}) {
     VenueAnalytics.rememberHlMarkets([market]);
-    TrackingService.hyperliquidMarketViewed(
-      coin: market.coin,
-      kind: market.isSpot ? 'spot' : 'perp',
-      extra: {
-        'entry_source': source,
-        'wallet_kind': ledgerWalletId == null ? 'hot' : 'ledger',
-      },
-    );
+    // A ticket opened on the desk's page (Sal's prefill, a claimed pick)
+    // counts as the ticket it was, not as a market viewed.
+    if (slipSource == null) {
+      TrackingService.hyperliquidMarketViewed(
+        coin: market.coin,
+        kind: market.isSpot ? 'spot' : 'perp',
+        extra: {
+          'entry_source': source,
+          'wallet_kind': ledgerWalletId == null ? 'hot' : 'ledger',
+        },
+      );
+    }
     // Drop active focus (search field) so closing the sheet doesn't
     // re-summon the keyboard — same fix as the PM detail sheet.
     FocusManager.instance.primaryFocus?.unfocus();
@@ -176,6 +225,8 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
       KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
         barrierColor: Colors.black.withValues(alpha: 0.4),
+        // Two panes of its own on a wide window.
+        form: false,
         // Still while the order slip (or any sheet) covers it, so its tick
         // animations never share the frames of the slip being scrolled.
         builder: (_) => KuteStillWhenCovered(
@@ -183,7 +234,10 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
               market: market,
               ledgerWalletId: ledgerWalletId,
               source: source,
-              sendPick: ledgerWalletId == null ? sendPick : null),
+              sendPick: ledgerWalletId == null ? sendPick : null,
+              initialSide: initialSide,
+              initialUsd: initialUsd,
+              slipSource: slipSource),
         ),
       ),
     );
@@ -255,7 +309,8 @@ HlMarket hlSheetMarket(WidgetRef ref, HlMarket row) {
   return hlMarketWithLiveCtx(live, ctx);
 }
 
-class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
+class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
+    with SingleTickerProviderStateMixin {
   /// Consolidated "Details" expander gates the dense secondary sections
   /// (stats strip, funding line, stock disclaimer, order book). Closed by
   /// default so the primary view stays focused on the header + chart +
@@ -278,9 +333,131 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   /// the shell's Trading-tab pause must not freeze the header price.
   HlLivePricesNotifier? _livePrices;
 
+  // ── THE DESK'S SIDE PANEL (EXPANDED; founder, 25 November 2026: "have
+  // a button like Long and Short ... Then clicking Long or Short this
+  // side bar appears") ──────────────────────────────────────────────────
+  //
+  // At rest the page is the position page's shape: the market on the
+  // left, a right column of the trade buttons, the Stats as squares and
+  // the option cards. Long or Short opens the order ticket as the side
+  // panel at the window's right edge, top to bottom, on that side; it
+  // takes the column's place and the market reflows to the rest of the
+  // window. Its X, Escape and the browser's back close it. The Advanced
+  // chart editor does the same from the Long and Short in its header,
+  // closed by default.
+
+  /// The side the panel is open on (true Long / Buy), null while closed.
+  bool? _panelSide;
+
+  /// The side it last opened on, drawn while it slides away.
+  bool _panelShownSide = true;
+
+  /// The amount the panel's ticket opens with (an entry's prefill).
+  double? _panelUsd;
+
+  /// Where the panel's ticket was opened from (analytics: the slip's
+  /// source).
+  String _panelSource = 'market_detail';
+
+  /// 0 at rest, 1 open, on the settle easing.
+  late final AnimationController _panel = AnimationController(
+      vsync: this, duration: KuteMotion.settleDuration);
+  late final CurvedAnimation _panelCurve = CurvedAnimation(
+      parent: _panel, curve: KuteMotion.settle, reverseCurve: KuteMotion.settle);
+
+  /// The right column's top, on the price's line: the header's height
+  /// (measured) plus the price block's top gutter.
+  final GlobalKey _deskHeaderKey = GlobalKey();
+
+  /// The page's left side on a laptop, whose scroll the wheel over the
+  /// right column turns.
+  final GlobalKey _deskLeftKey = GlobalKey();
+  double _deskHeaderHeight = 48;
+
+  /// Opens the panel on [isLong] (a second click on the side it is open
+  /// on does nothing; the other side opens a ticket on it). Counted as the
+  /// trade row's tap and the ticket's opening are on a phone.
+  void _openPanel(bool isLong) {
+    final m = market;
+    TrackingService.track('hl_invest_cta_tapped', params: {
+      'source': 'market_detail',
+      'kind': m.isSpot ? 'spot' : 'perp',
+      'side': isLong ? 'buy' : 'sell',
+      'signer': 'hot',
+    });
+    if (_panelSide == isLong) return;
+    HlOrderSlipSheet.trackOpened(
+        market: m,
+        isLong: isLong,
+        source: 'market_detail',
+        entrySource: widget.source);
+    setState(() {
+      _panelSource = 'market_detail';
+      _panelUsd = null;
+      _panelSide = isLong;
+      _panelShownSide = isLong;
+      _ticketGeneration++;
+    });
+    unawaited(_panel.forward());
+  }
+
+  /// Closes the panel back to the page at rest ([instant]: no slide).
+  void _closePanel({bool instant = false}) {
+    if (_panelSide == null) return;
+    setState(() => _panelSide = null);
+    if (instant) {
+      _panel.value = 0;
+    } else {
+      unawaited(_panel.reverse());
+    }
+  }
+
+  /// Escape closes the panel (the editor's own Escape first: a tool in
+  /// hand, a drawing selected; a field typing keeps its keys).
+  bool _onDeskKey(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape) {
+      return false;
+    }
+    if (!mounted || _panelSide == null) return false;
+    if (ModalRoute.of(context)?.isCurrent != true) return false;
+    // A focused text field keeps its own keys. The focus node's context is
+    // the field's inner Focus, never the EditableText itself, so the field
+    // is found above it (as the shell bar and the keypad look for it).
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
+    if (_advancedChart && HlCandleChart.editorBusy(_chartHostKey)) {
+      return false;
+    }
+    _closePanel();
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_onDeskKey);
+    final side = widget.initialSide;
+    if (side != null &&
+        widget.ledgerWalletId == null &&
+        widget.sendPick == null) {
+      // Opened with a side chosen: the panel is up from the first frame,
+      // counted as the ticket it is.
+      _panelSide = side;
+      _panelShownSide = side;
+      _panelUsd = widget.initialUsd;
+      _panelSource = widget.slipSource ?? 'market_detail';
+      _panel.value = 1;
+      HlOrderSlipSheet.trackOpened(
+          market: widget.market,
+          isLong: side,
+          source: _panelSource,
+          entrySource: widget.source);
+    }
     // acquire() BEFORE watchCoins so the coin subscribes on the revived
     // socket even when the shell already paused the feed.
     _livePrices = ref.read(hyperliquidLivePricesProvider.notifier);
@@ -303,6 +480,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onDeskKey);
+    _panelCurve.dispose();
+    _panel.dispose();
     _livePrices?.unfocus(widget.market.coin);
     _livePrices?.release();
     _livePrices = null;
@@ -367,18 +547,54 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       searchHint: context.l10n.searchInvestmentsHint,
       source: 'trading',
     );
-    return Scaffold(
-      backgroundColor: context.isDark ? c.gradientBottom : c.background,
-      body: Container(
-        decoration: AppDecorations.screenGradient(context),
-        child: PlatformSafeArea(
-          child: Column(
-            children: [
+    // WIDE LAYOUTS (kute_layout.dart). EXPANDED: two panes, the market on
+    // the left (title, price, the chart taller, About's stats beside the
+    // order book) and the order ticket open in place on the right with the
+    // position under it; the floating trade row is away, the ticket's own
+    // button is in the pane. A Ledger page or a page in send mode keeps
+    // the trade row and stays one centred column, as on MEDIUM. COMPACT:
+    // exactly as before.
+    // A browser too narrow for the desk keeps the MEDIUM page.
+    final formFactor = kuteMarketFormFactor(context);
+    // THE DESK (kute_side_panel.dart): on EXPANDED the hot account's page
+    // is the whole window, the market on the left and the ticket as the
+    // side panel at the window's right edge; the Advanced chart editor
+    // keeps the same panel (foldable from its header).
+    final desk = formFactor == KuteFormFactor.expanded &&
+        widget.ledgerWalletId == null &&
+        widget.sendPick == null;
+    final inPlace = desk && !_advancedChart;
+    // THE WEB'S DESK (founder, 27 November 2026: the venue's screen
+    // design, "not super technical, just screen design and positions"):
+    // the figures in the header strip with the price, Advanced chart left
+    // of the star, the chart, the account's positions under it, the
+    // description last, and the trade buttons and this market's position
+    // in the right column: no order book, no recent trades. The native
+    // desk (an iPad) is as it was.
+    final deskWeb = inPlace && KuteBarPane.webLayout;
+    // THE DESK at rest: the live book in the right column, the Stats and
+    // the recent trades under the chart (founder, 25 November 2026).
+    final deskBook = inPlace && _deskBookShown(m);
+    _panel.duration =
+        kuteReduceMotion(context) ? Duration.zero : KuteMotion.settleDuration;
+    if (inPlace) {
+      // The right column starts on the price's line, under the header.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final box =
+            _deskHeaderKey.currentContext?.findRenderObject() as RenderBox?;
+        if (!mounted || box == null || !box.hasSize) return;
+        if ((box.size.height - _deskHeaderHeight).abs() > 0.5) {
+          setState(() => _deskHeaderHeight = box.size.height);
+        }
+      });
+    }
+    final pageChildren = <Widget>[
               // ── Header ────────────────────────────────────────────
               // Edit mode hides it: the chart's own slim top bar names
               // the market there, and Done brings the header back.
               if (!_advancedChart)
                 Padding(
+                  key: inPlace ? _deskHeaderKey : null,
                   padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
                   child: Row(
                     children: [
@@ -386,15 +602,25 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         onPressed: () => Navigator.of(context).maybePop(),
                       ),
                       SizedBox(width: 8.w),
-                      HlCoinIcon(
-                        coin: m.coin,
-                        wireCoin: m.wireCoin,
-                        category: m.category,
-                        iconUrl: m.iconUrl,
-                        size: 32,
-                      ),
-                      SizedBox(width: 8.w),
-                      Expanded(
+                      // Web: the one remote logo drawn as an `<img>`, the
+                      // opened market's own (web_image.dart, WebImagesOn);
+                      // none to draw, no box and no gap (hlLogoShown).
+                      if (hlLogoShown(
+                          m.coin, m.wireCoin, m.iconUrl, m.category)) ...[
+                        WebImagesOn(
+                          child: HlCoinIcon(
+                            coin: m.coin,
+                            wireCoin: m.wireCoin,
+                            category: m.category,
+                            iconUrl: m.iconUrl,
+                            size: 32,
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                      ],
+                      Flexible(
+                        flex: deskWeb ? 0 : 1,
+                        fit: deskWeb ? FlexFit.loose : FlexFit.tight,
                         // The ticker alone: the kind (Own / Leveraged) is
                         // the Instrument row under Stats, so the header
                         // keeps its room for the title. Smaller rather
@@ -411,6 +637,15 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           ),
                         ),
                       ),
+                      if (deskWeb) ...[
+                        const SizedBox(width: 20),
+                        _deskWebPrice(m, price, pricesLive),
+                        const SizedBox(width: 24),
+                        Expanded(child: _deskWebStats(m)),
+                        // No Advanced chart button: the chart below IS
+                        // the advanced chart (founder, 27 November 2026).
+                        const SizedBox(width: 16),
+                      ],
                       // The watchlist star. Send to a friend is the round
                       // Sal button at the end of the bar's trade row.
                       HlWatchStar(market: m, size: 22, source: 'detail'),
@@ -432,11 +667,11 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
               // Revolut: the live price over its change today. The chart
               // under it writes no price of its own (its scrub card names
               // a scrubbed bar).
-              if (!_advancedChart)
+              if (!_advancedChart && !deskWeb)
                 Container(
                   alignment: Alignment.centerLeft,
                   padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-                  child: Column(
+                  child: _withAdvancedPill(inPlace, Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Smaller rather than cut on a long price. The
@@ -498,7 +733,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         ],
                       ),
                     ],
-                  ),
+                  )),
                 ),
 
               // ── Body ──────────────────────────────────────────────
@@ -526,13 +761,36 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           fillHeight: true,
                           showSignals: true,
                           ledgerWalletId: widget.ledgerWalletId,
-                          onAdvancedChanged: (on) =>
-                              setState(() => _advancedChart = on),
+                          onAdvancedChanged: _onAdvancedChanged,
+                          deskPanelOpen: desk ? _panelSide != null : null,
+                          // THE DESK: the editor's own Long and Short, at
+                          // its header's right, opening the side panel.
+                          deskTradeButtons: desk
+                              ? KuteDeskTradeButtons(
+                                  key: const ValueKey('hl-editor-trades'),
+                                  compact: true,
+                                  trades: _deskTrades(m, spotHeld))
+                              : null,
                         ),
                       ),
                     );
                   }
-                  const chartHeight = kKuteMarketChartHeight;
+                  // In place (EXPANDED) the chart is the hero: the
+                  // window's height less the header's and the interval
+                  // row's room, at least 420 (founder, 25 November 2026:
+                  // "this page make it use the full screen").
+                  // On MEDIUM (a tall portrait tablet) it takes 40% of
+                  // the height, never less than the phone's.
+                  final windowHeight = MediaQuery.sizeOf(context).height;
+                  // The plot: the window less the header and the price
+                  // over it, the pressure strip and interval row under it
+                  // and the bottom gutter (the position page's own rule).
+                  final chartHeight = inPlace
+                      ? kuteDeskChartHeight(windowHeight, around: 230)
+                      : formFactor == KuteFormFactor.compact
+                          ? kKuteMarketChartHeight
+                          : math.max(kKuteMarketChartHeight,
+                              windowHeight * 0.4);
                   return SingleChildScrollView(
                     // Drawing on the chart must not scroll the sheet, so
                     // Advanced mode pins the body until it is switched off.
@@ -550,11 +808,34 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         // the screen's foot (the inset as seen below
                         // PlatformSafeArea: none on Android, which padded
                         // it already).
-                        kuteBarScrollClearance.h +
+                        (inPlace
+                                ? KuteLayout.paneGap
+                                : kuteBarScrollClearance.h) +
                             MediaQuery.viewPaddingOf(context).bottom),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // The web's desk: the advanced chart in place
+                        // (founder, 27 November 2026: "implement all the
+                        // tools directly on desktop"): its toolbar (the
+                        // intervals, the chart type by name, Indicators),
+                        // the drawing rail at the left, the plot.
+                        if (deskWeb)
+                          SizedBox(
+                            key: const ValueKey('hl-desk-advanced-chart'),
+                            height: chartHeight + 72,
+                            child: HlCandleChart(
+                              key: _chartHostKey,
+                              market: m,
+                              height: chartHeight,
+                              fillHeight: true,
+                              showSignals: true,
+                              showSummary: false,
+                              ledgerWalletId: widget.ledgerWalletId,
+                              inlineEditor: true,
+                            ),
+                          )
+                        else
                         // The market chart's plot (see chartHeight above);
                         // Advanced mode expands it (animated inside the
                         // chart).
@@ -566,8 +847,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           // No change / LIVE row under the pills here.
                           showSummary: false,
                           ledgerWalletId: widget.ledgerWalletId,
-                          onAdvancedChanged: (on) =>
-                              setState(() => _advancedChart = on),
+                          onAdvancedChanged: _onAdvancedChanged,
                         ),
                         SizedBox(height: 20.h),
                         // No "Your investment" card here (founder,
@@ -584,18 +864,38 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         // (The "Why is it moving?" row is gone: that
                         // question is the first Ask Sal chip in the bar's
                         // Sal sheet; founder, 31 October 2026.)
-                        if (!_advancedChart)
+                        // In place (EXPANDED) About is on the page: its
+                        // stats and long-form details beside the order book
+                        // and the recent trades, the Advanced chart card
+                        // over them.
+                        if (deskWeb) ...[
+                          // What the market is (the positions are in the
+                          // right column, under the order form).
+                          _HlAboutContent(
+                            market: widget.market,
+                            isStock: isStock,
+                            position: position,
+                            wide: true,
+                            showStats: false,
+                            infoOnly: true,
+                          ),
+                        ] else if (inPlace)
+                          // The book in the right column: the Stats and
+                          // the recent trades here. No book: the Stats are
+                          // the column's squares.
+                          _HlAboutContent(
+                            market: widget.market,
+                            isStock: isStock,
+                            position: position,
+                            wide: true,
+                            showStats: false,
+                            bookInColumn: deskBook,
+                          )
+                        else if (!_advancedChart)
                           KuteActionCardGrid(
                             key: const ValueKey('hl-market-options'),
                             cards: [
-                              KuteActionCard.option(
-                                key: const ValueKey('hl-advanced-chart'),
-                                icon: Icons.candlestick_chart_rounded,
-                                title: context.l10n.hlAdvancedChart,
-                                subtitle: context.l10n.optionAdvancedChartSub,
-                                onTap: () =>
-                                    HlCandleChart.openAdvanced(_chartHostKey),
-                              ),
+                              _advancedCard(),
                               _aboutCard(m, isStock, position),
                             ],
                           ),
@@ -617,13 +917,476 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
               // gate on tap and explains when investing is unavailable.
               // The chart editor takes them away (its hidden context
               // above) and Done brings them back.
+              // In place (EXPANDED) the ticket in the right pane does the
+              // trade row's job: the bar is away.
+              // THE DESK at rest: the trade buttons head the right
+              // column, so the bar keeps only the round Sal button, under
+              // that column (KuteBarPane); with the panel open its ticket
+              // holds the button and the bar is away.
               KuteBarContextScope(
                 active: !_advancedChart,
-                barContext: _tradeBar(m, spotHeld, bar),
+                // The web's desk: the column's ticket holds the primary
+                // and the round Sal button; the bar is away.
+                barContext: deskWeb
+                    ? const KuteBarContext.hidden()
+                    : inPlace
+                    ? (_panelSide == null
+                        ? KuteBarContext.trade(
+                            trades: const [],
+                            share: KuteBarShare(barContext: bar),
+                            category: SearchCategory.perpetuals,
+                            searchHint: context.l10n.searchInvestmentsHint,
+                            source: 'trading',
+                          )
+                        : const KuteBarContext.hidden())
+                    : _tradeBar(m, spotHeld, bar),
                 child: const SizedBox.shrink(),
               ),
-            ],
+    ];
+    final column = Column(children: pageChildren);
+    final Widget page = switch (formFactor) {
+      KuteFormFactor.compact => column,
+      // The desk: the market from the window's left edge (its own 16 /
+      // 20 gutters plus 4: the page's [kuteDeskGutter]), uncapped, and the
+      // ticket as the side panel at the right edge, top to bottom. The
+      // editor keeps the same panel in the same place (the same ticket,
+      // so what is typed survives the switch), its chart to the edge.
+      _ when desk => _desk(
+          column: column,
+          editing: _advancedChart,
+          rightColumn: deskWeb
+              ? _deskWebColumn(m, position, spotHeld, bar)
+              : inPlace
+              ? _deskColumn(m, position, spotHeld,
+                  bookShown: deskBook, statsShown: true)
+              : null,
+          panel: () => _ticketPane(m, position, spotHeld, bar),
+        ),
+      // MEDIUM (and a Ledger or send-mode page on EXPANDED): one centred
+      // column; the chart editor takes the page's width.
+      _ => Center(
+          child: ConstrainedBox(
+            // The Advanced chart on EXPANDED takes the whole window.
+            constraints: BoxConstraints(
+                maxWidth: _advancedChart
+                    ? (formFactor == KuteFormFactor.expanded
+                        ? double.infinity
+                        : KuteLayout.pageMaxWidth)
+                    : KuteLayout.columnMaxWidth),
+            child: column,
           ),
+        ),
+    };
+    return PopScope(
+      // The browser's back (and the header's) closes the desk's side
+      // panel first.
+      canPop: _panelSide == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _panelSide != null) _closePanel();
+      },
+      child: Scaffold(
+        backgroundColor: context.isDark ? c.gradientBottom : c.background,
+        body: Container(
+          decoration: AppDecorations.screenGradient(context),
+          child: PlatformSafeArea(child: page),
+        ),
+      ),
+    );
+  }
+
+  /// The chart's editor opened or closed: the desk's panel is closed by
+  /// default inside it, and leaving it returns the page as it was.
+  void _onAdvancedChanged(bool on) {
+    _closePanel(instant: true);
+    setState(() => _advancedChart = on);
+  }
+
+  /// THE DESK's trade doors (kute_desk_trade_buttons.dart): Long | Short
+  /// on a perp, Buy | Sell on a spot token (Sell where one is held, as the
+  /// phone's row offers it), in the up and down colours.
+  List<KuteBarTrade> _deskTrades(HlMarket m, double spotHeld) {
+    final l10n = context.l10n;
+    return [
+      KuteBarTrade(
+        id: m.isSpot ? 'buy' : 'long',
+        label: m.isSpot ? l10n.buy : l10n.longLabel,
+        fill: AppColors.marketUp,
+        onTap: () => _openPanel(true),
+      ),
+      if (!m.isSpot || spotHeld > 0)
+        KuteBarTrade(
+          id: m.isSpot ? 'sell' : 'short',
+          label: m.isSpot ? l10n.sell : l10n.shortLabel,
+          fill: AppColors.marketDown,
+          onTap: () => _openPanel(false),
+        ),
+    ];
+  }
+
+  /// THE DESK on EXPANDED: [column] (the market: the page, or the editor
+  /// when [editing]) from the window's left edge, [rightColumn] (the page
+  /// at rest) at the right gutter, and the order ticket's side panel
+  /// ([panel]) sliding in from the right edge over the column's place
+  /// while open, the market reflowing to the rest.
+  Widget _desk({
+    required Widget column,
+    required bool editing,
+    required Widget? rightColumn,
+    required Widget Function() panel,
+  }) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      final colWidth = kuteDetailPaneWidth(width - 2 * kuteDeskGutter);
+      // How much of the window's right the market leaves: the column and
+      // its gutters at rest, the panel and a gutter beside it open. The
+      // page's own 20 gutters are inside it (the editor has its own).
+      final restReserve =
+          editing ? 0.0 : colWidth + kuteWideGap + kuteDeskGutter;
+      final openReserve =
+          kuteSidePanelWidth + (editing ? 0.0 : kuteDeskGutter);
+      final inner = editing ? 0.0 : 20.0;
+      return AnimatedBuilder(
+        animation: _panelCurve,
+        builder: (context, _) {
+          final t = _panelCurve.value;
+          final reserve = restReserve + (openReserve - restReserve) * t;
+          return Stack(
+            children: [
+              Positioned(
+                left: editing ? 0 : kuteDeskGutter - inner,
+                top: 0,
+                bottom: 0,
+                right: math.max(0.0, reserve - inner),
+                child: KeyedSubtree(key: _deskLeftKey, child: column),
+              ),
+              if (rightColumn != null && t < 1)
+                Positioned(
+                  key: const ValueKey('hl-desk-column'),
+                  // From the window's top, on the header's own line
+                  // (founder, 25 November 2026: "right bar must be more
+                  // towards the top"); the header ends where the column
+                  // starts, so nothing sits under it.
+                  top: kuteDeskColumnTop,
+                  bottom: 0,
+                  right: kuteDeskGutter,
+                  width: colWidth,
+                  child: IgnorePointer(
+                    ignoring: t > 0,
+                    child: Opacity(
+                      opacity: (1 - t * 2).clamp(0.0, 1.0),
+                      // The wheel over the column scrolls the page
+                      // (kute_desk_market.dart, KuteWheelRelay).
+                      child: KuteWheelRelay(
+                          target: _deskLeftKey, child: rightColumn),
+                    ),
+                  ),
+                ),
+              if (t > 0)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  width: math.min(width, kuteSidePanelWidth),
+                  child: FractionalTranslation(
+                    translation: Offset(1 - t, 0),
+                    child: panel(),
+                  ),
+                ),
+            ],
+          );
+        },
+      );
+    });
+  }
+
+  /// Whether the desk's right column holds the live order book (founder,
+  /// 25 November 2026: "the order book on the right would look better"):
+  /// while it first loads, and whenever it has a level on either side. A
+  /// market with no book (an error, both sides empty) keeps the Stats as
+  /// the column's squares instead of an empty box. A narrow select: only
+  /// that answer changing rebuilds the page, never a 250 ms depth tick.
+  bool _deskBookShown(HlMarket m) =>
+      ref.watch(hyperliquidOrderbookProvider(m.wireCoin).select((a) {
+        if (a.hasError) return false;
+        final book = a.valueOrNull;
+        if (book == null) return true;
+        return book.bids.isNotEmpty || book.asks.isNotEmpty;
+      }));
+
+  /// THE DESK's right column at rest: the trade buttons, what is held
+  /// here, then the live order book down to the bar's clearance at the
+  /// window's foot, as many levels a side as fit ([HlOrderBookSection.fill];
+  /// the Stats are under the chart). With no book ([bookShown] false) the
+  /// Stats are the column's squares, two across, as before. Advanced chart
+  /// is the pill on the price row and everything About opened is on the
+  /// page, so no option cards here.
+  Widget _deskColumn(HlMarket m, HlPerpPosition? position, double spotHeld,
+      {required bool bookShown, bool statsShown = true}) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    HlSpotBalance? holding;
+    if (m.isSpot && spotHeld > 0) {
+      for (final b in ref.watch(hyperliquidSpotBalancesProvider)) {
+        if (b.coin == m.coin) holding = b;
+      }
+    }
+    final Widget? held = position != null
+        ? HlPositionRow(
+            key: ValueKey('hl-desk-position-${position.coin}'),
+            position: position)
+        : holding != null
+            ? IgnorePointer(
+                child: HlSpotRow(
+                    key: ValueKey('hl-desk-holding-${holding.coin}'),
+                    balance: holding),
+              )
+            : null;
+    final gap = SizedBox(height: kKuteActionCardGap.h);
+    final foot =
+        kuteBarScrollClearance.h + MediaQuery.viewPaddingOf(context).bottom;
+    final head = <Widget>[
+      KuteDeskTradeButtons(
+        key: const ValueKey('hl-desk-trades'),
+        trades: _deskTrades(m, spotHeld),
+      ),
+      if (held != null) ...[
+        gap,
+        PortfolioCardList(rows: [held]),
+        // Its stops, takes and trailing stops as words (a tap offers the
+        // cancel, in the side panel), as on the position page.
+        if (position != null && widget.ledgerWalletId == null)
+          HlProtectionRows(
+            key: const ValueKey('hl-desk-protection'),
+            coin: position.coin,
+            market: m,
+            atSide: (open) => KuteSideFlow.run(open),
+            padding: EdgeInsets.only(top: kKuteActionCardGap.h),
+          ),
+      ],
+    ];
+    if (bookShown) {
+      return KuteBarPane(
+        child: LayoutBuilder(builder: (context, constraints) {
+          // A window too short for a book of five a side under the
+          // buttons: the column scrolls, the book at its five.
+          if (constraints.maxHeight < 520) {
+            return SingleChildScrollView(
+              primary: false,
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.only(bottom: foot),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ...head,
+                  gap,
+                  HlOrderBookSection(
+                      key: const ValueKey('hl-desk-book'), market: m),
+                ],
+              ),
+            );
+          }
+          return Padding(
+            padding: EdgeInsets.only(bottom: foot),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ...head,
+                SizedBox(height: 20.h),
+                Expanded(
+                  child: HlOrderBookSection(
+                      key: const ValueKey('hl-desk-book'),
+                      market: m,
+                      fill: true),
+                ),
+              ],
+            ),
+          );
+        }),
+      );
+    }
+    final stats =
+        statsShown ? hlAboutStats(ref, l10n, m) : const <HlStat>[];
+    Widget tile(HlStat stat) => PositionStatTile(
+          key: ValueKey('hl-desk-stat-${stat.label}'),
+          label: stat.label,
+          value: Text(stat.value,
+              maxLines: 1, style: positionTileValueStyle(c)),
+        );
+    return KuteBarPane(
+      child: SingleChildScrollView(
+        primary: false,
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.only(bottom: foot),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ...head,
+            if (stats.isNotEmpty) ...[
+              gap,
+              // Arriving figures (a day's high and low, the spread) ease
+              // the squares to their new height.
+              AnimatedSize(
+                duration: kuteMotion(context, kArrivalDuration),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topCenter,
+                child: Column(
+                  key: const ValueKey('hl-desk-stats'),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < stats.length; i += 2) ...[
+                      if (i > 0) gap,
+                      i + 1 < stats.length
+                          ? PositionStatTiles(
+                              left: tile(stats[i]), right: tile(stats[i + 1]))
+                          : tile(stats[i]),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Bumped after a placed order (or the "OK" of one on its way) in the
+  /// in-place ticket: a fresh ticket takes its place.
+  int _ticketGeneration = 0;
+
+  /// THE WEB'S DESK right column (founder, 27 November 2026: "why is the
+  /// right side so empty?"): the order ticket itself, always there (the
+  /// same [HlOrderSlipSheet] as the phone's sheet and the desk's side
+  /// panel, its amount typed: [HlOrderSlipSheet.typedAmount]), then what
+  /// is held on this market, then the account's open positions (the
+  /// Overview's own rows and empty state). No Long / Short doors: the
+  /// ticket's own side switch.
+  Widget _deskWebColumn(HlMarket m, HlPerpPosition? position,
+      double spotHeld, KuteBarContext bar) {
+    HlSpotBalance? holding;
+    if (m.isSpot && spotHeld > 0) {
+      for (final b in ref.watch(hyperliquidSpotBalancesProvider)) {
+        if (b.coin == m.coin) holding = b;
+      }
+    }
+    final Widget? held = position != null
+        ? HlPositionRow(
+            key: ValueKey('hl-desk-position-${position.coin}'),
+            position: position)
+        : holding != null
+            ? IgnorePointer(
+                child: HlSpotRow(
+                    key: ValueKey('hl-desk-holding-${holding.coin}'),
+                    balance: holding),
+              )
+            : null;
+    final gap = SizedBox(height: kKuteActionCardGap.h);
+    final foot = KuteLayout.paneGap + MediaQuery.viewPaddingOf(context).bottom;
+    return KuteBarPane(
+      child: SingleChildScrollView(
+        key: const ValueKey('hl-desk-web-column'),
+        primary: false,
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.only(bottom: foot),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            HlOrderSlipSheet.inPlace(
+              key: ValueKey('hl-desk-ticket-$_ticketGeneration'),
+              market: m,
+              entrySource: widget.source,
+              share: KuteBarShare(barContext: bar),
+              typedAmount: true,
+              // Placed (or the "OK" of an order on its way): a fresh
+              // ticket, what is now held showing under it.
+              onDone: () {
+                if (!mounted) return;
+                setState(() => _ticketGeneration++);
+              },
+            ),
+            if (held != null) ...[
+              gap,
+              PortfolioCardList(rows: [held]),
+              if (position != null && widget.ledgerWalletId == null)
+                HlProtectionRows(
+                  key: const ValueKey('hl-desk-protection'),
+                  coin: position.coin,
+                  market: m,
+                  atSide: (open) => KuteSideFlow.run(open),
+                  padding: EdgeInsets.only(top: kKuteActionCardGap.h),
+                ),
+            ],
+            SizedBox(height: 20.h),
+            // The account's OTHER positions: this market's is the card
+            // above.
+            DollarsActivityTab(
+                key: const ValueKey('hl-desk-positions'),
+                inPane: true,
+                pnl: false,
+                startInvesting: false,
+                exclude: {'hl-${m.coin}', 'hl-spot-${m.coin}'}),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// EXPANDED's right pane: the order ticket open in place
+  /// ([HlOrderSlipSheet.embedded], the trade row's Invest: the buy side,
+  /// Short / Sell its own switch), and under it what the person holds on
+  /// this market, as the Portfolio lists it (a position's row opens the
+  /// position, where Close is). The pane stays put; the ticket is a
+  /// full-height card that fits the room it has (SlipFit.fill).
+  Widget _ticketPane(HlMarket m, HlPerpPosition? position, double spotHeld,
+      KuteBarContext bar) {
+    HlSpotBalance? holding;
+    if (m.isSpot && spotHeld > 0) {
+      for (final b in ref.watch(hyperliquidSpotBalancesProvider)) {
+        if (b.coin == m.coin) holding = b;
+      }
+    }
+    final Widget? held = position != null
+        ? HlPositionRow(
+            key: ValueKey('hl-pane-position-${position.coin}'),
+            position: position)
+        : holding != null
+            // The holding's row opens this very market: here it only
+            // reads.
+            ? IgnorePointer(
+                child: HlSpotRow(
+                    key: ValueKey('hl-pane-holding-${holding.coin}'),
+                    balance: holding),
+              )
+            : null;
+    // The ticket IS the side panel (its colour the panel's surface, top
+    // to bottom), the position in it over its button
+    // (kute_side_panel.dart).
+    return KeyedSubtree(
+      key: const ValueKey('hl-ticket-pane'),
+      child: SlipPanelFooter(
+        // In the app's palette (not the ticket's tint): the Portfolio's
+        // own card, reading on the side colour as the button does.
+        footer: held == null
+            ? null
+            : Theme(
+                data: Theme.of(context),
+                child: PortfolioCardList(rows: [held])),
+        child: HlOrderSlipSheet.inPlace(
+          key: ValueKey('hl-ticket-in-place-$_ticketGeneration'),
+          market: m,
+          entrySource: widget.source,
+          source: _panelSource,
+          isLong: _panelShownSide,
+          initialUsd: _panelUsd,
+          share: KuteBarShare(barContext: bar),
+          onClose: _closePanel,
+          // Placed (or the "OK" of an order on its way): back to the page,
+          // where what is now held shows.
+          onDone: () {
+            if (!mounted) return;
+            _closePanel();
+            setState(() => _ticketGeneration++);
+          },
         ),
       ),
     );
@@ -710,6 +1473,176 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     );
   }
 
+  /// EXPANDED (founder, 25 November 2026: "the Advanced chart button just
+  /// seems put there, should be more prominent"; again the same day: "the
+  /// Advanced chart button where it was before"): "Advanced chart" is a
+  /// pill on the price row, right-aligned, the app's amount-chip face with
+  /// the candles glyph, instead of a card. Elsewhere the price block as it
+  /// was (the card stays under the chart).
+  Widget _withAdvancedPill(bool inPlace, Widget price) {
+    if (!inPlace) return price;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: price),
+        const SizedBox(width: 24),
+        _advancedPill(),
+      ],
+    );
+  }
+
+  /// The "Advanced chart" pill (see [_withAdvancedPill]); on the web's
+  /// desk it sits in the header, left of the star.
+  Widget _advancedPill() {
+    final c = context.colors;
+    final label = context.l10n.hlAdvancedChart;
+    // Bigger (founder, 25 November 2026: "advanced chart button should be
+    // bigger here also"): the bar's pill size (48 high, fully round), the
+    // candles at 20 and the label at the body-strong size. Outlined on
+    // the page's surface rather than the dark filled pill: the ticket's
+    // primary in the panel is the screen's one dark pill, and two would
+    // argue over which is the action.
+    return Semantics(
+          button: true,
+          label: label,
+          excludeSemantics: true,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const ValueKey('hl-advanced-chart'),
+              onTap: () => HlCandleChart.openAdvanced(_chartHostKey),
+              borderRadius: BorderRadius.circular(24),
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: c.border, width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.candlestick_chart_rounded,
+                        size: 20, color: c.textPrimary),
+                    const SizedBox(width: 10),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+  }
+
+  /// The web desk's header price: the live price over its day change, at
+  /// the header's size.
+  Widget _deskWebPrice(HlMarket m, double price, bool pricesLive) {
+    final c = context.colors;
+    final change = m.dayChangeAt(price);
+    return Column(
+      key: const ValueKey('hl-desk-header-price'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        HlTickPrice(
+          key: const ValueKey('hl-detail-price'),
+          price: price,
+          text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            height: 1.1,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              formatHlPct(change),
+              key: const ValueKey('hl-detail-change'),
+              style: TextStyle(
+                color: change >= 0 ? AppColors.marketUp : AppColors.marketDown,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            if (!pricesLive) ...[
+              const SizedBox(width: 6),
+              HlMetaChip(text: context.l10n.chartPriceDelayed),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// The web desk's header figures: the market's own Stats as the phone's
+  /// About lists them ([hlAboutStats]), less the leverage figure and the
+  /// order book's spread; label over value, side by side, scrolling
+  /// sideways on a narrow window rather than wrapping.
+  Widget _deskWebStats(HlMarket m) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final stats = deskWebStats(hlAboutStats(ref, l10n, m), l10n);
+    return SingleChildScrollView(
+      key: const ValueKey('hl-desk-header-stats'),
+      scrollDirection: Axis.horizontal,
+      primary: false,
+      child: Row(
+        children: [
+          for (final (i, stat) in stats.indexed) ...[
+            if (i > 0) const SizedBox(width: 24),
+            Column(
+              key: ValueKey('hl-desk-header-stat-${stat.label}'),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(stat.label,
+                    maxLines: 1,
+                    style: TextStyle(
+                        color: c.textTertiary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(stat.value,
+                    maxLines: 1,
+                    style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()])),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// "Advanced chart": the chart's editing mode (drawing tools,
+  /// indicators).
+  KuteActionCard _advancedCard() => KuteActionCard.option(
+        key: const ValueKey('hl-advanced-chart'),
+        icon: Icons.candlestick_chart_rounded,
+        title: context.l10n.hlAdvancedChart,
+        subtitle: context.l10n.optionAdvancedChartSub,
+        onTap: () => HlCandleChart.openAdvanced(_chartHostKey),
+      );
+
   /// "About Bitcoin": the option card beside Advanced chart, opening the
   /// sheet with the market's Stats and everything the old Details
   /// expander held.
@@ -724,8 +1657,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       onTap: () {
         // The descriptions table is read while the sheet slides in.
         ref.read(hlMarketDescriptionsProvider);
+        // THE DESK: at the window's right edge, as every panel the page
+        // opens (kute_wide_frames.dart, KuteSideFlow).
         // Once: a second tap while it slides in does not stack another.
-        unawaited(OpenOnce.run(
+        void open() => unawaited(OpenOnce.run(
             'hl-about:${m.wireCoin}',
             () => showAppBottomSheet<void>(
                   context: context,
@@ -736,48 +1671,20 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     position: position,
                   ),
                 )));
+        if (kuteWindowIsExpanded(context)) {
+          KuteSideFlow.run(open);
+        } else {
+          open();
+        }
       },
     );
   }
 }
 
-/// The sheet behind the "About (name)" row: first what the market is (its
-/// description, [hlMarketDescription], over the venue and kind), then its
-/// Stats (label / value pairs in two columns: 24h volume, open interest,
-/// funding, maximum leverage, mark, 24h high and low, spread), then how it
-/// trades right now: the position rows, the funding payer line and
-/// countdown, the stock notice, the order book and the recent trades. Its
-/// requests (the 24h candles, the book, the trades) only run while it is
-/// open. It scrolls clear of the floating bar.
-class _HlAboutSheet extends ConsumerWidget {
-  final String title;
-
-  /// The row snapshot the market sheet was opened on.
-  final HlMarket market;
-  final bool isStock;
-  final HlPerpPosition? position;
-
-  const _HlAboutSheet({
-    required this.title,
-    required this.market,
-    required this.isStock,
-    required this.position,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final m = hlSheetMarket(ref, market);
-    final position = this.position;
-    final l10n = context.l10n;
-    // Null for the moment the bundled table is still being read: the
-    // description waits rather than flashing the template first.
-    final descriptions = ref.watch(hlMarketDescriptionsProvider);
-    final description = descriptions.isLoading && !descriptions.hasValue
-        ? null
-        : hlMarketDescription(
-            l10n, m, descriptions.valueOrNull ?? const <String, String>{});
-
+/// A market's Stats as the About sheet lists them: [hlMarketStats], then
+/// the day's high and low (from the 1h x 24h candles) and the spread, as
+/// they land. Shared by the About sheet and the desk's squares.
+List<HlStat> hlAboutStats(WidgetRef ref, AppLocalizations l10n, HlMarket m) {
     // 24h high/low from the fixed 1h × 24h candle window. Spot-pair
     // candles arrive in raw pair units: rescaled onto display units like
     // the chart does.
@@ -808,7 +1715,7 @@ class _HlAboutSheet extends ConsumerWidget {
     // every 250 ms depth tick) rebuilds the sheet.
     final spreadPct = ref.watch(hyperliquidOrderbookProvider(m.wireCoin)
         .select((a) => a.valueOrNull?.spreadPct));
-    final stats = [
+    return [
       ...hlMarketStats(l10n, m),
       if (hi24 != null)
         HlStat(l10n.hl24hHigh, formatHlPrice(hi24, decimalCap: m.pxDecimalCap)),
@@ -818,28 +1725,81 @@ class _HlAboutSheet extends ConsumerWidget {
         HlStat(l10n.hlSpread,
             '${spreadPct.toStringAsFixed(spreadPct >= 0.1 ? 2 : 3)}%'),
     ];
-    return AppBottomSheetContainer(
-      maxHeight: 0.85,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppBottomSheetHeader(
-            title: title,
-            trailing: const AppBottomSheetCloseButton(),
-          ),
-          Flexible(
-            child: SingleChildScrollView(
-              // The last trades scroll clear of the floating bar.
-              padding:
-                  EdgeInsets.fromLTRB(20.w, 4.h, 20.w, kuteBarScrollClearance.h),
-              child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+}
+
+/// The sheet behind the "About (name)" row: first what the market is (its
+/// description, [hlMarketDescription], over the venue and kind), then its
+/// Stats (label / value pairs in two columns: 24h volume, open interest,
+/// funding, maximum leverage, mark, 24h high and low, spread), then how it
+/// trades right now: the position rows, the funding payer line and
+/// countdown, the stock notice, the order book and the recent trades. Its
+/// requests (the 24h candles, the book, the trades) only run while it is
+/// open. It scrolls clear of the floating bar.
+class _HlAboutContent extends ConsumerWidget {
+  /// The row snapshot the market sheet was opened on.
+  final HlMarket market;
+  final bool isStock;
+  final HlPerpPosition? position;
+
+  /// The page's own About (EXPANDED, in place; founder, 25 November
+  /// 2026: "data here seems too compressed"): what the market is across
+  /// the pane's full width, the Stats as one band of tiles under it, the
+  /// funding line and the notice at full width, then the order book and
+  /// the recent trades side by side (stacked when the pane is too narrow
+  /// for two readable columns). False: the sheet's one column.
+  final bool wide;
+
+  /// False leaves the Stats out (the desk shows them as the right
+  /// column's squares).
+  final bool showStats;
+
+  /// The desk's right column holds the order book (founder, 25 November
+  /// 2026: "the order book on the right would look better, instead of all
+  /// those numbers, and then those numbers at the bottom"): under what it
+  /// is, the Stats as squares beside the recent trades, no book here.
+  final bool bookInColumn;
+
+  /// The web desk: what the market is (the description, the venue line,
+  /// the funding line, the stock notice) and nothing else; the position
+  /// is the right column's, the figures the header's.
+  final bool infoOnly;
+
+  const _HlAboutContent({
+    required this.market,
+    required this.isStock,
+    required this.position,
+    this.wide = false,
+    this.showStats = true,
+    this.bookInColumn = false,
+    this.infoOnly = false,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final m = hlSheetMarket(ref, market);
+    final position = this.position;
+    final l10n = context.l10n;
+    // Null for the moment the bundled table is still being read: the
+    // description waits rather than flashing the template first.
+    final descriptions = ref.watch(hlMarketDescriptionsProvider);
+    final description = descriptions.isLoading && !descriptions.hasValue
+        ? null
+        : hlMarketDescription(
+            l10n, m, descriptions.valueOrNull ?? const <String, String>{});
+
+    final stats = showStats ? hlAboutStats(ref, l10n, m) : const <HlStat>[];
+    final info = <Widget>[
                       // What it is: the description, then the venue and
                       // the kind (Perp / Spot) on one quiet line.
-                      Column(
+                      // Wide: prose at a readable measure.
+                      ConstrainedBox(
                         key: const ValueKey('hl-about-what-it-is'),
+                        constraints: BoxConstraints(
+                            maxWidth: wide
+                                ? kuteDeskProseMaxWidth
+                                : double.infinity),
+                        child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (description != null)
@@ -864,10 +1824,26 @@ class _HlAboutSheet extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      SizedBox(height: 20.h),
-                      HlStatsSection(title: l10n.investingStats, stats: stats),
+                      ),
+                      if (showStats) ...[
+                        SizedBox(height: wide ? 28.h : 20.h),
+                        HlStatsSection(
+                            title: l10n.investingStats,
+                            stats: stats,
+                            tiles: wide),
+                      ],
                       SizedBox(height: 12.h),
-                      if (position != null) ...[
+                      if (position != null && !infoOnly)
+                        // Wide: the rows at a readable width, never
+                        // stretched across the pane.
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                                maxWidth: wide ? 420 : double.infinity),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
                         SheetDetailRow(
                             label: context.l10n.chartPositionSize,
                             value:
@@ -882,6 +1858,9 @@ class _HlAboutSheet extends ConsumerWidget {
                               value: formatHlPrice(position.liquidationPx!,
                                   decimalCap: m.pxDecimalCap)),
                       ],
+                            ),
+                          ),
+                        ),
                       SizedBox(height: 14.h),
                       if (!m.isSpot && m.funding != null) ...[
                         // Who pays whom, and when: funding settles on
@@ -899,6 +1878,10 @@ class _HlAboutSheet extends ConsumerWidget {
                       if (isStock) ...[
                         SizedBox(height: 12.h),
                         Container(
+                          constraints: BoxConstraints(
+                              maxWidth: wide
+                                  ? kuteDeskProseMaxWidth
+                                  : double.infinity),
                           padding: EdgeInsets.symmetric(
                               horizontal: 12.w, vertical: 10.h),
                           decoration: BoxDecoration(
@@ -929,11 +1912,204 @@ class _HlAboutSheet extends ConsumerWidget {
                           ),
                         ),
                       ],
-                      SizedBox(height: 16.h),
-                      HlOrderBookSection(market: m),
-                      SizedBox(height: 16.h),
-                      HlRecentTradesSection(market: m),
-                    ],
+    ];
+    if (infoOnly) {
+      return Column(
+        key: const ValueKey('hl-about-info'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: info,
+      );
+    }
+    final book = <Widget>[
+      HlOrderBookSection(market: m),
+      SizedBox(height: 16.h),
+      HlRecentTradesSection(market: m),
+    ];
+    if (!wide) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [...info, SizedBox(height: 16.h), ...book],
+      );
+    }
+    if (bookInColumn) {
+      return Column(
+        key: const ValueKey('hl-about-in-place'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...info,
+          SizedBox(height: 28.h),
+          LayoutBuilder(builder: (context, constraints) {
+            const gap = KuteLayout.paneGap;
+            final statsBlock = _HlDeskStats(
+                stats: hlAboutStats(ref, l10n, m),
+                title: l10n.investingStats);
+            // Two readable columns need about 300 each; narrower, stacked.
+            if (constraints.maxWidth < 2 * 300 + gap) {
+              return Column(
+                key: const ValueKey('hl-about-stats-stacked'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  statsBlock,
+                  SizedBox(height: 28.h),
+                  HlRecentTradesSection(market: m),
+                ],
+              );
+            }
+            return Row(
+              key: const ValueKey('hl-about-stats-row'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: statsBlock),
+                const SizedBox(width: gap),
+                Expanded(child: HlRecentTradesSection(market: m)),
+              ],
+            );
+          }),
+        ],
+      );
+    }
+    return Column(
+      key: const ValueKey('hl-about-in-place'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...info,
+        SizedBox(height: 28.h),
+        LayoutBuilder(builder: (context, constraints) {
+          // Two readable columns need about 300 each; narrower, stacked.
+          const gap = KuteLayout.paneGap;
+          if (constraints.maxWidth < 2 * 300 + gap) {
+            return Column(
+              key: const ValueKey('hl-about-book-stacked'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                HlOrderBookSection(market: m),
+                SizedBox(height: 28.h),
+                HlRecentTradesSection(market: m),
+              ],
+            );
+          }
+          return Row(
+            key: const ValueKey('hl-about-book-row'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: HlOrderBookSection(market: m)),
+              const SizedBox(width: gap),
+              Expanded(child: HlRecentTradesSection(market: m)),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+}
+
+/// The desk's Stats under the chart: titled as the recent trades beside
+/// them are, the stat squares the right column showed (moved, never
+/// twice), two across, four across where the half is wide and the count
+/// fills its rows; an odd last square takes the row's width, never a
+/// lone half.
+class _HlDeskStats extends StatelessWidget {
+  final List<HlStat> stats;
+  final String title;
+  const _HlDeskStats({required this.stats, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    if (stats.isEmpty) return const SizedBox.shrink();
+    final c = context.colors;
+    Widget tile(HlStat stat) => PositionStatTile(
+          key: ValueKey('hl-desk-stat-${stat.label}'),
+          label: stat.label,
+          value: Text(stat.value,
+              maxLines: 1, style: positionTileValueStyle(c)),
+        );
+    final gap = SizedBox(height: kKuteActionCardGap.h);
+    return Column(
+      key: const ValueKey('hl-desk-stats'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        SizedBox(height: 10.h),
+        // Arriving figures (a day's high and low, the spread) ease the
+        // squares to their new height.
+        AnimatedSize(
+          duration: kuteMotion(context, kArrivalDuration),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final perRow =
+                constraints.maxWidth >= 680 && stats.length % 4 == 0 ? 4 : 2;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < stats.length; i += perRow) ...[
+                  if (i > 0) gap,
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var j = i;
+                            j < math.min(i + perRow, stats.length);
+                            j++) ...[
+                          if (j > i) SizedBox(width: 10.w),
+                          Expanded(child: tile(stats[j])),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+/// The sheet behind the "About (name)" card: [_HlAboutContent] in one
+/// column under its title. It scrolls clear of the floating bar.
+class _HlAboutSheet extends StatelessWidget {
+  final String title;
+  final HlMarket market;
+  final bool isStock;
+  final HlPerpPosition? position;
+
+  const _HlAboutSheet({
+    required this.title,
+    required this.market,
+    required this.isStock,
+    required this.position,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBottomSheetContainer(
+      maxHeight: 0.85,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBottomSheetHeader(
+            title: title,
+            trailing: const AppBottomSheetCloseButton(),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              // The last trades scroll clear of the floating bar.
+              padding:
+                  EdgeInsets.fromLTRB(20.w, 4.h, 20.w, kuteBarScrollClearance.h),
+              child: _HlAboutContent(
+                market: market,
+                isStock: isStock,
+                position: position,
               ),
             ),
           ),
@@ -999,7 +2175,38 @@ class HlCandleChart extends ConsumerStatefulWidget {
     this.positionTagOpensPosition = true,
     this.showSummary = true,
     this.positionView = false,
+    this.deskPanelOpen,
+    this.deskTradeButtons,
+    this.inlineEditor = false,
   });
+
+  /// THE WEB'S DESK (founder, 27 November 2026: "get rid of the Advanced
+  /// chart [button], and implement all the tools directly on desktop"):
+  /// the chart IS the advanced chart, in place on the market page, from
+  /// the first frame and for good: its drawing rail, indicators and chart
+  /// types, with one toolbar of its own (the intervals, the chart type by
+  /// icon and name, Indicators, undo / redo) instead of the editor's top
+  /// bar; no Done, and Escape or the back never leave it. Same
+  /// drawings, indicators and type, stored as the advanced chart stores
+  /// them. Needs [fillHeight] and a bounded parent.
+  final bool inlineEditor;
+
+  /// The editor on an EXPANDED window with the order ticket's side panel
+  /// beside it: whether the panel is open now (the back then closes the
+  /// panel, not the editor), and the Long and Short at the header's right
+  /// that open it (kute_desk_trade_buttons.dart). Null: no panel here (a
+  /// Ledger's page).
+  final bool? deskPanelOpen;
+  final Widget? deskTradeButtons;
+
+  /// Whether the editor under [key] holds Escape itself now (a tool in
+  /// hand, a drawing selected).
+  static bool editorBusy(GlobalKey key) {
+    final state = key.currentState;
+    return state is _HlCandleChartState &&
+        state._drawingMode &&
+        (state._armedTool != null || state._selectedDrawingId != null);
+  }
 
   /// Opens the chart under [key] in Advanced (editing) mode, as its old
   /// pencil did: the host screen's "Advanced chart" row. Nothing while it
@@ -1155,7 +2362,9 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   // ── Advanced drawing mode ────────────────────────────────────────
   /// Drawing mode on/off (the "Advanced" pill). Drawings stay VISIBLE
   /// outside the mode; only placing/selecting/editing needs it on.
-  bool _drawingMode = false;
+  /// On from the first frame, for good, as the web desk's inline editor
+  /// ([HlCandleChart.inlineEditor]).
+  late bool _drawingMode = widget.inlineEditor;
 
   /// The tool in hand. Null = Cursor (select/edit). One drawing per
   /// pick: after it lands the rail goes back to Cursor, unless the tool
@@ -1264,6 +2473,18 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       _signals = ChartSignals.none;
       _signalTargets = const {};
     }
+    // A window resized across the web desk's width keeps this chart's
+    // state (its key): in place it becomes the editor, and back on a
+    // narrow layout the reading chart again.
+    if (widget.inlineEditor != oldWidget.inlineEditor) {
+      if (widget.inlineEditor) {
+        _drawingMode = true;
+      } else if (_drawingMode) {
+        _drawingMode = false;
+        _armedTool = null;
+        _selectedDrawingId = null;
+      }
+    }
   }
 
   // ─────────────────────── trade lines (orders on the chart) ─────────
@@ -1309,6 +2530,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       if (o.coin != widget.market.wireCoin && o.coin != widget.market.coin) {
         continue;
       }
+      // A row only the WebSocket has seen has no type or trigger price
+      // yet (orderUpdates carries the basic order only): a stop would be
+      // drawn as a movable limit at its 5% guard price. It is drawn once
+      // REST says what it is (a read that follows within moments).
+      if (!o.detailsKnown) continue;
       final size = formatHlSize(o.sz);
       if (o.isTrigger) {
         final trigger = o.triggerPx;
@@ -1380,6 +2606,49 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final oldPx =
         order.isTrigger ? (order.triggerPx ?? order.limitPx) : order.limitPx;
     if ((newPx - oldPx).abs() <= oldPx * 1e-6) return;
+    // Moving an order is Advanced: a withheld policy says so here, before
+    // the confirm sheet and the approval, never after them.
+    if (!advancedTradingOffered(
+        context, ref.read(runtimeCapabilitiesProvider))) {
+      return;
+    }
+    // What the chart must never send: a row it cannot move (still loading,
+    // a trailing stop, a trigger whose kind is unknown).
+    try {
+      hlCheckModifiable(order, _hotOrders());
+    } catch (_) {
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.chartOrderMoveFailed,
+          error: true);
+      return;
+    }
+    final mark =
+        ref.read(hyperliquidLiveMidProvider(market.coin)) ??
+        (market.midPx > 0 ? market.midPx : market.markPx);
+    // A stop or take dropped on the wrong side of the price would fire at
+    // once: refused before anything else, the line back where it was.
+    if (order.isTrigger && order.tpsl != null) {
+      final shifted = order.isMarketTrigger
+          ? null
+          : order.limitPx + (newPx - (order.triggerPx ?? order.limitPx));
+      final issue = hlProtectIssue(
+          closeIsBuy: order.isBuy,
+          tpsl: order.tpsl!,
+          trigger: newPx,
+          mark: mark,
+          limitPx: shifted);
+      final text = hlProtectIssueText(context.l10n, issue);
+      if (text != null) {
+        HapticFeedback.heavyImpact();
+        showMessageSnackBar(context: context, message: text, error: true);
+        return;
+      }
+    }
+    // A limit dragged across the price fills now, as a taker: said on the
+    // confirm sheet, not blocked.
+    final crosses = !order.isTrigger &&
+        hlLimitCrossesNow(isBuy: order.isBuy, limitPx: newPx, mark: mark);
     final cap = market.pxDecimalCap;
     final label = order.isTrigger
         ? (order.tpsl == 'tp'
@@ -1388,6 +2657,26 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         : (order.isBuy ? context.l10n.hlBuyLimit : context.l10n.hlSellLimit);
     _movingOrder = true;
     try {
+      // LEVERAGE IS BLOCKED: an order that is neither reduce-only nor a
+      // position's TP/SL is new exposure when it moves (dragged across the
+      // price it fills at once, at the position's own leverage). On a
+      // position held above 1x or in cross (opened elsewhere since the
+      // order was placed), or one that cannot be read, refused here,
+      // before the confirm sheet and the approval: the line goes back.
+      if (hlMoveNeedsExposureCheck(market, order)) {
+        final held = await ref.read(hlHeldPositionProvider)(market);
+        if (!mounted) return;
+        final refusal = hlMoveExposureRefusal(market, order, held);
+        if (refusal != null) {
+          HapticFeedback.heavyImpact();
+          showMessageSnackBar(
+              context: context,
+              message: hlExposureRefusalText(context.l10n, refusal),
+              error: true);
+          return;
+        }
+      }
+      if (!mounted) return;
       final confirmed = await showAppBottomSheet<bool>(
         context: context,
         builder: (sheetContext) => AppBottomSheetContainer(
@@ -1398,7 +2687,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
               AppBottomSheetHeader(
                 title: context.l10n.chartMoveOrderTitle,
                 subtitle: '$label · ${formatHlSize(order.sz)} ${market.coin}\n'
-                    '${formatHlPrice(oldPx, decimalCap: cap)} → ${formatHlPrice(newPx, decimalCap: cap)}',
+                    '${formatHlPrice(oldPx, decimalCap: cap)} → ${formatHlPrice(newPx, decimalCap: cap)}'
+                    '${crosses ? '\n${context.l10n.hlProtectLimitFillsNow}' : ''}',
               ),
               Padding(
                 padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 8.h),
@@ -1438,6 +2728,30 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         amountUsd: order.sz * newPx,
       );
       if (grant == null || !mounted) return;
+      // The price moved while the confirm sheet and the approval were up:
+      // the side rule once more against the price now, right before
+      // signing. Crossed, nothing is sent and the line goes back.
+      if (order.isTrigger && order.tpsl != null) {
+        final markNow =
+            ref.read(hyperliquidLiveMidProvider(market.coin)) ?? mark;
+        final again = hlProtectIssueText(
+            context.l10n,
+            hlProtectIssue(
+                closeIsBuy: order.isBuy,
+                tpsl: order.tpsl!,
+                trigger: newPx,
+                mark: markNow,
+                limitPx: order.isMarketTrigger
+                    ? null
+                    : order.limitPx +
+                        (newPx - (order.triggerPx ?? order.limitPx))));
+        if (again != null) {
+          grant.revoke();
+          HapticFeedback.heavyImpact();
+          showMessageSnackBar(context: context, message: again, error: true);
+          return;
+        }
+      }
       try {
         await ref.read(hyperliquidTradingProvider.notifier).modifyOrder(
             market: market, order: order, newPx: newPx, grant: grant);
@@ -1453,6 +2767,35 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         if (mounted) {
           await handleGrantFailure(context, e, action: SensitiveAction.hlOrder);
         }
+      } on HyperliquidOrderNotPlacedException {
+        // Looked up after an unclear answer: nowhere moved, the order is
+        // where it was.
+        if (!mounted) return;
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.chartOrderMoveFailed,
+            error: true);
+      } on HlExposureRefusedException catch (e) {
+        // The rule once more before signing: nothing sent.
+        if (!mounted) return;
+        HapticFeedback.heavyImpact();
+        showMessageSnackBar(
+            context: context, message: e.messageIn(context.l10n), error: true);
+      } on HlTriggerCrossedException catch (e) {
+        // Crossed by the freshest price the notifier had: nothing sent.
+        if (!mounted) return;
+        showMessageSnackBar(
+            context: context,
+            message: hlTradeErrorMessage(context.l10n, e),
+            error: true);
+      } on HyperliquidOrderUnconfirmedException {
+        // Could not tell: the orders were read again; never invite a
+        // second move.
+        if (!mounted) return;
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.investingSubmissionUnknown,
+            error: true);
       } catch (e) {
         if (!mounted) return;
         showMessageSnackBar(
@@ -1492,6 +2835,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       );
 
   void _toggleDrawingMode({String source = 'market'}) {
+    // The web desk's inline editor never leaves the mode.
+    if (widget.inlineEditor && _drawingMode) return;
     HapticFeedback.selectionClick();
     final entering = !_drawingMode;
     setState(() {
@@ -2030,7 +3375,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             : c.textSecondary;
     return Tooltip(
       message: tip,
-      child: GestureDetector(
+      child: MouseRegion(
+        cursor: onTap == null
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
+        child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
@@ -2059,6 +3408,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -2112,37 +3462,142 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     setState(() => _selectedDrawingId = null);
   }
 
-  /// The slim top bar: the market, the interval, the chart button (chart
-  /// types and indicators), undo / redo and Done (which leaves edit mode).
-  Widget _editTopBar(AppColorsExtension c, HlCandleInterval candleIv) {
+  /// The editor's header on EXPANDED (founder, 25 November 2026, on the
+  /// Advanced chart on a laptop: "even now it looks bad"): Done and the
+  /// market (logo, name, live price and its change) at the left; at the
+  /// right the market page's own row of interval pills, the chart-style
+  /// button, undo and redo, grouped at readable sizes.
+  Widget _editTopBarWide(AppColorsExtension c, HlCandleInterval candleIv) {
     final m = widget.market;
     final l10n = context.l10n;
-    return SizedBox(
-      height: 44,
-      child: Row(
-        children: [
+    final mid = ref.watch(hyperliquidLiveMidProvider(m.coin));
+    final price = mid ?? (m.midPx > 0 ? m.midPx : m.markPx);
+    final change = m.dayChangeAt(price);
+    final identity = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (hlLogoShown(m.coin, m.wireCoin, m.iconUrl, m.category)) ...[
           HlCoinIcon(
             coin: m.coin,
             wireCoin: m.wireCoin,
             category: m.category,
             iconUrl: m.iconUrl,
-            size: 24,
+            size: 30,
           ),
-          SizedBox(width: 8.w),
-          Expanded(
-            child: Text(
-              m.coin,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-              ),
+          const SizedBox(width: 10),
+        ],
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 220),
+          child: Text(
+            m.coin,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
             ),
           ),
-          Tooltip(
+        ),
+        const SizedBox(width: 14),
+        if (price > 0)
+          HlTickPrice(
+            price: price,
+            text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        const SizedBox(width: 8),
+        Text(
+          formatHlPct(change),
+          style: TextStyle(
+            color: change >= 0 ? greenColor : redColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+    final pills = KuteChartRangeRow(
+      key: const ValueKey('hl-chart-edit-interval-row'),
+      labels: [for (final iv in kHlCandleIntervals) iv.label],
+      selectedIndex: kHlCandleIntervals
+          .indexWhere((iv) => iv.interval == candleIv.interval),
+      onSelected: (i) => _selectCandleInterval(kHlCandleIntervals[i]),
+    );
+    return SizedBox(
+      key: const ValueKey('hl-chart-edit-top-bar-wide'),
+      height: 52,
+      // The chart beside the ticket's panel on a small laptop is narrow:
+      // the intervals fold into the phone's interval button when their
+      // pills would not fit, and the market's name and price step down
+      // rather than overflow.
+      child: LayoutBuilder(builder: (context, constraints) {
+        final roomy = constraints.maxWidth >= 640;
+        return Row(
+          children: [
+            _editDoneButton(c, l10n),
+            const SizedBox(width: 16),
+            if (roomy)
+              identity
+            else
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: identity,
+                ),
+              ),
+            const SizedBox(width: 16),
+            if (roomy)
+              // The intervals take what is left, up to 420, at the right.
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, room) => Align(
+                    alignment: Alignment.centerRight,
+                    child: room.maxWidth >= 280
+                        ? ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 420),
+                            child: pills,
+                          )
+                        : _intervalButton(c, l10n, candleIv),
+                  ),
+                ),
+              )
+            else
+              _intervalButton(c, l10n, candleIv),
+            const SizedBox(width: 10),
+            HlChartSheetButton(
+              key: const ValueKey('hl-chart-edit-sheet-button'),
+              style: _style,
+              onTap: _openChartSheet,
+            ),
+            const SizedBox(width: 10),
+            _undoButton(c, l10n),
+            _redoButton(c, l10n),
+            // THE DESK: Long and Short, opening the order ticket's side
+            // panel beside the chart.
+            if (widget.deskTradeButtons case final trades?) ...[
+              const SizedBox(width: 12),
+              trades,
+            ],
+          ],
+        );
+      }),
+    );
+  }
+
+  /// The interval as one button opening the interval list (the phone's
+  /// editor; the desk's when its pills do not fit).
+  Widget _intervalButton(AppColorsExtension c, AppLocalizations l10n,
+          HlCandleInterval candleIv) =>
+      Tooltip(
             message: l10n.chartInterval,
             child: GestureDetector(
               key: const ValueKey('hl-chart-edit-interval-button'),
@@ -2174,7 +3629,135 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                 ),
               ),
             ),
+          );
+
+  Widget _undoButton(AppColorsExtension c, AppLocalizations l10n) =>
+      _editIconButton(
+        c,
+        icon: Icons.undo_rounded,
+        tip: l10n.chartUndo,
+        onTap: !_drawingsNotifier.canUndo ? null : _undo,
+      );
+
+  Widget _redoButton(AppColorsExtension c, AppLocalizations l10n) =>
+      _editIconButton(
+        c,
+        icon: Icons.redo_rounded,
+        tip: l10n.chartRedo,
+        onTap: !_drawingsNotifier.canRedo ? null : _redo,
+      );
+
+  void _undo() {
+    if (!_drawingsNotifier.canUndo) return;
+    HapticFeedback.selectionClick();
+    _drawingsNotifier.undoLast();
+    TrackingService.track(
+      'drawing_deleted',
+      params: {'via': 'undo', 'coin': widget.market.coin},
+    );
+  }
+
+  void _redo() {
+    if (!_drawingsNotifier.canRedo) return;
+    _drawingsNotifier.redo();
+    TrackingService.track('chart_drawing_redone');
+  }
+
+  /// The editor's keys (a hardware keyboard): Escape puts the tool in
+  /// hand down (or lets the selected drawing go, or leaves), Delete / Backspace
+  /// removes the selected drawing (the toolbar's Delete), Cmd/Ctrl+Z
+  /// undoes and Shift+Cmd/Ctrl+Z redoes.
+  KeyEventResult _onEditKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final keys = HardwareKeyboard.instance;
+    final key = event.logicalKey;
+    final command = keys.isMetaPressed || keys.isControlPressed;
+    if (command && key == LogicalKeyboardKey.keyZ) {
+      keys.isShiftPressed ? _redo() : _undo();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape) {
+      // The plot drops a placing in hand first (hl_charts.dart); then the
+      // tool goes down, the selection goes, and last Escape leaves the
+      // editor, as Done does.
+      if (_armedTool != null) {
+        _toCursor();
+      } else if (_selectedDrawingId != null) {
+        setState(() => _selectedDrawingId = null);
+      } else if (_drawingMode &&
+          widget.deskPanelOpen != true &&
+          !widget.inlineEditor) {
+        // (An open side panel takes this Escape: the page closes it.)
+        _toggleDrawingMode();
+      } else {
+        return KeyEventResult.ignored;
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.delete ||
+        key == LogicalKeyboardKey.backspace) {
+      final id = _selectedDrawingId;
+      if (id == null) return KeyEventResult.ignored;
+      _drawingsNotifier.remove(id);
+      TrackingService.track(
+        'drawing_deleted',
+        params: {'via': 'delete', 'coin': widget.market.coin},
+      );
+      setState(() => _selectedDrawingId = null);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// This editor holds Backspace (KuteDeskKeys) now.
+  bool _claimsDeskKeys = false;
+
+  final FocusNode _editFocus = FocusNode(debugLabel: 'hl-chart-editor');
+
+  @override
+  void dispose() {
+    if (_claimsDeskKeys) KuteDeskKeys.editorHoldsSelection = false;
+    _editFocus.dispose();
+    super.dispose();
+  }
+
+  /// The slim top bar: the market, the interval, the chart button (chart
+  /// types and indicators), undo / redo and Done (which leaves edit mode).
+  Widget _editTopBar(AppColorsExtension c, HlCandleInterval candleIv) {
+    if (widget.inlineEditor) return _inlineToolbar(c, candleIv);
+    if (KuteLayout.isExpanded(context)) return _editTopBarWide(c, candleIv);
+    final m = widget.market;
+    final l10n = context.l10n;
+    return SizedBox(
+      height: 44,
+      child: Row(
+        children: [
+          if (hlLogoShown(m.coin, m.wireCoin, m.iconUrl, m.category)) ...[
+            HlCoinIcon(
+              coin: m.coin,
+              wireCoin: m.wireCoin,
+              category: m.category,
+              iconUrl: m.iconUrl,
+              size: 24,
+            ),
+            SizedBox(width: 8.w),
+          ],
+          Expanded(
+            child: Text(
+              m.coin,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
           ),
+          _intervalButton(c, l10n, candleIv),
           SizedBox(width: 6.w),
           // The chart's one button, as on the market chart: the chart
           // types and the indicators in one sheet.
@@ -2184,67 +3767,51 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             onTap: _openChartSheet,
           ),
           SizedBox(width: 2.w),
-          _editIconButton(
-            c,
-            icon: Icons.undo_rounded,
-            tip: l10n.chartUndo,
-            onTap: !_drawingsNotifier.canUndo
-                ? null
-                : () {
-                    HapticFeedback.selectionClick();
-                    _drawingsNotifier.undoLast();
-                    TrackingService.track(
-                      'drawing_deleted',
-                      params: {'via': 'undo', 'coin': widget.market.coin},
-                    );
-                  },
-          ),
-          _editIconButton(
-            c,
-            icon: Icons.redo_rounded,
-            tip: l10n.chartRedo,
-            onTap: !_drawingsNotifier.canRedo
-                ? null
-                : () {
-                    _drawingsNotifier.redo();
-                    TrackingService.track('chart_drawing_redone');
-                  },
-          ),
+          _undoButton(c, l10n),
+          _redoButton(c, l10n),
           SizedBox(width: 4.w),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _toggleDrawingMode,
-            child: SizedBox(
-              height: 40,
-              child: Center(
-                child: Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 14.w, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: context.ctaFill,
-                    borderRadius: BorderRadius.circular(10.r),
-                  ),
-                  child: Text(
-                    l10n.done,
-                    style: TextStyle(
-                      color: context.ctaOnColor,
-                      fontSize: 13.5.sp,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          _editDoneButton(c, l10n),
         ],
       ),
     );
   }
 
+  /// Done: leaves the editor.
+  Widget _editDoneButton(AppColorsExtension c, AppLocalizations l10n) =>
+      MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+        key: const ValueKey('hl-chart-edit-done'),
+        behavior: HitTestBehavior.opaque,
+        onTap: _toggleDrawingMode,
+        child: SizedBox(
+          height: 40,
+          child: Center(
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 7),
+              decoration: BoxDecoration(
+                color: context.ctaFill,
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Text(
+                l10n.done,
+                style: TextStyle(
+                  color: context.ctaOnColor,
+                  fontSize: 13.5.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      );
+
   /// One group's button: its face's glyph, the corner mark when it has
   /// more tools. Keyed by its face's tool (as the flat rail was) inside
   /// a key for the group.
-  Widget _railGroup(HlToolGroup group, Map<String, String> faces) {
+  Widget _railGroup(HlToolGroup group, Map<String, String> faces,
+      {bool large = false}) {
     final l10n = context.l10n;
     final face = hlGroupFace(group, faces)!;
     return KeyedSubtree(
@@ -2254,6 +3821,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           key: ValueKey('hl-chart-rail-${face.name}'),
           glyph: hlGlyphForTool(face),
           label: hlToolName(l10n, face),
+          large: large,
           selected: _armedTool == face,
           sticky: _armedTool == face && _toolSticky,
           onTap: () => _tapGroup(group, face, anchor),
@@ -2276,10 +3844,12 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     bool magnet,
   ) {
     final l10n = context.l10n;
+    // EXPANDED: roomier targets (48 a button) for a mouse.
+    final wide = KuteLayout.isExpanded(context);
     final faces = ref.watch(hlDrawingRailFacesProvider);
     return Container(
       key: const ValueKey('hl-chart-tool-rail'),
-      width: 44,
+      width: wide ? 52 : 44,
       decoration: BoxDecoration(
         color: c.textPrimary.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12.r),
@@ -2302,24 +3872,34 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
               key: const ValueKey('hl-chart-rail-cursor'),
               glyph: HlRailGlyph.cursor,
               label: l10n.chartToolCursor,
+              large: wide,
               selected: _armedTool == null,
               onTap: _toCursor,
             ),
             // The groups (hl_drawing_rail.dart), each showing its face.
             for (final group in kHlToolGroups)
               if (group.id != HlToolGroupId.cursor && group.tools.isNotEmpty)
-                _railGroup(group, faces),
+                _railGroup(group, faces, large: wide),
             Container(
               width: 24,
               height: 0.5,
               margin: const EdgeInsets.symmetric(vertical: 4),
               color: c.border,
             ),
+            // The price lines and their labels (hl_drawing_rail.dart).
+            HlPriceScaleRailButton(
+              large: wide,
+              extra: {
+                'coin': widget.market.coin,
+                ...VenueAnalytics.hlAssetParams(widget.market.coin),
+              },
+            ),
             Builder(
               builder: (anchor) => HlRailButton(
                 key: const ValueKey('hl-chart-rail-more'),
                 icon: Icons.more_horiz_rounded,
                 label: l10n.chartMoreTools,
+                large: wide,
                 onTap: () =>
                     unawaited(_openRailMore(anchor, drawings, magnet)),
               ),
@@ -2396,6 +3976,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     required bool magnet,
   }) {
     final railShown = _railShown;
+    final wide = KuteLayout.isExpanded(context);
     final body = Row(
       crossAxisAlignment: widget.fillHeight
           ? CrossAxisAlignment.stretch
@@ -2438,29 +4019,221 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       ],
     );
     return PopScope(
-      canPop: false,
+      // In place on the web desk the back leaves the page, as ever.
+      canPop: widget.inlineEditor,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _drawingMode) _toggleDrawingMode();
+        // The desk's side panel open: the back closes it, not the editor.
+        if (!didPop && _drawingMode && widget.deskPanelOpen != true) {
+          _toggleDrawingMode();
+        }
       },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _editTopBar(c, candleIv),
-          SizedBox(height: 6.h),
-          _flexed(body),
-          Padding(
-            padding:
-                EdgeInsets.only(top: 4.h, left: railShown ? 44 + 6.w : 0),
-            child: Text(
-              _toolbarHint(selectedId, drawings),
-              style: TextStyle(color: c.textTertiary, fontSize: 11.5.sp),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      // The editor's keys (Escape, Delete, Cmd/Ctrl+Z); focused on open,
+      // or (in place, beside the order form) on a press in the chart.
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: widget.inlineEditor
+            ? (_) {
+                if (!_editFocus.hasFocus) _editFocus.requestFocus();
+              }
+            : null,
+        child: Focus(
+        focusNode: _editFocus,
+        autofocus: !widget.inlineEditor,
+        onKeyEvent: _onEditKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _editTopBar(c, candleIv),
+            SizedBox(height: wide ? 10 : 6.h),
+            _flexed(body),
+            // The hint talks about tapping: with a mouse it is away
+            // rather than telling a mouse to double-tap.
+            ListenableBuilder(
+              listenable: RendererBinding.instance.mouseTracker,
+              builder: (context, _) =>
+                  RendererBinding.instance.mouseTracker.mouseIsConnected
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: EdgeInsets.only(
+                              top: 4.h,
+                              left: railShown ? (wide ? 52 : 44) + 6.w : 0),
+                          child: Text(
+                            _toolbarHint(selectedId, drawings),
+                            key: const ValueKey('hl-chart-edit-hint'),
+                            style: TextStyle(
+                                color: c.textTertiary, fontSize: 11.5.sp),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
       ),
     );
+  }
+
+  /// The web desk's inline editor's toolbar ([HlCandleChart.inlineEditor];
+  /// founder, 27 November 2026: "make the option to switch chart type more
+  /// clear"): the intervals, then the chart type as a labelled choice (its
+  /// icon and its name, opening the types, each with its icon and name,
+  /// the current one checked), then Indicators (the Chart sheet's
+  /// indicators), undo / redo at the right. The page's header names the
+  /// market and its price, so neither is repeated here.
+  Widget _inlineToolbar(AppColorsExtension c, HlCandleInterval candleIv) {
+    final l10n = context.l10n;
+    final style = _style;
+    Widget chip({
+      required Key key,
+      required IconData icon,
+      required String label,
+      required VoidCallback onTap,
+      bool chevron = false,
+    }) =>
+        Material(
+          key: key,
+          color: context.isDark ? c.surfaceElevated : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: c.borderSubtle),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              height: 40,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 18, color: c.textPrimary),
+                    const SizedBox(width: 8),
+                    Text(label,
+                        style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600)),
+                    if (chevron) ...[
+                      const SizedBox(width: 4),
+                      Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 18, color: c.textSecondary),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+    final typeKey = GlobalKey();
+    final type = chip(
+      key: const ValueKey('hl-chart-inline-type'),
+      icon: _styleIcon(style),
+      label: hlChartStyleName(l10n, style),
+      chevron: true,
+      onTap: () => unawaited(_pickInlineStyle(typeKey, style)),
+    );
+    final indicators = chip(
+      key: const ValueKey('hl-chart-inline-indicators'),
+      icon: Icons.insights_rounded,
+      label: l10n.chartIndicators,
+      onTap: _openIndicators,
+    );
+    final pills = KuteChartRangeRow(
+      key: const ValueKey('hl-chart-edit-interval-row'),
+      labels: [for (final iv in kHlCandleIntervals) iv.label],
+      selectedIndex: kHlCandleIntervals
+          .indexWhere((iv) => iv.interval == candleIv.interval),
+      onSelected: (i) => _selectCandleInterval(kHlCandleIntervals[i]),
+    );
+    return SizedBox(
+      key: const ValueKey('hl-chart-inline-toolbar'),
+      height: 44,
+      child: LayoutBuilder(builder: (context, constraints) {
+        // The intervals fold into the interval button when the row is
+        // short of room (a laptop of about 1100), never the type's name.
+        final roomy = constraints.maxWidth >= 760;
+        return Row(
+          children: [
+            if (roomy)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: pills,
+              )
+            else
+              _intervalButton(c, l10n, candleIv),
+            const SizedBox(width: 12),
+            KeyedSubtree(key: typeKey, child: type),
+            const SizedBox(width: 8),
+            indicators,
+            const Spacer(),
+            _undoButton(c, l10n),
+            _redoButton(c, l10n),
+          ],
+        );
+      }),
+    );
+  }
+
+  /// The chart types as a menu under the type's button, each with its icon
+  /// and its name, [current] checked. A pick is stored as the Chart sheet
+  /// stores it (one layout for every market).
+  Future<void> _pickInlineStyle(GlobalKey anchor, HlChartStyle current) async {
+    final box = anchor.currentContext?.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (box == null || overlay == null) return;
+    final c = context.colors;
+    final l10n = context.l10n;
+    final topLeft = box.localToGlobal(Offset(0, box.size.height + 4),
+        ancestor: overlay);
+    final picked = await showMenu<HlChartStyle>(
+      context: context,
+      position: RelativeRect.fromRect(
+          topLeft & const Size(1, 1), Offset.zero & overlay.size),
+      color: context.isDark ? c.surfaceElevated : Colors.white,
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      items: [
+        for (final s in HlChartStyle.picker)
+          PopupMenuItem<HlChartStyle>(
+            key: ValueKey('hl-chart-inline-type-${s.name}'),
+            value: s,
+            child: Row(
+              children: [
+                Icon(_styleIcon(s), size: 18, color: c.textPrimary),
+                const SizedBox(width: 10),
+                Text(hlChartStyleName(l10n, s),
+                    style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 14,
+                        fontWeight:
+                            s == current ? FontWeight.w700 : FontWeight.w500)),
+                const SizedBox(width: 16),
+                if (s == current)
+                  Icon(Icons.check_rounded, size: 18, color: c.textPrimary),
+              ],
+            ),
+          ),
+      ],
+    );
+    if (picked == null || !mounted) return;
+    hlPickChartStyle(ref, widget.market, picked);
+  }
+
+  /// Indicators: the Chart sheet's indicators (the types are the
+  /// toolbar's own choice beside it).
+  void _openIndicators() {
+    unawaited(showHlChartSheet(
+      context,
+      market: widget.market,
+      marketKey: _marketKey,
+      candles: _shownCandles ?? const <HyperliquidCandle>[],
+      showYourTrades: widget.showOwnActivity,
+      onAddPriceLine: _startPriceLine,
+      indicatorsOnly: true,
+    ));
   }
 
   @override
@@ -2787,6 +4560,9 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             cleanView: !_drawingMode,
             // The tucked rail's tab sits at the plot's top left.
             legendLeftInset: _drawingMode && !_railShown ? 48 : 0,
+            // The editor at the desk: the volume and the indicators in
+            // panes with real height, larger axes.
+            desk: _drawingMode && KuteLayout.isExpanded(context),
             positionView: positionView,
             // The interval's identity: a new one opens on its newest
             // bars.
@@ -2797,6 +4573,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                 context, ref, line,
                 decimalCap: widget.market.pxDecimalCap)),
             drawingMode: _drawingMode,
+            priceScale: layout.priceScale,
             armedTool: _armedTool,
             armedColorValue: _armedColorValue,
             magnet: preferences.magnet,
@@ -2832,6 +4609,12 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                 )
                 .update(d),
           );
+    // A selected drawing owns Backspace over the ticket beside it.
+    final claims = _drawingMode && selectedId != null;
+    if (claims || _claimsDeskKeys) {
+      _claimsDeskKeys = claims;
+      KuteDeskKeys.editorHoldsSelection = claims;
+    }
     if (_drawingMode) {
       return _editLayout(
         c,
@@ -2861,9 +4644,43 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
 
 class HlOrderBookSection extends ConsumerWidget {
   final HlMarket market;
-  const HlOrderBookSection({super.key, required this.market});
+  const HlOrderBookSection({super.key, required this.market, this.fill = false});
 
   static const _levels = 5;
+
+  /// THE DESK's right column (EXPANDED; founder, 25 November 2026): the
+  /// section takes the height it is given, its card running to the foot,
+  /// and shows as many levels a side as fit there (never fewer than
+  /// five, never more than the feed sends), the spread line in the
+  /// middle. False: five a side at their own height.
+  final bool fill;
+
+  /// The height of one [_DepthRow] and of the [_BookSpreadRow] in this
+  /// context's text: how many levels [fill] fits.
+  static ({double row, double spread}) _rowHeights(BuildContext context) {
+    final base = DefaultTextStyle.of(context).style;
+    final scaler = MediaQuery.textScalerOf(context);
+    double line(double size) {
+      final tp = TextPainter(
+        text: TextSpan(
+            text: '0',
+            style: base.merge(TextStyle(
+                fontSize: size,
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()]))),
+        textDirection: Directionality.of(context),
+        textScaler: scaler,
+      )..layout();
+      final h = tp.height;
+      tp.dispose();
+      return h;
+    }
+
+    return (
+      row: line(12.sp) + 9.h,
+      spread: math.max(line(11.5.sp), 12.sp) + 8.h,
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2873,7 +4690,10 @@ class HlOrderBookSection extends ConsumerWidget {
     return bookAsync.when(
       // Skeleton mimicking the two-column bid/ask ladder while the book
       // first loads: 6 bid bars (left) + 6 ask bars (right).
-      loading: () => SizedBox(
+      loading: () => Align(
+        alignment: Alignment.topCenter,
+        heightFactor: 1,
+        child: SizedBox(
         height: 180.h,
         child: KuteSkeleton(
           child: Column(
@@ -2923,6 +4743,7 @@ class HlOrderBookSection extends ConsumerWidget {
           ),
         ),
       ),
+      ),
       error: (_, __) => Container(
         height: 80.h,
         alignment: Alignment.center,
@@ -2932,18 +4753,127 @@ class HlOrderBookSection extends ConsumerWidget {
         ),
       ),
       data: (book) {
-        final bids = book.bids.take(_levels).toList();
-        final asks = book.asks.take(_levels).toList();
-        var maxSz = 0.0;
-        for (final l in bids) {
-          if (l.sz > maxSz) maxSz = l.sz;
+        Widget ladder(int levels) {
+          final bids = book.bids.take(levels).toList();
+          final asks = book.asks.take(levels).toList();
+          var maxSz = 0.0;
+          for (final l in bids) {
+            if (l.sz > maxSz) maxSz = l.sz;
+          }
+          for (final l in asks) {
+            if (l.sz > maxSz) maxSz = l.sz;
+          }
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Asks, worst at the top so the best ask touches
+              // the spread row.
+              for (final l in asks.reversed)
+                _DepthRow(
+                  level: l,
+                  maxSz: maxSz,
+                  isBid: false,
+                  decimalCap: market.pxDecimalCap,
+                ),
+              _BookSpreadRow(
+                bestBid: book.bestBid,
+                bestAsk: book.bestAsk,
+                spreadPct: book.spreadPct,
+                decimalCap: market.pxDecimalCap,
+              ),
+              for (final l in bids)
+                _DepthRow(
+                  level: l,
+                  maxSz: maxSz,
+                  isBid: true,
+                  decimalCap: market.pxDecimalCap,
+                ),
+            ],
+          );
         }
-        for (final l in asks) {
-          if (l.sz > maxSz) maxSz = l.sz;
-        }
+
+        final empty = book.bids.isEmpty && book.asks.isEmpty;
+        final priceSize = Padding(
+          padding: EdgeInsets.only(bottom: 6.h),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                context.l10n.hlBookPrice,
+                style: TextStyle(
+                    color: c.textTertiary,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w600),
+              ),
+              Text(
+                context.l10n.hlBookSize,
+                style: TextStyle(
+                    color: c.textTertiary,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        );
+        final card = empty
+            ? Container(
+                height: 60.h,
+                alignment: Alignment.center,
+                child: Text(
+                  context.l10n.hlEmptyBook,
+                  style: TextStyle(color: c.textTertiary, fontSize: 13.sp),
+                ),
+              )
+            // Stacked depth view: asks above (best ask nearest the
+            // middle), a spread row, bids below — the exchange-native
+            // reading order. RepaintBoundary keeps the 250ms book
+            // ticks re-rastering this card only, never the sheet.
+            : RepaintBoundary(
+                child: Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                  decoration: BoxDecoration(
+                    color: c.surface.withValues(alpha: 0.96),
+                    borderRadius: BorderRadius.circular(14.r),
+                  ),
+                  child: !fill
+                      ? Column(children: [priceSize, ladder(_levels)])
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            priceSize,
+                            Expanded(
+                              child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                // As many a side as the card's height
+                                // holds, the ladder centred on the spread
+                                // (a feed with fewer leaves the room at
+                                // the card's ends); short of five, five
+                                // that scroll inside the card.
+                                final h = _rowHeights(context);
+                                final fit = ((constraints.maxHeight -
+                                            h.spread) /
+                                        (2 * h.row))
+                                    .floor();
+                                if (fit < _levels) {
+                                  return SingleChildScrollView(
+                                    primary: false,
+                                    child: ladder(_levels),
+                                  );
+                                }
+                                return ClipRect(
+                                  child: Center(child: ladder(fit)),
+                                );
+                              }),
+                            ),
+                          ],
+                        ),
+                ),
+              );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -2983,78 +4913,7 @@ class HlOrderBookSection extends ConsumerWidget {
               ],
             ),
             SizedBox(height: 10.h),
-            if (bids.isEmpty && asks.isEmpty)
-              Container(
-                height: 60.h,
-                alignment: Alignment.center,
-                child: Text(
-                  context.l10n.hlEmptyBook,
-                  style: TextStyle(color: c.textTertiary, fontSize: 13.sp),
-                ),
-              )
-            else
-              // Stacked depth view: asks above (best ask nearest the
-              // middle), a spread row, bids below — the exchange-native
-              // reading order. RepaintBoundary keeps the 250ms book
-              // ticks re-rastering this card only, never the sheet.
-              RepaintBoundary(
-                child: Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-                  decoration: BoxDecoration(
-                    color: c.surface.withValues(alpha: 0.96),
-                    borderRadius: BorderRadius.circular(14.r),
-                  ),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.only(bottom: 6.h),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              context.l10n.hlBookPrice,
-                              style: TextStyle(
-                                  color: c.textTertiary,
-                                  fontSize: 11.sp,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                            Text(
-                              context.l10n.hlBookSize,
-                              style: TextStyle(
-                                  color: c.textTertiary,
-                                  fontSize: 11.sp,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Asks, worst at the top so the best ask touches
-                      // the spread row.
-                      for (final l in asks.reversed)
-                        _DepthRow(
-                          level: l,
-                          maxSz: maxSz,
-                          isBid: false,
-                          decimalCap: market.pxDecimalCap,
-                        ),
-                      _BookSpreadRow(
-                        bestBid: book.bestBid,
-                        bestAsk: book.bestAsk,
-                        spreadPct: book.spreadPct,
-                        decimalCap: market.pxDecimalCap,
-                      ),
-                      for (final l in bids)
-                        _DepthRow(
-                          level: l,
-                          maxSz: maxSz,
-                          isBid: true,
-                          decimalCap: market.pxDecimalCap,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
+            if (fill && !empty) Expanded(child: card) else card,
           ],
         );
       },
@@ -3338,8 +5197,38 @@ class _ChartNoteSheet extends StatefulWidget {
 
 class _ChartNoteSheetState extends State<_ChartNoteSheet> {
   late final _text = TextEditingController(text: widget.initialText);
+
+  /// The note's field. Autofocus alone left a click-opened note without
+  /// the keyboard on the web (the field never took the browser's focus),
+  /// so the field asks for it once the sheet is up as well.
+  final FocusNode _focus = FocusNode(debugLabel: 'hl-chart-note');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final route = ModalRoute.of(context)?.animation;
+      void take() {
+        if (mounted && !_focus.hasPrimaryFocus) _focus.requestFocus();
+      }
+
+      if (route == null || route.isCompleted) {
+        take();
+        return;
+      }
+      void onStatus(AnimationStatus status) {
+        if (!status.isCompleted) return;
+        route.removeStatusListener(onStatus);
+        take();
+      }
+
+      route.addStatusListener(onStatus);
+    });
+  }
+
   @override
   void dispose() {
+    _focus.dispose();
     _text.dispose();
     super.dispose();
   }
@@ -3355,6 +5244,7 @@ class _ChartNoteSheetState extends State<_ChartNoteSheet> {
                 padding: EdgeInsets.symmetric(horizontal: 20.w),
                 child: TextField(
                   controller: _text,
+                  focusNode: _focus,
                   autofocus: true,
                   minLines: 2,
                   maxLines: 4,
@@ -3388,3 +5278,12 @@ class _ChartNoteSheetState extends State<_ChartNoteSheet> {
         ),
       );
 }
+
+
+/// The web desk header's figures: [stats] less the maximum leverage (this
+/// app offers no leverage talk) and the spread (an order-book figure).
+@visibleForTesting
+List<HlStat> deskWebStats(List<HlStat> stats, AppLocalizations l10n) => [
+      for (final s in stats)
+        if (s.label != l10n.chartMaxLeverage && s.label != l10n.hlSpread) s,
+    ];

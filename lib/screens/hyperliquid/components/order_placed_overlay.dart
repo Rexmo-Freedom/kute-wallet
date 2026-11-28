@@ -7,6 +7,8 @@ import 'package:kute/models/hyperliquid_market.dart';
 
 import 'package:flutter/material.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
+    show HlOrderResult;
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsOrders, openInvestmentsPositions;
@@ -30,6 +32,9 @@ void pushHlOrderPlacedOverlay({
   HlPositionPlan? positionPlan,
   double? realizedPnl,
   double? feeUsd,
+  double restingSize = 0,
+  List<String> notices = const [],
+  ({int cancelled, int failed})? leftovers,
 }) {
   pushKuteSuccessOverlay(
     navigator: navigator,
@@ -45,8 +50,27 @@ void pushHlOrderPlacedOverlay({
       positionPlan: positionPlan,
       realizedPnl: realizedPnl,
       feeUsd: feeUsd,
+      restingSize: restingSize,
+      notices: notices,
+      leftovers: leftovers,
     ),
   );
+}
+
+/// What the venue took short of what was sent, for the receipt: an
+/// attached take-profit or stop-loss it refused while it took the order,
+/// or the legs of a scale order it refused. Empty when it took it all.
+List<String> hlOrderResultNotices(AppLocalizations l10n, HlOrderResult? r) {
+  if (r == null) return const [];
+  return [
+    if (r.takeProfitRejected && r.stopLossRejected)
+      l10n.hlAdvTpSlNotPlaced
+    else if (r.takeProfitRejected)
+      l10n.hlAdvTpNotPlaced
+    else if (r.stopLossRejected)
+      l10n.hlAdvSlNotPlaced,
+    if (r.legsMissing) l10n.hlAdvScaleLegsPlaced(r.legsPlaced!, r.legsTotal!),
+  ];
 }
 
 /// What the fills paid in fees, as Hyperliquid reports them with each fill
@@ -127,6 +151,21 @@ class HlOrderPlacedOverlay extends StatelessWidget {
   /// ([hlFeeFromFills]). Null leaves the row out.
   final double? feeUsd;
 
+  /// A limit order that filled only in part: the size still resting on
+  /// the book. Above zero the receipt says "Order partly filled", that the
+  /// rest is still open, and offers View orders.
+  final double restingSize;
+
+  /// What the venue did not take of the order (a refused stop-loss, a
+  /// trailing stop not placed, refused scale legs), said in place of the
+  /// balance line ([hlOrderResultNotices]).
+  final List<String> notices;
+
+  /// A whole position closed here: what became of its left-over stops,
+  /// takes and trailing stops (the close sheet's same rows). Null when no
+  /// cancel ran.
+  final ({int cancelled, int failed})? leftovers;
+
   const HlOrderPlacedOverlay({
     super.key,
     required this.coin,
@@ -140,11 +179,17 @@ class HlOrderPlacedOverlay extends StatelessWidget {
     this.positionPlan,
     this.realizedPnl,
     this.feeUsd,
+    this.restingSize = 0,
+    this.notices = const [],
+    this.leftovers,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final partial = restingSize > 0;
+    final cancelled = leftovers?.cancelled ?? 0;
+    final stillOpen = leftovers?.failed ?? 0;
     final effect = isSpot ? null : positionPlan?.effect;
     final effectLabel =
         isSpot ? null : hlFillEffectLabel(l10n, positionPlan, coin);
@@ -169,7 +214,7 @@ class HlOrderPlacedOverlay extends StatelessWidget {
                 ? notionalUsd
                 : notionalUsd / leverage));
     return KuteConfirmation(
-      message: l10n.confirmationOrderFilled,
+      message: partial ? l10n.hlAdvPartlyFilled : l10n.confirmationOrderFilled,
       amount: amount,
       // The effect on a position already held ("Reduced long · 0.05 BTC",
       // "Closed long"); the coin itself for an open. The Amount row
@@ -186,13 +231,31 @@ class HlOrderPlacedOverlay extends StatelessWidget {
           l10n.portfolioStatRealized:
               '${pnl >= 0 ? '+' : '−'}${formatHlUsd(pnl.abs())}',
         if (feeUsd case final fee?) l10n.feeUiPaidFee: formatHlUsd(fee),
+        if (partial)
+          l10n.hlAdvStillOpen: '${formatHlSize(restingSize)} $coin',
+        if (cancelled > 0) l10n.hlProtectOrdersCancelledRow: '$cancelled',
+        if (stillOpen > 0) l10n.hlProtectOrdersNotCancelledRow: '$stillOpen',
       },
-      detail: l10n.investingBalanceUpdating,
+      detail: [
+        if (partial) l10n.hlAdvRestStillOpen,
+        ...notices,
+        if (stillOpen > 0)
+          l10n.hlProtectCancelAfterCloseFailed
+        else if (!partial && notices.isEmpty)
+          l10n.investingBalanceUpdating,
+      ].join(' '),
       onDone: () => Navigator.of(context).pop(),
-      secondaryButtonText: l10n.investingViewPositions,
+      secondaryButtonText:
+          partial ? l10n.investingViewOrders : l10n.investingViewPositions,
       onSecondary: () {
         final nav = Navigator.of(context);
         nav.pop();
+        if (partial) {
+          // The rest rests on the book: the orders list.
+          openInvestmentsOrders(nav.context,
+              product: 'investing', orderKind: 'open');
+          return;
+        }
         // What the account holds now: the Investments tab's Positions.
         openInvestmentsPositions(nav.context);
       },
@@ -213,6 +276,10 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
     required this.amount,
     this.isClose = false,
     this.viewOrders = false,
+    this.rows = const {},
+    this.detail,
+    this.notices = const [],
+    this.note,
   });
 
   final String coin;
@@ -220,6 +287,22 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
   final String amount;
   final bool isClose;
   final bool viewOrders;
+
+  /// What was placed: the order type and its prices (a limit's price, a
+  /// scale's range and order count, a TWAP's running time).
+  final Map<String, String> rows;
+
+  /// The line under the rows; null keeps "It may fill over time" (a TWAP
+  /// says it runs for its minutes instead).
+  final String? detail;
+
+  /// What the venue did not take of it ([hlOrderResultNotices]), said
+  /// before the line.
+  final List<String> notices;
+
+  /// A line in place of the pending-fill detail: what else happened with
+  /// the order (an old stop loss that could not be cancelled).
+  final String? note;
 
   @override
   Widget build(BuildContext context) => KuteConfirmation(
@@ -229,7 +312,11 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
             : context.l10n.investingOrderAccepted,
         amount: amount,
         contextLine: HlMarket.baseCoin(coin),
-        detail: context.l10n.investingOrderPendingFill,
+        rows: rows,
+        detail: [
+          ...notices,
+          note ?? detail ?? context.l10n.investingOrderPendingFill,
+        ].join(' '),
         onDone: () => Navigator.of(context).pop(),
         secondaryButtonText:
             viewOrders ? context.l10n.investingViewOrders : null,

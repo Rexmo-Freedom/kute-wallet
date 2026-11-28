@@ -122,10 +122,11 @@
         <meta-data
                 android:name="firebase_crashlytics_collection_enabled"
                 android:value="false" />
-        <!-- Asset statements for passkey (keys.breez.technology RP) -->
+        <!-- Asset statements for passkeys: Breez RP (keys.breez.technology,
+             existing wallets) and Kute RP (kutewallet.com, new wallets) -->
         <meta-data
                 android:name="asset_statements"
-                android:value='[{"include":"https://keys.breez.technology/.well-known/assetlinks.json"}]' />
+                android:value='[{"include":"https://keys.breez.technology/.well-known/assetlinks.json"},{"include":"https://kutewallet.com/.well-known/assetlinks.json"}]' />
         <!--
             PostHog (product analytics). distinct_id is set in code to
             the user's affiliate_code (NOT the wallet pubkey, per the

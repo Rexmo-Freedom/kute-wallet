@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:kute/platform/int_limits.dart';
+
 enum Network { bitcoin, testnet, testnet4, signet, regtest }
 
 /// Immutable, process-local snapshots from the native on-chain wallet owner.
@@ -495,15 +497,13 @@ String _string(Object? value, String field, {bool allowEmpty = false}) {
 }
 
 int _integer(Object? value, String field) {
-  if (value is! int ||
-      value < -0x7fffffffffffffff ||
-      value > 0x7fffffffffffffff) {
+  if (value is! int || value < -maxExactInt || value > maxExactInt) {
     throw FormatException('Invalid on-chain $field integer');
   }
   return value;
 }
 
-int _unsigned(Object? value, String field, {int max = 0x7fffffffffffffff}) {
+int _unsigned(Object? value, String field, {int max = maxExactInt}) {
   final result = _integer(value, field);
   if (result < 0 || result > max) {
     throw FormatException('Invalid on-chain $field range');

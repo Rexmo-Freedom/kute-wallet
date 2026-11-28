@@ -39,6 +39,15 @@
 // through the same memory and disk caches as every other candidate, so a
 // coin no host knows costs its three requests once per miss TTL, not once
 // per list build; the letter tile shows until an image lands.
+//
+// On web the logo hosts send no CORS headers, so the page cannot read their
+// bytes. The web build ships a copy of every logo these candidates can name
+// (tool/web_hl_logos.dart, build/web/logos/hl/), and a candidate is read
+// from that same-origin copy instead (hl_web_logos.dart), repaired and
+// drawn in the canvas exactly as on the phones: no `<img>` view, which on
+// Safari cost a full-screen WebGL canvas each. A candidate the build did
+// not ship is a miss for the session. There is no disk cache on web; the
+// memory caches work the same.
 
 import 'dart:async';
 import 'dart:convert';
@@ -50,6 +59,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/helpers/svg_class_styles.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/platform/web_image.dart';
+import 'package:kute/platform/web_image_proxy.dart';
 import 'package:kute/services/icon_cache/icon_disk_cache.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
@@ -57,6 +68,7 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart'
 import 'package:kute/theme/app_theme.dart';
 
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/screens/hyperliquid/components/hl_web_logos.dart';
 
 /// Base coin used to build the HL coin-logo CDN URL: strips any `dex:`
 /// builder-dex prefix ('unit:WHEAT' → 'WHEAT') and '/…' pair suffix
@@ -215,6 +227,32 @@ List<String> hlCoinIconCandidates(
   return urls;
 }
 
+/// Whether [HlCoinIcon] has a logo to draw for this market. Web: one of
+/// its candidates was shipped with the build (hl_web_logos.dart); a
+/// market without one shows no icon at all there, and its row closes up
+/// (founder, 26 November 2026: "dont show the icons when not loading the
+/// icons, just the name"). Always true on the phones, which keep their
+/// glyph and letter fallbacks.
+bool hlLogoShown(
+    String coin, String? wireCoin, String? iconUrl, String? category) {
+  if (!kIsWeb) return true;
+  final urls = hlIconUrlsFor(coin, wireCoin, iconUrl, category);
+  // A shipped logo, else one the backend's image route can still bring
+  // that was not found missing this session.
+  return HlWebLogos.hasAny(urls) ||
+      urls.any((u) =>
+          !_hlSvgFailed.contains(u) && WebImageProxy.proxied(u) != null);
+}
+
+/// [HlCoinIcon] for this market, or null on the web when it has no logo
+/// to draw ([hlLogoShown]), for a row whose leading slot is optional.
+Widget? hlLogoOrNull(Widget Function() icon,
+        {required String coin,
+        String? wireCoin,
+        String? iconUrl,
+        String? category}) =>
+    hlLogoShown(coin, wireCoin, iconUrl, category) ? icon() : null;
+
 /// The other markets on the same asset whose logo [coin] may show, from
 /// the markets loaded so far: see [hlCoinIconCandidates].
 List<String> hlIconSiblingWires(String coin, String? wireCoin, String? category) {
@@ -251,10 +289,15 @@ List<String> hlIconSiblingWires(String coin, String? wireCoin, String? category)
 /// A loaded logo: the SVG document itself, or the raster taken out of an
 /// SVG that only wraps one. [aspect] is its width over height when known.
 class HlIconArt {
-  const HlIconArt({required this.bytes, required this.raster, this.aspect});
+  const HlIconArt(
+      {required this.bytes, required this.raster, this.aspect, this.webUrl});
   final Uint8List bytes;
   final bool raster;
   final double? aspect;
+
+  /// Web only: the URL the browser loaded, drawn by an `<img>` ([bytes] is
+  /// empty; the page cannot read them).
+  final String? webUrl;
 }
 
 final RegExp _svgShape = RegExp(
@@ -441,10 +484,49 @@ bool hlLooksLikePng(Uint8List bytes) {
   return true;
 }
 
-Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
+/// Web: at most this many logos are read and parsed at once; the rest
+/// wait their turn. A wide list scrolled fast asks for dozens in one
+/// frame, and parsing them together was one long frame (a 312 ms frame
+/// measured on the 4-column Stocks list in Safari). Text and prices never
+/// wait on a logo: the row is drawn first, the logo when its turn comes.
+const int kHlWebLogoParallel = 4;
+int _hlWebActive = 0;
+final List<Completer<void>> _hlWebQueue = [];
+
+Future<T> _hlWebTurn<T>(Future<T> Function() work) async {
+  if (_hlWebActive >= kHlWebLogoParallel) {
+    final turn = Completer<void>();
+    _hlWebQueue.add(turn);
+    await turn.future;
+  }
+  _hlWebActive++;
+  try {
+    return await work();
+  } finally {
+    _hlWebActive--;
+    if (_hlWebQueue.isNotEmpty) _hlWebQueue.removeAt(0).complete();
+  }
+}
+
+Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) =>
+    kIsWeb ? _hlWebTurn(() => _fetchHlSvgNow(url)) : _fetchHlSvgNow(url);
+
+Future<(_HlFetch, HlIconArt?)> _fetchHlSvgNow(String url) async {
+  var from = url;
+  if (kIsWeb) {
+    // Web: the copy shipped with the build, on the page's own origin, so
+    // it is read and drawn in the canvas like a downloaded logo on the
+    // phones (hl_web_logos.dart). None shipped: this session's miss.
+    // Not shipped: the backend's image route, which covers Hyperliquid's
+    // own coin logos (web_image_proxy.dart); any other host is a miss.
+    final local =
+        await HlWebLogos.localUrlFor(url) ?? WebImageProxy.proxied(url);
+    if (local == null) return (_HlFetch.failed, null);
+    from = local;
+  }
   try {
     IconLoadStats.network++;
-    final resp = await SharedHttpClient.get(Uri.parse(url),
+    final resp = await SharedHttpClient.get(Uri.parse(from),
         kind: HttpCallKind.backgroundRead,
         timeout: const Duration(seconds: 8));
     final ct = (resp.headers['content-type'] ?? '').toLowerCase();
@@ -901,7 +983,14 @@ class HlCoinIcon extends StatefulWidget {
     this.category,
     this.size = 44,
     this.placeholder,
+    this.round = false,
   });
+
+  /// Cut round (the Investing rows' logo). On web a logo drawn by the
+  /// browser rounds its own corners: a Flutter clip around an `<img>`
+  /// view is a clipping element the engine restyles on every frame.
+  /// Off the web the icon is clipped by a [ClipOval].
+  final bool round;
 
   @override
   State<HlCoinIcon> createState() => _HlCoinIconState();
@@ -967,13 +1056,66 @@ class _HlCoinIconState extends State<HlCoinIcon> {
     }
     final urls = _urls;
     _loadFirstSvg(urls).then((art) {
-      if (!mounted || !identical(urls, _urls) || art == null) return;
+      if (!mounted || !identical(urls, _urls)) return;
+      // Web: a logo found missing gives its place back (hlLogoShown).
+      if (art == null) {
+        if (kIsWeb) setState(() {});
+        return;
+      }
       setState(() => _art = art);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      // Web: the shipped logo or nothing (no glyph, no letter tile); a
+      // logo still loading keeps its place, blank (hlLogoShown).
+      if (!hlLogoShown(widget.coin, widget.wireCoin, widget.iconUrl,
+          widget.category)) {
+        return const SizedBox.shrink();
+      }
+      if (_art == null) return SizedBox(width: widget.size.w, height: widget.size.w);
+    }
+    if (!widget.round) return _icon(context);
+    final art = _art;
+    if (art?.webUrl == null) return ClipOval(child: _icon(context));
+    // Web, round: the round plate and the browser's round image, no clip
+    // around the view (the stand-in, a Flutter drawing, is clipped).
+    final size = widget.size.w;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: context.colors.surfaceLight,
+        shape: BoxShape.circle,
+      ),
+      child: WebNetworkImage(
+        url: art!.webUrl!,
+        width: size,
+        height: size,
+        fit: _fitFor(art),
+        borderRadius: BorderRadius.circular(size / 2),
+        error: ClipOval(child: _fallback(context)),
+      ),
+    );
+  }
+
+  /// A square mark covers, so it reaches every edge and reads at the same
+  /// size as a prediction crest beside it. A mark that is not square is
+  /// contained, because covering one crops it to a fragment.
+  static BoxFit _fitFor(HlIconArt art) {
+    final aspect = art.aspect;
+    return art.raster
+        ? (aspect != null && (aspect - 1).abs() > 0.2
+            ? BoxFit.contain
+            : BoxFit.cover)
+        : (aspect == null || (aspect - 1).abs() > 0.2
+            ? BoxFit.contain
+            : BoxFit.cover);
+  }
+
+  Widget _icon(BuildContext context) {
     final size = widget.size;
     final art = _art;
     if (art != null) {
@@ -1012,7 +1154,15 @@ class _HlCoinIconState extends State<HlCoinIcon> {
         // it filled the box and then cropped, which left a fragment of
         // the logo. The rounded clip stays, so a mark that does fill
         // its box keeps the same silhouette as every other row.
-        child: art.raster
+        child: art.webUrl != null
+            ? WebNetworkImage(
+                url: art.webUrl!,
+                width: size.w,
+                height: size.w,
+                fit: fit,
+                error: _fallback(context),
+              )
+            : art.raster
             // The raster an SVG only wrapped, decoded at the icon's own
             // pixel size (the originals are photo-sized).
             ? Image.memory(

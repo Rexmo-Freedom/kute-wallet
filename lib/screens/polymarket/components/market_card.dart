@@ -4,6 +4,8 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
     show polymarketEventTeamsProvider;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart'
     show BetSlipSheet;
+import 'package:kute/screens/polymarket/market_detail_sheet.dart'
+    show MarketDetailSheet;
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
@@ -24,11 +26,16 @@ import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart'
     show polymarketCentsLabel;
 import 'package:kute/services/polymarket/market_card_shape.dart';
+import 'package:kute/services/polymarket/market_display_title.dart'
+    show polyMarketDisplayTitle;
 import 'package:kute/theme/app_theme.dart';
 import 'dart:math' as math;
 import 'dart:math' show pi;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:kute/helpers/polymarket_artwork.dart';
+import 'package:kute/platform/web_image_proxy.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -113,7 +120,8 @@ class PolyCardPick {
 /// a card's pill): the side's outcome preselected, nothing new in between
 /// and nothing placed, funded or approved (that waits for Confirm on the
 /// slip). [source] is the list the card sits in, for the slip's existing
-/// open event.
+/// open event. [outcomeIndex] (with [no]): one outcome of a multi-outcome
+/// event on its own market's Yes or No.
 void polyCardOpenSlip(
   BuildContext context, {
   required PolymarketEvent event,
@@ -122,6 +130,8 @@ void polyCardOpenSlip(
   required String source,
   VoidCallback? onDeposit,
   String? ledgerWalletId,
+  int? outcomeIndex,
+  bool no = false,
 }) {
   HapticFeedback.mediumImpact();
   void open({
@@ -131,14 +141,16 @@ void polyCardOpenSlip(
     String? neg,
     List<Color?>? colors,
     List<String>? labels,
+    String? question,
+    String? image,
   }) =>
       BetSlipSheet.show(
         context,
         event: event,
         negRisk: event.negRisk,
-        marketQuestion: event.displayTitle,
+        marketQuestion: question ?? event.displayTitle,
         marketSlug: event.slug,
-        marketImage: event.imageUrl,
+        marketImage: image ?? event.imageUrl,
         outcomes: outcomes,
         initialOutcomeIndex: index,
         onDeposit: onDeposit,
@@ -150,6 +162,13 @@ void polyCardOpenSlip(
         outcomeColors: colors,
         outcomeLabels: labels,
         source: source,
+        // EXPANDED: the market's page, the slip open in its side panel.
+        widePage: (slip) => MarketDetailSheet.show(context,
+            event: event,
+            onDeposit: onDeposit,
+            ledgerWalletId: ledgerWalletId,
+            source: source,
+            initialSlip: slip),
       );
   // One market's two sides, Yes first, opened on [no] or not.
   List<PolymarketOutcome> pair(PolymarketOutcome m) {
@@ -228,6 +247,21 @@ void polyCardOpenSlip(
         ],
       );
     }
+    return;
+  }
+  // One outcome of a multi-outcome event, on its own market's Yes or No
+  // (the wide grid's row buttons).
+  final at = outcomeIndex;
+  if (at != null && at >= 0 && at < event.outcomes.length) {
+    final cand = event.outcomes[at];
+    open(
+      outcomes: pair(cand),
+      index: no ? 1 : 0,
+      // Titled by the outcome's own market, as its page's slip is.
+      question: polyMarketDisplayTitle(event.title,
+          question: cand.question, itemTitle: cand.name),
+      image: cand.imageUrl,
+    );
     return;
   }
   final picked = (pick?.side ?? side ?? '').toLowerCase();
@@ -785,14 +819,18 @@ class MarketCard extends ConsumerWidget {
       final tone = leads ? c.textPrimary : c.textSecondary;
       return Row(
         children: [
-          _MarketThumbnail(
-            title: name,
-            imageUrl: crest,
-            category: category,
-            size: 28.w,
-            radius: 8.r,
-          ),
-          SizedBox(width: 12.w),
+          // Web: no picture (its host cannot be read by the page);
+          // the name closes up.
+          if (polyThumbShown(crest)) ...[
+            _MarketThumbnail(
+              title: name,
+              imageUrl: crest,
+              category: category,
+              size: 28.w,
+              radius: 8.r,
+            ),
+            SizedBox(width: 12.w),
+          ],
           Expanded(
             child: _TeamName(
               name: name,
@@ -913,14 +951,18 @@ class MarketCard extends ConsumerWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _MarketThumbnail(
-          title: this.title,
-          imageUrl: image,
-          category: category,
-          size: kPolyCardImage.w,
-          radius: 10.r,
-        ),
-        SizedBox(width: kPolyCardImageGap.w),
+        // Web: no picture (its host cannot be read by the page);
+        // the name closes up.
+        if (polyThumbShown(image)) ...[
+          _MarketThumbnail(
+            title: this.title,
+            imageUrl: image,
+            category: category,
+            size: kPolyCardImage.w,
+            radius: 10.r,
+          ),
+          SizedBox(width: kPolyCardImageGap.w),
+        ],
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1365,6 +1407,22 @@ String polyRoundTimes(DateTime start, DateTime end, AppLocalizations l10n,
 /// fallback, a team's name that gives way to its abbreviation, the big
 /// right-hand figure and the caption line.
 typedef PolyCardThumbnail = _MarketThumbnail;
+
+/// Whether market pictures are drawn in lists: not on the web, where
+/// their host cannot be read by the page and an `<img>` per card cost a
+/// WebGL canvas each; a card there shows its name alone (founder,
+/// 26 November 2026: "dont show the icons when not loading the icons,
+/// just the name"). The phones are unchanged.
+bool get kPolyThumbsShown => !kIsWeb;
+
+/// Whether a list draws the picture at [url] (and keeps its place): always
+/// on the phones; on the web only a picture a backend image route covers
+/// and that was not found missing this session ([WebImageProxy.drawable]),
+/// drawn in the canvas. Founder, 27 November 2026: pictures through the
+/// backend.
+bool polyThumbShown(String? url) =>
+    kPolyThumbsShown ||
+    WebImageProxy.drawable(polymarketArtworkUrl(url));
 typedef PolyCardTeamName = _TeamName;
 
 TextStyle polyCardTitleStyle(AppColorsExtension c) => MarketCard._title(c);
@@ -1639,6 +1697,25 @@ class PolyOutcomeChanceBar extends StatelessWidget {
   }
 }
 
+/// [token]'s 7-day line as the list cards draw it ([_CardSpark]: the
+/// Yes line of a Yes/No card), ending on [live], in [color], [width] by
+/// [height] (design units; [double.infinity] for the room given). For the
+/// Top markets cards on a desktop (top_markets_strip.dart).
+Widget polyCardWeekLine(
+        {required String token,
+        required double live,
+        required Color color,
+        double width = double.infinity,
+        required double height}) =>
+    _CardSpark(
+      tokenId: token,
+      interval: '1w',
+      live: live,
+      color: color,
+      width: width,
+      height: height,
+    );
+
 /// A card's tiny chart: one token's line ([HlLineSparkline], the
 /// Investing cards' own) in [color], no fill and no baseline, ending on
 /// [live] (the figure the card shows), from [since] when given. Until the
@@ -1786,6 +1863,9 @@ class _MarketThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Web: no picture and no stand-in, unless a backend route draws it
+    // ([polyThumbShown]).
+    if (!polyThumbShown(imageUrl)) return const SizedBox.shrink();
     final c = context.colors;
     final size = this.size ?? 56.w;
     final radius = this.radius ?? 14.r;

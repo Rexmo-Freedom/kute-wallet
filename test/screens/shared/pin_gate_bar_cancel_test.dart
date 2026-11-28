@@ -281,7 +281,15 @@ void main() {
       (tester) async {
     await pumpSlip(tester, settleSlip: false);
     expect(barPrimaryText('Place prediction · \$5.00'), findsOneWidget);
-    await tester.tap(findBarPrimary());
+    // A sheet with no action of its own has no bar (5f62008f): the slip's
+    // button rises with the slip, so it is tapped the first frame it can
+    // be, while it still moves.
+    for (var i = 0;
+        i < 40 && findBarPrimary().hitTestable().evaluate().isEmpty;
+        i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.tap(findBarPrimary().hitTestable());
     for (var i = 0;
         i < 20 && find.byType(PinGateSheet).evaluate().isEmpty;
         i++) {

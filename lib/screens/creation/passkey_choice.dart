@@ -1,12 +1,17 @@
+import 'package:kute/platform/storage_persist.dart';
+import 'package:kute/screens/share/share_wallet_gate.dart';
+import 'package:kute/services/share_targets.dart';
 import 'package:kute/services/evm_derivation_policy.dart';
 import 'package:kute/models/evm_derivation_version.dart';
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' show Wallet;
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kDebugMode, visibleForTesting;
+    show
+        kDebugMode,
+        kIsWeb,
+        visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +43,8 @@ import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/webauthn_immediate.dart';
 
 /// Post-PIN screen presented when the user is creating a NEW wallet
 /// (not when restoring from seed). Toggle defaults ON when the
@@ -135,14 +142,33 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
     bool available = false;
     var hasFace = false;
     var hasFingerprint = false;
+    // Web: why the passkey option is off (a code, nothing else).
+    String? webReason;
     try {
-      final supported = await auth.isDeviceSupported();
-      final canCheck = await auth.canCheckBiometrics;
-      available = supported && canCheck;
-      final types = await auth.getAvailableBiometrics();
-      hasFace = types.contains(BiometricType.face);
-      hasFingerprint = types.contains(BiometricType.fingerprint);
-    } catch (_) {}
+      if (PlatformCaps.isWeb) {
+        // Web: a passkey wallet lives on Kute's own RP only, so it is
+        // offered only on a page served from kutewallet.com or one of its
+        // subdomains (never on localhost or any other host), and only when
+        // the browser can produce the PRF output. No local_auth on web.
+        if (!PasskeyHomes.webPageOnKuteHome) {
+          webReason = 'not_kute_host';
+        } else {
+          final check = await PasskeyService.kute.availability();
+          available = check.available;
+          webReason = check.reason;
+        }
+      } else {
+        if (!PlatformCaps.hasBiometrics) throw UnsupportedError('local_auth');
+        final supported = await auth.isDeviceSupported();
+        final canCheck = await auth.canCheckBiometrics;
+        available = supported && canCheck;
+        final types = await auth.getAvailableBiometrics();
+        hasFace = types.contains(BiometricType.face);
+        hasFingerprint = types.contains(BiometricType.fingerprint);
+      }
+    } catch (e) {
+      if (PlatformCaps.isWeb) webReason = 'error_${e.runtimeType}';
+    }
     if (!mounted) return;
     setState(() {
       _biometricsAvailable = available;
@@ -151,7 +177,8 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
       if (!available) _useBiometrics = false;
     });
     if (!available) {
-      TrackingService.track('passkey_unsupported_device');
+      TrackingService.track('passkey_unsupported_device',
+          params: PlatformCaps.isWeb ? {'reason': webReason ?? 'unknown'} : null);
     }
   }
 
@@ -188,6 +215,14 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
         print('passkey_choice _continue failed: $e\n$st');
       }
       TrackingService.walletAddFailed(reason: e.runtimeType.toString());
+      if (ShareTargets.arrivedThroughShare &&
+          widget.nextRoute == kShareOnboardingNext) {
+        TrackingService.track('quick_wallet_failed', params: {
+          'entry_source': 'share_link',
+          'error_category': TrackingService.errorCategory(e),
+          'stage': _useBiometrics ? 'passkey' : 'phrase',
+        });
+      }
       TrackingService.recordHandled(TrackingService.errorCategory(e), e, st,
           flow: 'onboarding', stage: 'wallet_create');
       showMessageSnackBar(
@@ -201,6 +236,8 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
     }
 
     if (!mounted) return;
+    final shareArrival = ShareTargets.arrivedThroughShare &&
+        widget.nextRoute == kShareOnboardingNext;
     // Don't re-resolve the BDK config for a passkey wallet: it uses Breez
     // Spark on-chain (no BDK), and resolving bitcoinConfig for it runs
     // PasskeyService.getWallet() → an OS biometric ceremony mid-navigation
@@ -209,11 +246,45 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
     final activeIsPasskey =
         ref.read(settingsProvider).activeWallet?.isPasskey ?? false;
     if (!activeIsPasskey) ref.invalidate(bitcoinConfigProvider);
+    if (shareArrival) {
+      _finishShareArrival(passkey: activeIsPasskey);
+      return;
+    }
     context.go(widget.nextRoute);
   }
 
+  /// A share arrival's wallet exists (share_wallet_gate.dart): onboarding
+  /// ends here (no survey, no code screens), the browser is asked to keep
+  /// the site's storage, and the person goes back to the shared market. A
+  /// 12-word wallet shows its words first and may not receive before they
+  /// are backed up (founder decision 4).
+  void _finishShareArrival({required bool passkey}) {
+    TrackingService.track('quick_wallet_completed', params: {
+      'entry_source': 'share_link',
+      'method': passkey ? 'passkey' : 'phrase',
+      if (ShareWalletGate.elapsedMs != null)
+        'duration_ms': ShareWalletGate.elapsedMs!,
+    });
+    TrackingService.onboardingCompletedOnce();
+    TrackingService.clearFlowContext('onboarding');
+    unawaited(requestPersistentStorage().then((granted) {
+      TrackingService.track('storage_persist_requested',
+          params: {'granted': granted, 'entry_source': 'share_link'});
+    }).catchError((Object _) {}));
+    final walletId = ref.read(settingsProvider).activeWallet?.id;
+    context.go(kShareOnboardingNext);
+    if (!passkey && walletId != null) {
+      ShareQuickWallets.mark(walletId);
+      unawaited(GoRouter.of(context).push('/backup_wallet', extra: walletId));
+    }
+  }
+
+  /// Production: Kute's own RP first, Breez's as the platform-refusal
+  /// fallback (see [PasskeyWalletCreation]). Injected ceremonies without a
+  /// [PasskeyCeremonies.kute] run the Breez home alone.
   PasskeyCeremonies get _ceremonies =>
-      widget.ceremonies ?? const PasskeyCeremonies();
+      widget.ceremonies ??
+      const PasskeyCeremonies(kute: PasskeyHomeCeremonies());
 
   /// One passkey creation attempt, cancel handling included. Returns true
   /// when a wallet was created (passkey or, after a non-cancel failure,
@@ -239,9 +310,10 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
       TrackingService.track('passkey_choice_cancelled', params: {
         'sheet': e.sheet.analyticsValue,
         'elapsed_ms': e.elapsedMs,
+        'passkey_home': e.home.analyticsValue,
       });
       if (e.sheet == PasskeySheet.signIn &&
-          !await _ceremonies.hasKnownCredentialOrDefault()) {
+          !await _ceremonies.hasKnownCredentialOn(e.home)) {
         if (!mounted) return false;
         final accepted = await _offerCreateNewPasskey();
         TrackingService.track('passkey_choice_create_new_offered',
@@ -382,12 +454,16 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
     // creation would be retried as a SECOND wallet under a new label).
     // Each step is reported by kind only.
     try {
-      TrackingService.walletCreated(type: 'hot', authMode: 'passkey');
+      TrackingService.walletCreated(
+          type: 'hot',
+          authMode: 'passkey',
+          passkeyHome: result.home.analyticsValue);
       TrackingService.walletAdded(
         walletKind: 'hot',
         importMethod: 'passkey',
         network: 'spark',
         source: 'onboarding',
+        passkeyHome: result.home.analyticsValue,
       );
     } catch (e) {
       _trackPostSaveFailed('track', e);
@@ -492,7 +568,10 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
   /// term and never says biometrics or passkey.
   String _methodName(BuildContext context) {
     final l10n = context.l10n;
-    if (Platform.isIOS) {
+    // Web on an Apple device: Face ID (iPhone, iPad) or Touch ID (Mac).
+    final web = webBiometricMethodName(context);
+    if (web != null) return web;
+    if (PlatformOs.isIOS) {
       return _hasFace || !_hasFingerprint
           ? l10n.biometricFaceId
           : l10n.biometricTouchId;
@@ -502,7 +581,7 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
         : l10n.biometricFingerprint;
   }
 
-  bool get _usesFace => _hasFace && (Platform.isIOS || !_hasFingerprint);
+  bool get _usesFace => _hasFace && (PlatformOs.isIOS || !_hasFingerprint);
 
   /// The wallet name stays out of the way: one quiet row with the current
   /// name and Rename, which opens the field in place. Continue still needs
@@ -674,13 +753,11 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
                                   // wallet, so the user picks it up front
                                   // (a third-party one without PRF can't).
                                   if (_biometricsAvailable == true &&
-                                      _useBiometrics) ...[
+                                      _useBiometrics &&
+                                      passkeyWorksWith(context) != null) ...[
                                     SizedBox(height: 4.h),
                                     Text(
-                                      defaultTargetPlatform ==
-                                              TargetPlatform.iOS
-                                          ? l10n.passkeyChoiceWorksWithApple
-                                          : l10n.passkeyChoiceWorksWithGoogle,
+                                      passkeyWorksWith(context)!,
                                       style: AppTextStyles.bodySmall(context)
                                           .copyWith(
                                               height: 1.4,
@@ -782,10 +859,14 @@ class PasskeyBackupSyncingNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<Set<String>>(
-      valueListenable: PasskeyService.pendingLabels,
-      builder: (context, pending, _) {
-        if (pending.isEmpty) return const SizedBox.shrink();
+    // Both passkey homes' pending labels (with no Kute-home wallet, the
+    // Breez set alone, as before).
+    return ListenableBuilder(
+      listenable: PasskeyService.allPendingLabels,
+      builder: (context, _) {
+        if (PasskeyService.allPendingLabelsNow.isEmpty) {
+          return const SizedBox.shrink();
+        }
         return Padding(
           padding: EdgeInsets.only(bottom: 8.h),
           child: ReceiveCaption(text: context.l10n.passkeyBackupSyncing),
@@ -808,9 +889,13 @@ enum PasskeySheet {
 
 /// The user dismissed the OS sheet named by [sheet]; nothing was created.
 class PasskeySheetCancelled implements Exception {
-  const PasskeySheetCancelled(this.sheet, this.cause, {required this.elapsedMs});
+  const PasskeySheetCancelled(this.sheet, this.cause,
+      {required this.elapsedMs, this.home = PasskeyHome.breez});
   final PasskeySheet sheet;
   final Object cause;
+
+  /// The passkey home whose sheet was dismissed.
+  final PasskeyHome home;
 
   /// How long the sheet was up before the cancel.
   final int elapsedMs;
@@ -855,10 +940,14 @@ class PasskeyCreationResult {
     required this.saveMs,
     required this.totalMs,
     this.pendingFlagged = true,
+    this.home = PasskeyHome.breez,
   });
 
   final Wallet wallet;
   final WalletConfig config;
+
+  /// The passkey home the wallet was created on.
+  final PasskeyHome home;
 
   /// Whether the label's pending-publish flag was stored before the save.
   final bool pendingFlagged;
@@ -879,6 +968,7 @@ class PasskeyCreationResult {
         'save_ms': saveMs,
         'total_ms': totalMs,
         'pending_flagged': pendingFlagged,
+        'passkey_home': home.analyticsValue,
       };
 }
 
@@ -894,7 +984,23 @@ class PasskeyCeremonies {
     this.markPending,
     this.publishLabel,
     this.scheduleProvisioning,
+    this.kute,
   });
+
+  /// Kute's own RP (`kutewallet.com`), tried FIRST for every new wallet
+  /// when set; the fields above are the Breez home, used as before when
+  /// this is null and, on iOS / Android, as the fallback when the
+  /// platform refuses Kute's RP before any credential exists. Production
+  /// always sets it; tests that inject Breez-only ceremonies leave it
+  /// null and run the Breez flow exactly as it was.
+  final PasskeyHomeCeremonies? kute;
+
+  /// Whether this device knows a credential on [home]'s RP.
+  Future<bool> hasKnownCredentialOn(PasskeyHome home) => switch (home) {
+        PasskeyHome.breez => hasKnownCredentialOrDefault(),
+        PasskeyHome.kute => kute?.hasKnownCredentialOrDefault() ??
+            Future<bool>.value(true),
+      };
 
   /// Derive [label] from an existing passkey (OS sign-in sheet). Must
   /// throw the SDK's typed errors: a cancel, or `CredentialNotFound`.
@@ -993,7 +1099,107 @@ class PasskeyCeremonies {
   }
 }
 
+/// The Kute-home pieces of passkey creation ([PasskeyService.kute]), each
+/// replaceable in tests. Null fields fall through to the real service.
+/// Kute's RP is a different RP from Breez's, so none of the Breez-home
+/// guards that exist because of the shared RP apply here: no legacy
+/// (pre-2.x) mint block, no legacy pin in `excludeCredentials`, and the
+/// device-wide cached label (a Breez / legacy value) is never written.
+class PasskeyHomeCeremonies {
+  const PasskeyHomeCeremonies({
+    this.platformRefusesRp,
+    this.signIn,
+    this.register,
+    this.hasKnownCredential,
+    this.markPending,
+    this.publishLabel,
+    this.breezFallback = !kIsWeb,
+    this.web = kIsWeb,
+    this.immediateMediation,
+  });
+
+  /// The web's create order (see [PasskeyWalletCreation]): no sign-in
+  /// sheet before the create unless it can be silent or a credential is
+  /// already known on this browser.
+  final bool web;
+
+  /// The browser's silent sign-in support ([webauthnImmediateMediation]).
+  final Future<bool> Function()? immediateMediation;
+
+  Future<bool> immediateMediationOrDefault() => immediateMediation != null
+      ? immediateMediation!()
+      : webauthnImmediateMediation();
+
+  /// The platform's pre-ceremony verdict that this app is not associated
+  /// with Kute's RP (iOS AASA probe; never true on Android or the web).
+  final Future<bool> Function()? platformRefusesRp;
+  final Future<Wallet> Function(String label)? signIn;
+  final Future<Wallet> Function(String label, String displayName)? register;
+  final Future<bool> Function()? hasKnownCredential;
+  final Future<void> Function(String label)? markPending;
+  final void Function(String label)? publishLabel;
+
+  /// Whether a platform refusal of Kute's RP may fall back to creating on
+  /// Breez's (iOS / Android). The web has no Breez home at all.
+  final bool breezFallback;
+
+  Future<bool> platformRefusesRpOrDefault() => platformRefusesRp != null
+      ? platformRefusesRp!()
+      : PasskeyService.kute.platformReportsNotAssociated();
+
+  /// Quiet sign-in on Kute's RP (prefer immediately available
+  /// credentials, so a device with no Kute passkey fails fast with
+  /// `CredentialNotFound` instead of showing a sheet).
+  Future<Wallet> signInOrDefault(String label) => signIn != null
+      ? signIn!(label)
+      : PasskeyService.kute
+          .getWallet(label: label, preferImmediatelyAvailable: true);
+
+  Future<Wallet> registerOrDefault(String label, String displayName) =>
+      register != null
+          ? register!(label, displayName)
+          : PasskeyService.kute
+              .createWallet(label: label, userDisplayName: displayName);
+
+  Future<bool> hasKnownCredentialOrDefault() => hasKnownCredential != null
+      ? hasKnownCredential!()
+      : PasskeyService.kute.hasKnownCredential();
+
+  Future<void> markPendingOrDefault(String label) => markPending != null
+      ? markPending!(label)
+      : PasskeyService.kute.markLabelPendingForIdentity(label);
+
+  void publishLabelOrDefault(String label) {
+    if (publishLabel != null) {
+      publishLabel!(label);
+    } else {
+      unawaited(PasskeyService.kute
+          .publishLabelInBackground(label, trigger: 'create'));
+    }
+  }
+}
+
+/// The platform refused Kute's RP before any credential existed; [stage]
+/// names where (`domain_check`, `sign_in`, `create`). Internal to
+/// [PasskeyWalletCreation]: it becomes the Breez fallback on iOS / Android
+/// and a [PasskeyStepFailed] on the web.
+class _KuteRpRefused implements Exception {
+  const _KuteRpRefused(this.stage, this.cause);
+  final String stage;
+  final Object? cause;
+}
+
 /// Passkey wallet creation, step by step, with no network on the path:
+///
+/// 0. With [PasskeyCeremonies.kute] set (production), everything below
+///    runs on Kute's own RP first, stamped `'kute-1'`. Only when the
+///    platform refuses that RP BEFORE any credential exists (the iOS
+///    domain-association verdict, or a ceremony failing with
+///    [PasskeyService.isRpNotAssociatedError]) does creation fall back to
+///    the Breez flow below, unchanged and stamped `'breez-0.17'` — on iOS
+///    and Android only; the web stops there. A failure after a Kute
+///    credential exists (`createdButNotDerived`, a cancel, anything else)
+///    never falls back.
 ///
 /// 1. Sign in first (unless [create] is told to skip it): derive the new
 ///    label from WHATEVER passkey the account already has, so one
@@ -1049,6 +1255,23 @@ class PasskeyWalletCreation {
     required String name,
     bool skipSignIn = false,
   }) async {
+    final kute = ceremonies.kute;
+    if (kute != null) {
+      try {
+        return await _createOnKute(kute,
+            walletId: walletId,
+            label: label,
+            name: name,
+            skipSignIn: skipSignIn);
+      } on _KuteRpRefused catch (e) {
+        // The web has no other home: the failure surfaces as any other
+        // (the caller's recovery-phrase fallback).
+        if (!kute.breezFallback) throw PasskeyStepFailed(e.stage, e.cause ?? e);
+        // iOS / Android: nothing exists on Kute's RP. Create on Breez's,
+        // exactly as before Kute had a home.
+      }
+    }
+
     final total = Stopwatch()..start();
     Wallet wallet;
     String path;
@@ -1171,6 +1394,159 @@ class PasskeyWalletCreation {
       saveMs: saveMs,
       totalMs: total.elapsedMilliseconds,
       pendingFlagged: pendingFlagged,
+    );
+  }
+
+  /// Steps 1–5 on Kute's RP. Throws [_KuteRpRefused] ONLY while no Kute
+  /// credential exists and the platform refused the RP: the pre-ceremony
+  /// domain verdict, or a sign-in / create ceremony that failed with
+  /// [PasskeyService.isRpNotAssociatedError] (a `PasskeyError.prf`, never
+  /// `createdButNotDerived`). Every other outcome is final: a cancel, a
+  /// password manager without PRF, any other failure, or the saved wallet.
+  Future<PasskeyCreationResult> _createOnKute(
+    PasskeyHomeCeremonies kute, {
+    required String walletId,
+    required String label,
+    required String name,
+    required bool skipSignIn,
+  }) async {
+    const home = PasskeyHome.kute;
+    final total = Stopwatch()..start();
+    if (await kute.platformRefusesRpOrDefault()) {
+      throw const _KuteRpRefused('domain_check', null);
+    }
+    Wallet wallet;
+    String path;
+    int? signInMs;
+    int? createMs;
+
+    Future<Wallet> register(Stopwatch sw) async {
+      try {
+        return await kute.registerOrDefault(label, name);
+      } catch (e) {
+        if (isUserCancelled(e)) {
+          throw PasskeySheetCancelled(PasskeySheet.create, e,
+              elapsedMs: sw.elapsedMilliseconds, home: home);
+        }
+        if (PasskeyService.isPrfUnsupportedError(e)) {
+          throw PasskeyPrfUnsupported(PasskeySheet.create, e);
+        }
+        if (PasskeyService.isRpNotAssociatedError(e)) {
+          throw _KuteRpRefused('create', e);
+        }
+        throw PasskeyStepFailed('create', e);
+      }
+    }
+
+    // Web: the "quiet" sign-in that lets an existing Kute passkey derive
+    // the new label cannot be quiet in a browser without immediate
+    // mediation: it showed the browser's sign-in sheet ("no passkeys
+    // saved for this website") before the create sheet. There, with no
+    // credential known on this browser, the create runs straight away (a
+    // web create mints with a fresh random user id, so it never replaces
+    // a passkey). A known credential keeps the pinned sign-in, so one
+    // passkey keeps serving every wallet. The phones are unchanged.
+    final webCreateFirst = !skipSignIn &&
+        kute.web &&
+        !await kute.hasKnownCredentialOrDefault() &&
+        !await kute.immediateMediationOrDefault();
+    if (webCreateFirst) {
+      wallet = await register(total);
+      createMs = total.elapsedMilliseconds;
+      path = 'create';
+    } else if (skipSignIn) {
+      wallet = await register(total);
+      createMs = total.elapsedMilliseconds;
+      path = 'create_after_cancel';
+    } else {
+      final signIn = Stopwatch()..start();
+      try {
+        wallet = await kute.signInOrDefault(label);
+        signInMs = signIn.elapsedMilliseconds;
+        path = 'sign_in';
+      } catch (e) {
+        signInMs = signIn.elapsedMilliseconds;
+        if (isUserCancelled(e)) {
+          throw PasskeySheetCancelled(PasskeySheet.signIn, e,
+              elapsedMs: signInMs, home: home);
+        }
+        if (PasskeyService.isPrfUnsupportedError(e)) {
+          throw PasskeyPrfUnsupported(PasskeySheet.signIn, e);
+        }
+        if (PasskeyService.isRpNotAssociatedError(e)) {
+          throw _KuteRpRefused('sign_in', e);
+        }
+        // As on Breez's RP: ONLY the typed "no credential resolved"
+        // verdict may mint, so one Apple / Google account never gets a
+        // second Kute credential.
+        if (!PasskeyService.isCredentialNotFoundError(e)) {
+          throw PasskeyStepFailed('sign_in', e);
+        }
+        final create = Stopwatch()..start();
+        wallet = await register(create);
+        createMs = create.elapsedMilliseconds;
+        path = 'create';
+      }
+    }
+
+    // A Kute credential exists from here on: nothing below falls back.
+    var pendingFlagged = true;
+    try {
+      await kute.markPendingOrDefault(label);
+    } catch (e) {
+      pendingFlagged = false;
+      TrackingService.track('passkey_label_pending_flag_failed', params: {
+        'error_category': TrackingService.errorReason(e),
+      });
+    }
+    final config = WalletConfig(
+      id: walletId,
+      name: name,
+      sparkEnabled: true,
+      evmDerivationVersion: EvmDerivationVersion.standardBip39,
+      // Backed up once its label is on Kute's relay identity (the
+      // settings model's Kute-home handler flips it).
+      backedUp: false,
+      isPasskey: true,
+      passkeyLabel: label,
+      // VINTAGE STAMP: derived on Kute's own RP, so every future seed
+      // resolution routes to PasskeyService.kute.
+      passkeyProvider: PasskeyHomes.markerFor(home),
+      createdEmpty: true,
+    );
+    final save = Stopwatch()..start();
+    try {
+      await addWallet(config);
+    } catch (e) {
+      throw PasskeyStepFailed('save', e);
+    }
+    final saveMs = save.elapsedMilliseconds;
+    try {
+      primeSpark();
+    } catch (e) {
+      TrackingService.track('passkey_create_post_save_failed', params: {
+        'stage': 'prime_spark',
+        'error_category': TrackingService.errorCategory(e),
+      });
+    }
+    try {
+      kute.publishLabelOrDefault(label);
+    } catch (e) {
+      TrackingService.track('passkey_create_post_save_failed', params: {
+        'stage': 'publish',
+        'error_category': TrackingService.errorCategory(e),
+      });
+    }
+    return PasskeyCreationResult(
+      wallet: wallet,
+      config: config,
+      path: path,
+      signInMs: signInMs,
+      createMs: createMs,
+      saveMs: saveMs,
+      totalMs: total.elapsedMilliseconds,
+      pendingFlagged: pendingFlagged,
+      home: home,
     );
   }
 

@@ -140,6 +140,186 @@ abstract class AppLocalizations {
     Locale('sv')
   ];
 
+  /// No description provided for @hlExpoLeveragedPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'This position uses leverage, so here you can only reduce or close it.'**
+  String get hlExpoLeveragedPosition;
+
+  /// No description provided for @hlExpoNothingToReduce.
+  ///
+  /// In en, this message translates to:
+  /// **'There is no position here for this order to reduce.'**
+  String get hlExpoNothingToReduce;
+
+  /// No description provided for @hlRejectNoAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'There is no money to trade with yet. Add money before placing this order.'**
+  String get hlRejectNoAccount;
+
+  /// No description provided for @hlExpoPositionUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check your position on this market. Try again in a moment.'**
+  String get hlExpoPositionUnknown;
+
+  /// No description provided for @hlProtectStopBelowPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the stop loss below the current price, or it closes the position at once.'**
+  String get hlProtectStopBelowPrice;
+
+  /// No description provided for @hlProtectStopAbovePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the stop loss above the current price, or it closes the position at once.'**
+  String get hlProtectStopAbovePrice;
+
+  /// No description provided for @hlProtectTakeAbovePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the take profit above the current price, or it closes the position at once.'**
+  String get hlProtectTakeAbovePrice;
+
+  /// No description provided for @hlProtectTakeBelowPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the take profit below the current price, or it closes the position at once.'**
+  String get hlProtectTakeBelowPrice;
+
+  /// No description provided for @hlProtectLimitAtOrBelowTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the limit price at or below the trigger price.'**
+  String get hlProtectLimitAtOrBelowTrigger;
+
+  /// No description provided for @hlProtectLimitAtOrAboveTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the limit price at or above the trigger price.'**
+  String get hlProtectLimitAtOrAboveTrigger;
+
+  /// No description provided for @hlProtectStopPastLiquidation.
+  ///
+  /// In en, this message translates to:
+  /// **'This stop is past the liquidation price: the position would be liquidated before it fires.'**
+  String get hlProtectStopPastLiquidation;
+
+  /// No description provided for @hlProtectLimitFillsNow.
+  ///
+  /// In en, this message translates to:
+  /// **'This price is past the market price: it fills now, at the higher taker fee.'**
+  String get hlProtectLimitFillsNow;
+
+  /// No description provided for @hlProtectCloseCancelsOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'Closing all of it also cancels its stop and take-profit orders ({count}).'**
+  String hlProtectCloseCancelsOrders(int count);
+
+  /// No description provided for @hlProtectOrdersCancelledRow.
+  ///
+  /// In en, this message translates to:
+  /// **'Protective orders cancelled'**
+  String get hlProtectOrdersCancelledRow;
+
+  /// No description provided for @hlProtectOrdersNotCancelledRow.
+  ///
+  /// In en, this message translates to:
+  /// **'Protective orders still open'**
+  String get hlProtectOrdersNotCancelledRow;
+
+  /// No description provided for @hlProtectCancelAfterCloseFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Its stop and take-profit orders could not be cancelled. Cancel them in Orders so they cannot close a new position.'**
+  String get hlProtectCancelAfterCloseFailed;
+
+  /// No description provided for @hlProtectReplaceCancelFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your new stop loss is placed, but the old one could not be cancelled. Cancel it in Orders.'**
+  String get hlProtectReplaceCancelFailed;
+
+  /// No description provided for @hlProtectExistingStop.
+  ///
+  /// In en, this message translates to:
+  /// **'This position already has a stop loss at {price}. Replacing it cancels the old one only once the new one is placed.'**
+  String hlProtectExistingStop(String price);
+
+  /// No description provided for @hlProtectExistingStops.
+  ///
+  /// In en, this message translates to:
+  /// **'This position already has {count} stop losses. Replacing them cancels the old ones only once the new one is placed.'**
+  String hlProtectExistingStops(int count);
+
+  /// No description provided for @hlProtectReplaceStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace it'**
+  String get hlProtectReplaceStop;
+
+  /// No description provided for @hlProtectAddStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Add another'**
+  String get hlProtectAddStop;
+
+  /// No description provided for @hlProtectCancelAllTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel all orders?'**
+  String get hlProtectCancelAllTitle;
+
+  /// No description provided for @hlProtectCancelAllCount.
+  ///
+  /// In en, this message translates to:
+  /// **'This cancels every open order ({count}).'**
+  String hlProtectCancelAllCount(int count);
+
+  /// No description provided for @hlProtectCancelAllWithStops.
+  ///
+  /// In en, this message translates to:
+  /// **'This cancels every open order ({count}), the stops protecting a position included ({stops}).'**
+  String hlProtectCancelAllWithStops(int count, int stops);
+
+  /// No description provided for @hlProtectCancelAllPredictionsToo.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Predictions orders are cancelled too.'**
+  String get hlProtectCancelAllPredictionsToo;
+
+  /// No description provided for @hlProtectSizeLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{left} of {total} left'**
+  String hlProtectSizeLeft(String left, String total);
+
+  /// No description provided for @hlProtectPercentFilled.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% filled'**
+  String hlProtectPercentFilled(String percent);
+
+  /// No description provided for @hlProtectTrailPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Your last trailing stop on this market is not confirmed yet. Check your open orders. No second order was sent.'**
+  String get hlProtectTrailPending;
+
+  /// No description provided for @hlProtectStopAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop at {price}'**
+  String hlProtectStopAt(String price);
+
+  /// No description provided for @hlProtectCancelOrderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel this order?'**
+  String get hlProtectCancelOrderTitle;
+
   /// No description provided for @totalBalance.
   ///
   /// In en, this message translates to:
@@ -12208,6 +12388,90 @@ abstract class AppLocalizations {
   /// **'Until canceled'**
   String get betUntilCanceled;
 
+  /// Short label over the limit price on the Advanced page's odds rail: at this price the order buys at once from sellers already there.
+  ///
+  /// In en, this message translates to:
+  /// **'Fills now'**
+  String get advancedFillsNow;
+
+  /// Short label over the limit price on the odds rail: at this price the order waits on the order book until the market reaches it.
+  ///
+  /// In en, this message translates to:
+  /// **'Rests on the book'**
+  String get advancedRests;
+
+  /// Sal toast title when a resting Predictions limit order fills (all or part) while the app is open.
+  ///
+  /// In en, this message translates to:
+  /// **'Limit order filled'**
+  String get betLimitOrderFilled;
+
+  /// Toast detail for a fully filled limit buy.
+  ///
+  /// In en, this message translates to:
+  /// **'Bought {shares} shares of {outcome} at {price}'**
+  String betLimitBoughtShares(String shares, String outcome, String price);
+
+  /// Inline error under a limit price that is not on the market's price increment, e.g. 'in steps of 1¢'.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a price in steps of {step}.'**
+  String betLimitPriceSteps(String step);
+
+  /// Inline error under a limit price outside the market's range.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a price from {low} to {high}.'**
+  String betLimitPriceRange(String low, String high);
+
+  /// Inline error: the venue's minimum order size in shares.
+  ///
+  /// In en, this message translates to:
+  /// **'The smallest order here is {count} shares.'**
+  String betLimitMinimumShares(String count);
+
+  /// Sell ticket: shares of this position already offered in resting sell orders.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} shares in open orders'**
+  String betSharesInOpenOrders(String count);
+
+  /// Sell ticket error: more shares than are free (the rest are locked in resting sells).
+  ///
+  /// In en, this message translates to:
+  /// **'Only {count} shares are free to sell. The rest are in your open orders.'**
+  String betSellFreeShares(String count);
+
+  /// Title of the confirm sheet before cancelling every open order.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel all orders?'**
+  String get ordersCancelAllTitle;
+
+  /// Confirm sheet subtitle, followed by one line per order.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{This removes 1 open order:} other{This removes {count} open orders:}}'**
+  String ordersCancelAllBody(int count);
+
+  /// Confirm sheet's dismiss button: keep the open orders.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep orders'**
+  String get ordersKeep;
+
+  /// Receipt row label: the kind of order (Limit).
+  ///
+  /// In en, this message translates to:
+  /// **'Order type'**
+  String get betOrderTypeRow;
+
+  /// Receipt row label: the cash a resting limit buy holds (stake plus the most it can pay in fees).
+  ///
+  /// In en, this message translates to:
+  /// **'Reserved'**
+  String get betReservedRow;
+
   /// No description provided for @betProceedsToPredictions.
   ///
   /// In en, this message translates to:
@@ -19832,6 +20096,12 @@ abstract class AppLocalizations {
   /// **'Browse Investing'**
   String get portfolioBrowseInvesting;
 
+  /// Dollars page, Overview with no open positions: the button under 'No open positions' that switches to the Investing tab. 'Investing' is the name of the app's investing tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Start investing'**
+  String get dollarsStartInvesting;
+
   /// Portfolio screen, Activity tab: filter chip listing the trades only (Investing opens and closes, predictions placed or sold).
   ///
   /// In en, this message translates to:
@@ -20333,12 +20603,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Name or any crypto address'**
   String get sendRecipientSearchHintNoPhone;
-
-  /// The last line of the text that goes with a shared prediction, position, win, P&L, portfolio, level or receipt card: invites whoever sees it to get the app. Keep "getkute.com" exactly as it is (the website, never translated or changed). Casual, short, one line.
-  ///
-  /// In en, this message translates to:
-  /// **'Get in on the action at getkute.com'**
-  String get shareGetKuteLine;
 
   /// Send's search result when the person types the name of their own Dollars account ('dollars', 'my dollars'): opens Move money from their Bitcoin into their Dollars. Dollars is the account name.
   ///
@@ -24488,6 +24752,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 bar} other{{count} bars}} · {duration}'**
   String chartRangeBars(int count, String duration);
+
+  /// No description provided for @hlAdvTpNotPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'The take-profit was not placed.'**
+  String get hlAdvTpNotPlaced;
+
+  /// No description provided for @hlAdvSlNotPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'The stop-loss was not placed.'**
+  String get hlAdvSlNotPlaced;
+
+  /// No description provided for @hlAdvTpSlNotPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'The take-profit and stop-loss were not placed.'**
+  String get hlAdvTpSlNotPlaced;
+
+  /// No description provided for @hlAdvScaleLegsPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'Only {placed} of {total} orders were placed.'**
+  String hlAdvScaleLegsPlaced(int placed, int total);
+
+  /// No description provided for @hlAdvPartlyFilled.
+  ///
+  /// In en, this message translates to:
+  /// **'Order partly filled'**
+  String get hlAdvPartlyFilled;
+
+  /// No description provided for @hlAdvStillOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Still open'**
+  String get hlAdvStillOpen;
+
+  /// No description provided for @hlAdvRestStillOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'The rest of the order is still open.'**
+  String get hlAdvRestStillOpen;
+
+  /// No description provided for @hlAdvTwapMinimum.
+  ///
+  /// In en, this message translates to:
+  /// **'A TWAP order needs at least {amount}.'**
+  String hlAdvTwapMinimum(String amount);
+
+  /// No description provided for @hlAdvTwapRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Your TWAP order is running for {minutes} min.'**
+  String hlAdvTwapRunning(int minutes);
+
+  /// No description provided for @hlAdvScaleCountRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Scale takes {min} to {max} orders.'**
+  String hlAdvScaleCountRange(int min, int max);
+
+  /// No description provided for @hlAdvScaleSamePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Start and end prices must differ.'**
+  String get hlAdvScaleSamePrice;
+
+  /// No description provided for @hlAdvScaleBelowPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Both prices must be below the current price.'**
+  String get hlAdvScaleBelowPrice;
+
+  /// No description provided for @hlAdvScaleAbovePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Both prices must be above the current price.'**
+  String get hlAdvScaleAbovePrice;
+
+  /// No description provided for @hlAdvSlPastLiquidation.
+  ///
+  /// In en, this message translates to:
+  /// **'This stop-loss is past the estimated liquidation price, so the position could be liquidated first.'**
+  String get hlAdvSlPastLiquidation;
+
+  /// No description provided for @hlAdvTrailingNotApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'The order filled, but the trailing stop was not placed because it was not approved.'**
+  String get hlAdvTrailingNotApproved;
+
+  /// Web home notice offering the iPhone / Android app.
+  ///
+  /// In en, this message translates to:
+  /// **'Get the Kute app'**
+  String get getAppBannerTitle;
+
+  /// No description provided for @getAppBannerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Available for iPhone and Android'**
+  String get getAppBannerSubtitle;
+
+  /// Advanced chart tool rail button: shows or hides the horizontal price lines and their labels on the right.
+  ///
+  /// In en, this message translates to:
+  /// **'Price scale'**
+  String get chartPriceScale;
+
+  /// Shown on a shared market's wallet step when the page is open inside another app's browser (Instagram, Telegram, X ...) on an iPhone or Mac: passkeys and storage may not work there. Says to open it in Safari. Never mentions a VPN.
+  ///
+  /// In en, this message translates to:
+  /// **'This page is open inside another app. For Face ID and to keep your wallet, open it in Safari.'**
+  String get shareOpenInBrowserSafari;
+
+  /// The same line for Android and other browsers: open it in Chrome.
+  ///
+  /// In en, this message translates to:
+  /// **'This page is open inside another app. To use a passkey and keep your wallet, open it in Chrome.'**
+  String get shareOpenInBrowserChrome;
+
+  /// The short notice on a shared market's web page in a phone browser, for someone who already has the Kute app.
+  ///
+  /// In en, this message translates to:
+  /// **'Have the Kute app? Open this there.'**
+  String get shareOpenInAppBody;
+
+  /// The notice's button: opens the Kute app (or its store page).
+  ///
+  /// In en, this message translates to:
+  /// **'Open in the app'**
+  String get shareOpenInApp;
+
+  /// Close receipt on a Ledger whole-position close: its protective orders were not cancelled, since every cancel needs a Ledger signature.
+  ///
+  /// In en, this message translates to:
+  /// **'Closing on a Ledger does not cancel the position\'s stop and take-profit orders: each cancel needs your Ledger. Cancel them in Orders so they cannot close a new position.'**
+  String get hlLeftLedgerStopsOpen;
 }
 
 class _AppLocalizationsDelegate

@@ -274,7 +274,7 @@ void main() {
   });
 
   testWidgets(
-      "a sheet with no context over the tab reads the default, not the tab's",
+      "a sheet with no context over the tab: no bar, the tab's back after",
       (tester) async {
     await _pump(tester);
     _root.currentState!.push(ModalBottomSheetRoute<void>(
@@ -284,8 +284,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('a sheet'), findsOneWidget);
-    expect(find.text(_tabLabel), findsNothing);
-    expect(find.text('Search or Manage with AI'), findsOneWidget);
+    expect(find.text(_tabLabel).hitTestable(), findsNothing);
+    expect(find.text('Search or Manage with AI').hitTestable(), findsNothing);
 
     _root.currentState!.pop();
     await tester.pumpAndSettle();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -10,6 +11,8 @@ import 'package:kute/providers/bitcoin_wallet_creation_provider.dart';
 import 'package:kute/screens/creation/recover_wallet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_page_route.dart' show KutePageFrame;
+import 'package:kute/screens/shared/kute_wide_page_parts.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -60,13 +63,49 @@ class _BitcoinWalletSetupState extends State<BitcoinWalletSetup> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final create = _BitcoinSetupOption(
+      icon: Icons.add_rounded,
+      title: context.l10n.btcSetupCreateTitleShort,
+      subtitle: context.l10n.btcSetupCreateSubtitle,
+      onTap: () {
+        _optionPicked = true;
+        TrackingService.walletTypeSelected('bitcoin_create');
+        // A short form with nothing to set beside it: the centred column.
+        Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => const KutePageFrame(
+                mode: KuteWideMode.column,
+                child: PostHogMaskWidget(child: BitcoinWalletCreate()))));
+      },
+    );
+    final recover = _BitcoinSetupOption(
+      icon: Icons.text_fields_rounded,
+      title: context.l10n.btcSetupRecoverTitle,
+      subtitle: context.l10n.btcSetupRecoverSubtitle,
+      onTap: () {
+        _optionPicked = true;
+        TrackingService.walletTypeSelected('bitcoin_recover');
+        // As the router frames the seed entry (/recover_wallet/seed).
+        Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => const KutePageFrame(
+                mode: KuteWideMode.full,
+                child: PostHogMaskWidget(
+                    child: RecoverWallet(bitcoinOnly: true)))));
+      },
+    );
+    // EXPANDED (round three; founder, 25 November 2026: "it must be all
+    // occupying full screen when we can"): the two ways side by side under
+    // the heading, each at a readable width, on the page's left gutter.
+    final wide = kuteIsExpanded(context);
+    final side = wide
+        ? kuteWidePadding(context, maxWidth: kuteWideTwoColumns)
+        : EdgeInsets.symmetric(horizontal: 20.w);
     return Scaffold(
       backgroundColor: c.background,
       body: Container(
         decoration: AppDecorations.screenGradient(context),
         child: SafeArea(
           child: ListView(
-            padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 32.h),
+            padding: EdgeInsets.fromLTRB(side.left, 12.h, side.right, 32.h),
             children: [
               Row(children: [
                 KuteBackButton(
@@ -81,31 +120,16 @@ class _BitcoinWalletSetupState extends State<BitcoinWalletSetup> {
                   style: TextStyle(
                       color: c.textSecondary, fontSize: 15.sp, height: 1.3)),
               SizedBox(height: 28.h),
-              _BitcoinSetupOption(
-                icon: Icons.add_rounded,
-                title: context.l10n.btcSetupCreateTitleShort,
-                subtitle: context.l10n.btcSetupCreateSubtitle,
-                onTap: () {
-                  _optionPicked = true;
-                  TrackingService.walletTypeSelected('bitcoin_create');
-                  Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => const PostHogMaskWidget(
-                          child: BitcoinWalletCreate())));
-                },
-              ),
-              SizedBox(height: 12.h),
-              _BitcoinSetupOption(
-                icon: Icons.text_fields_rounded,
-                title: context.l10n.btcSetupRecoverTitle,
-                subtitle: context.l10n.btcSetupRecoverSubtitle,
-                onTap: () {
-                  _optionPicked = true;
-                  TrackingService.walletTypeSelected('bitcoin_recover');
-                  Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => const PostHogMaskWidget(
-                          child: RecoverWallet(bitcoinOnly: true))));
-                },
-              ),
+              if (wide)
+                KuteGrid(maxColumns: 2, equalHeight: true, children: [
+                  create,
+                  recover,
+                ])
+              else ...[
+                create,
+                SizedBox(height: 12.h),
+                recover,
+              ],
             ],
           ),
         ),
@@ -136,6 +160,7 @@ class _BitcoinWalletCreateState extends ConsumerState<BitcoinWalletCreate> {
       _name.text = _defaultNameText!;
     }
   }
+
   bool _creating = false;
 
   // ── wallet_add funnel (categorical only; never the name) ──
@@ -352,7 +377,9 @@ class _BitcoinWalletCreateState extends ConsumerState<BitcoinWalletCreate> {
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                            Text(context.l10n.btcSetupBackupTitle,
+                                            Text(
+                                                context
+                                                    .l10n.btcSetupBackupTitle,
                                                 style: TextStyle(
                                                     color: c.textPrimary,
                                                     fontSize: 16.sp,

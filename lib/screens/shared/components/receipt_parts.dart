@@ -65,7 +65,8 @@ class ReceiptHero extends StatelessWidget {
     this.verified,
   });
 
-  final Widget leading;
+  /// Null: no picture and no gap (a market with none on the web).
+  final Widget? leading;
   final Widget title;
   final Widget amount;
   final String? result;
@@ -95,8 +96,10 @@ class ReceiptHero extends StatelessWidget {
             KuteCloseButton(),
           ],
         ),
-        leading,
-        SizedBox(height: 14.h),
+        if (leading != null) ...[
+          leading!,
+          SizedBox(height: 14.h),
+        ],
         DefaultTextStyle.merge(
           textAlign: TextAlign.center,
           child: title,

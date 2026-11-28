@@ -223,13 +223,12 @@ Future<void> _typeOnKeypad(WidgetTester tester, String amount) async {
   await _settle(tester);
 }
 
-/// Rare order types (Scale, Stop, Take, TWAP) sit behind More options on
-/// the Advanced page's order type control.
-Future<void> _pickMoreOption(WidgetTester tester, String type) async {
-  await tester.ensureVisible(find.text('More options'));
-  await tester.tap(find.text('More options'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(type).last);
+/// Scale and TWAP are tiles beside Market and Limit on the Advanced
+/// page's order types.
+Future<void> _pickType(WidgetTester tester, String type) async {
+  final tile = find.byKey(ValueKey('hl-adv-type-${type.toLowerCase()}'));
+  await tester.ensureVisible(tile);
+  await tester.tap(tile);
   await tester.pumpAndSettle();
 }
 
@@ -683,7 +682,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('Short BTC · Advanced'), findsOneWidget);
-    await _pickMoreOption(tester, 'TWAP');
+    await _pickType(tester, 'TWAP');
     expect(find.text('Short BTC · Advanced').hitTestable(), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -722,7 +721,7 @@ void main() {
     await _pumpSlip(tester, available: 0);
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
-    await _pickMoreOption(tester, 'TWAP');
+    await _pickType(tester, 'TWAP');
     await tester.enterText(find.byType(TextField).first, '');
     await tester.enterText(find.byType(TextField).at(1), '2');
     await tester.pumpAndSettle();
@@ -751,7 +750,7 @@ void main() {
     await _pumpSlip(tester);
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
-    await _pickMoreOption(tester, 'TWAP');
+    await _pickType(tester, 'TWAP');
     await tester.enterText(find.byType(TextField).first, '600');
     await tester.enterText(find.byType(TextField).at(1), '2');
     await tester.pumpAndSettle();
@@ -759,7 +758,8 @@ void main() {
     expect(scopeLabel(tester), _dollarDoor);
     expect(scopeEnabled(tester), isTrue);
 
-    await tester.enterText(find.byType(TextField).first, '100');
+    // Over the venue's \$100 TWAP minimum once the size is floored.
+    await tester.enterText(find.byType(TextField).first, '150');
     await tester.pumpAndSettle();
     expect(scopeLabel(tester), 'Start TWAP · 2m');
     expect(scopeEnabled(tester), isFalse);
@@ -870,6 +870,22 @@ void main() {
   });
 
   testWidgets(
+      'leverage is blocked: Advanced has no leverage or margin mode control',
+      (tester) async {
+    // The policy fake publishes no cap (the venue's 40x): still nothing.
+    await _pumpSlip(tester);
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Long BTC · Advanced'), findsOneWidget);
+    expect(find.byType(Slider), findsNothing);
+    expect(find.text('Cross'), findsNothing);
+    expect(find.text('Isolated'), findsNothing);
+    expect(find.text('Margin mode'), findsNothing);
+    expect(find.textContaining('limits leverage'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
       'trading.advanced withheld: Advanced stays, a tap opens the sheet only',
       (tester) async {
     await _pumpSlip(tester, blocked: {'trading.advanced'});
@@ -922,6 +938,34 @@ void main() {
     String? minimum(WidgetTester tester) => tester
         .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
         .minimumLabel;
+
+    for (final cross in [false, true]) {
+      testWidgets(
+          'a 10x ${cross ? 'cross' : 'isolated'} long opened elsewhere: an '
+          'add is a plain order, open while Advanced is withheld',
+          (tester) async {
+        final tenX = HlPerpPosition(
+          coin: 'BTC',
+          szi: 0.01,
+          entryPx: 60000,
+          positionValue: 600,
+          unrealizedPnl: 0,
+          returnOnEquity: 0,
+          liquidationPx: 55000,
+          marginUsed: 60,
+          leverageType: cross ? 'cross' : 'isolated',
+          leverageValue: 10,
+          maxLeverage: 40,
+        );
+        await _pumpSlip(tester,
+            positions: [tenX], blocked: {'trading.advanced'});
+        await typeOnKeypad(tester, '50');
+        expect(barPrimaryLabel(tester), 'Add to long · \$50.00');
+        expect(barPrimaryEnabled(tester), isTrue);
+        expect(find.byType(CapabilityBlockNote), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
 
     testWidgets('no position: the plain order, no line', (tester) async {
       await _pumpSlip(tester, positions: const []);

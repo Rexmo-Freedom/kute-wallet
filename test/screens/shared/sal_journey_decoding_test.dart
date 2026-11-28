@@ -29,6 +29,7 @@ import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../../helpers/legacy_test_window.dart';
 
 const _run = MoneyStepStatus.running;
 const _wait = MoneyStepStatus.waiting;
@@ -149,6 +150,8 @@ Future<Set<SalJourneyDraw>> _sample(WidgetTester tester, int frames) async {
 }
 
 void main() {
+  // Its figures were written for flutter_test's old 800 x 600 window.
+  useLegacyTestWindow();
   setUp(() {
     KuteHaptics.debugReset();
     KuteHaptics.debugForeground = () => true;

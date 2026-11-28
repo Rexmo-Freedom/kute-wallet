@@ -9,6 +9,129 @@ class AppLocalizationsBg extends AppLocalizations {
   AppLocalizationsBg([String locale = 'bg']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Тази позиция използва ливъридж, затова тук можете само да я намалите или затворите.';
+
+  @override
+  String get hlExpoNothingToReduce =>
+      'Тук няма позиция, която тази поръчка да намали.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Все още няма пари за търговия. Добавете пари, преди да подадете тази поръчка.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Не успяхме да проверим позицията ви на този пазар. Опитайте отново след малко.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Задайте стоп лоса под текущата цена, иначе той веднага затваря позицията.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Задайте стоп лоса над текущата цена, иначе той веднага затваря позицията.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Задайте тейк профита над текущата цена, иначе той веднага затваря позицията.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Задайте тейк профита под текущата цена, иначе той веднага затваря позицията.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Задайте лимитната цена равна на или под цената на задействане.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Задайте лимитната цена равна на или над цената на задействане.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Този стоп е отвъд ликвидационната цена: позицията би била ликвидирана, преди той да се задейства.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Тази цена е отвъд пазарната: изпълнява се веднага, с по-високата такса за тейкър.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Затварянето на цялата позиция отменя и нейните стоп и тейк профит поръчки ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Отменени защитни поръчки';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Все още отворени защитни поръчки';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Стоп и тейк профит поръчките ѝ не можаха да бъдат отменени. Отменете ги в Поръчки, за да не затворят нова позиция.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Новият стоп лос е пуснат, но старият не можа да бъде отменен. Отменете го в Поръчки.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Тази позиция вече има стоп лос при $price. При замяна старият се отменя едва след като новият е пуснат.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Тази позиция вече има стоп лосове: $count. При замяна старите се отменят едва след като новият е пуснат.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Замени';
+
+  @override
+  String get hlProtectAddStop => 'Добави още един';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Да се отменят ли всички поръчки?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Така отменяте всички отворени поръчки ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Така отменяте всички отворени поръчки ($count), включително защитаващи позиция: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Вашите поръчки в Predictions също се отменят.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Остават $left от $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Изпълнени $percent%';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Последният ви трейлинг стоп на този пазар още не е потвърден. Проверете отворените си поръчки. Втора поръчка не е изпратена.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Стоп при $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Да се отмени ли тази поръчка?';
+
+  @override
   String get totalBalance => 'Общ баланс';
 
   @override
@@ -7015,6 +7138,68 @@ class AppLocalizationsBg extends AppLocalizations {
   String get betUntilCanceled => 'До отмяна';
 
   @override
+  String get advancedFillsNow => 'Изпълнява се сега';
+
+  @override
+  String get advancedRests => 'Чака в книгата';
+
+  @override
+  String get betLimitOrderFilled => 'Лимитната поръчка е изпълнена';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Купени $shares дяла от $outcome на $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Изберете цена на стъпки от $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Изберете цена от $low до $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Най-малката поръчка тук е $count дяла.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count дяла в отворени поръчки';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Само $count дяла са свободни за продажба. Останалите са в отворените ви поръчки.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Да се отменят ли всички поръчки?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Това премахва $count отворени поръчки:',
+      one: 'Това премахва 1 отворена поръчка:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Запази поръчките';
+
+  @override
+  String get betOrderTypeRow => 'Вид поръчка';
+
+  @override
+  String get betReservedRow => 'Резервирано';
+
+  @override
   String get betProceedsToPredictions => 'Към Прогнози';
 
   @override
@@ -11840,6 +12025,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Разгледай Инвестиране';
 
   @override
+  String get dollarsStartInvesting => 'Започни да инвестираш';
+
+  @override
   String get activityFilterTrades => 'Сделки';
 
   @override
@@ -12147,9 +12335,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get sendRecipientSearchHintNoPhone => 'Име или крипто адрес';
-
-  @override
-  String get shareGetKuteLine => 'Включи се в играта на getkute.com';
 
   @override
   String get sendMoveToYourDollars => 'Премести в твоите Долари';
@@ -14568,4 +14753,92 @@ class AppLocalizationsBg extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Тейк-профитът не беше поставен.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Стоп-лосът не беше поставен.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Тейк-профитът и стоп-лосът не бяха поставени.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Поставени бяха само $placed от $total поръчки.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Поръчката е частично изпълнена';
+
+  @override
+  String get hlAdvStillOpen => 'Още отворена';
+
+  @override
+  String get hlAdvRestStillOpen =>
+      'Останалата част от поръчката е още отворена.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP поръчката трябва да е поне $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Вашата TWAP поръчка се изпълнява за $minutes мин.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Скалата приема от $min до $max поръчки.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Началната и крайната цена трябва да са различни.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'И двете цени трябва да са под текущата цена.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'И двете цени трябва да са над текущата цена.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Този стоп-лос е отвъд прогнозната цена на ликвидация, така че позицията може да бъде ликвидирана първо.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Поръчката е изпълнена, но трейлинг стопът не беше поставен, защото не беше одобрен.';
+
+  @override
+  String get getAppBannerTitle => 'Изтегли приложението Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Налично за iPhone и Android';
+
+  @override
+  String get chartPriceScale => 'Ценова скала';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Тази страница е отворена в друго приложение. За Face ID и за да запазите портфейла си, отворете я в Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Тази страница е отворена в друго приложение. За да използвате ключ за достъп и да запазите портфейла си, отворете я в Chrome.';
+
+  @override
+  String get shareOpenInAppBody =>
+      'Имате приложението Kute? Отворете това там.';
+
+  @override
+  String get shareOpenInApp => 'Отвори в приложението';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Затварянето с Ledger не отменя стоп и тейк профит поръчките на позицията: всяка отмяна изисква вашия Ledger. Отменете ги в Поръчки, за да не затворят нова позиция.';
 }

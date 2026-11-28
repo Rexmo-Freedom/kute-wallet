@@ -24,6 +24,11 @@
 // the "same spot" rule, then paints [preview]. Mouse input arrives as the
 // same taps and drags, so a pointer-specific front end (hover preview,
 // click-click on the web) can drive this class without changing it.
+//
+// A mouse also hovers: [hover] makes the next anchor (and the ones after
+// it) follow the pointer between clicks, and shows a one-anchor tool as
+// [ghost] under it before anything is placed. A finger never hovers, so
+// touch placement is untouched by it.
 
 import 'package:kute/models/chart_drawing.dart';
 
@@ -56,6 +61,9 @@ class HlDrawingPlacement {
   /// The anchor under a dragging finger, or null.
   int? _live;
 
+  /// Where a hovering mouse is, or null (a finger never hovers).
+  ChartDrawingPoint? _hover;
+
   /// The state before the drag began (a cancelled or too-short drag goes
   /// back to it).
   (ChartDrawing?, int)? _beforeDrag;
@@ -74,7 +82,55 @@ class HlDrawingPlacement {
   ChartDrawing? get preview {
     final draft = _draft;
     if (draft == null) return null;
-    return _derived(draft, _live != null ? _live! + 1 : _placed);
+    final count = _live != null
+        ? _live! + 1
+        : _hover != null
+            ? _placed + 1
+            : _placed;
+    return _derived(draft, count);
+  }
+
+  /// A one-anchor tool shown whole under a hovering mouse before it is
+  /// placed (never saved), or null.
+  ChartDrawing? get ghost {
+    final at = _hover;
+    if (at == null || _draft != null || spec.taps != 1 || spec.openEnded) {
+      return null;
+    }
+    return ChartDrawing(
+      id: 'hover-ghost',
+      tool: tool,
+      points: [for (var i = 0; i < spec.points; i++) at],
+      colorValue: colorValue,
+    );
+  }
+
+  /// A mouse hovers at [point]: the next anchor follows it (nothing is
+  /// placed). Ignored mid-drag.
+  void hover(ChartDrawingPoint point) {
+    if (_live != null) return;
+    _hover = point;
+    final draft = _draft;
+    if (draft != null) _draft = _setFrom(draft, _placed, point);
+  }
+
+  /// The mouse left (or pressed): the anchors not placed go back to the
+  /// last one placed.
+  void clearHover() {
+    if (_hover == null) return;
+    _hover = null;
+    final draft = _draft;
+    if (draft == null || _live != null || _placed == 0) return;
+    final last = draft.points[_placed - 1];
+    if (spec.openEnded) {
+      final keep = _placed > spec.points ? _placed : spec.points;
+      final points = List<ChartDrawingPoint>.of(draft.points);
+      if (points.length > keep) points.removeRange(keep, points.length);
+      if (_placed < points.length) points[_placed] = last;
+      _draft = draft.copyWith(points: points);
+    } else {
+      _draft = _setFrom(draft, _placed, last);
+    }
   }
 
   ChartDrawing _derived(ChartDrawing draft, int count) =>
@@ -127,6 +183,7 @@ class HlDrawingPlacement {
     _placed = 0;
     _live = null;
     _beforeDrag = null;
+    _hover = null;
   }
 
   /// A tap at [point]. [distance] measures two chart points in pixels.
@@ -157,6 +214,7 @@ class HlDrawingPlacement {
 
   /// A drag starts at [point].
   void dragStart(ChartDrawingPoint point) {
+    _hover = null;
     _beforeDrag = (_draft, _placed);
     final draft = _draft;
     if (draft == null) {

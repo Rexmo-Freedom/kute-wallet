@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:kute/models/add_wallet_model.dart';
 import 'package:crypto/crypto.dart';
@@ -13,6 +12,7 @@ import 'bluetooth/ble_scan_coordinator.dart';
 import 'jade_ble_transport.dart';
 import 'jade_pin_auth.dart';
 import 'jade_rpc.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Minimal representation of a discovered Jade BLE device.
 class JadeBleDevice {
@@ -85,7 +85,8 @@ class JadeService extends StateNotifier<JadeConnectionState> {
   int _connectionGeneration = 0;
   bool _connectingDevice = false;
 
-  static bool get isBluetoothAvailable => Platform.isAndroid || Platform.isIOS;
+  static bool get isBluetoothAvailable =>
+      PlatformCaps.hasBluetoothHardwareWallet;
 
   /// Jade's reference client identifies advertisements by their Jade name prefix.
   /// The UART service and characteristics are verified after selection.

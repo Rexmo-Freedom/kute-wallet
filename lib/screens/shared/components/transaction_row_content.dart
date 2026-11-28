@@ -7,7 +7,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 /// and the figures shrink to fit their column instead of breaking, so
 /// every row keeps the same height at any text size.
 class TransactionRowContent extends StatelessWidget {
-  final Widget leading;
+  /// Null: no tile and no gap, the title at the row's start (a market
+  /// with no picture on the web).
+  final Widget? leading;
   final Widget title;
   final Widget subtitle;
   final Widget amount;
@@ -35,8 +37,10 @@ class TransactionRowContent extends StatelessWidget {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          leading,
-          SizedBox(width: 12.w),
+          if (leading != null) ...[
+            leading!,
+            SizedBox(width: 12.w),
+          ],
           Expanded(
             child: DefaultTextStyle.merge(
               maxLines: 1,

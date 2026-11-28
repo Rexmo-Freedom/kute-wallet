@@ -22,6 +22,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/screens/shared/market_groups.dart' show kMarketGridGutter;
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
@@ -49,6 +51,20 @@ const double kPolyTopMarketCardImage = 36;
 /// less [kPolyTopMarketCardPeek] so the third card peeks.
 double polyTopMarketCardWidth() =>
     (1.sw - 32.w - kPolyTopMarketCardGap.w) / 2 - kPolyTopMarketCardPeek.w;
+
+/// WIDE (MEDIUM and EXPANDED, kute_layout.dart): the strip is one row
+/// that never scrolls (a mouse has no sideways swipe), as many cards as
+/// stand at least this wide in its width, sharing it.
+const double kPolyTopMarketCardMinWide = 190;
+
+/// How many cards the wide strip shows in a row [width] wide (the strip's
+/// 16 margins and the gaps out): at least [kPolyTopMarketsMin], at most
+/// [kPolyTopMarketsMax].
+int polyTopMarketsFitting(double width) =>
+    ((width - 32 + kPolyTopMarketCardGap) /
+            (kPolyTopMarketCardMinWide + kPolyTopMarketCardGap))
+        .floor()
+        .clamp(kPolyTopMarketsMin, kPolyTopMarketsMax);
 
 /// The least the list keeps under the strip: with fewer left, no strip.
 const int kPolyTopMarketsListKeeps = 3;
@@ -110,6 +126,44 @@ class PolyTopMarketsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (markets.isEmpty) return const SizedBox.shrink();
+    // Wide: one still row, the cards sharing its width (the caller shows
+    // only as many as fit, [polyTopMarketsFitting]). A phone: the
+    // side-scrolling strip, as it always was.
+    if (KuteLayout.isWide(context)) {
+      return LayoutBuilder(
+        key: const ValueKey('poly-top-markets-strip'),
+        builder: (context, box) {
+          final n = markets.length;
+          // EXPANDED: the page grid's gutter, so the cards' edges are the
+          // list's columns' (market_groups.dart).
+          final gap = KuteLayout.isExpanded(context)
+              ? kMarketGridGutter
+              : kPolyTopMarketCardGap;
+          final width = (box.maxWidth - 32 - gap * (n - 1)) / n;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < n; i++) ...[
+                    if (i > 0) SizedBox(width: gap),
+                    PolyTopMarketCard(
+                      market: markets[i],
+                      width: width,
+                      onTap: () => onOpen(markets[i]),
+                      onTapDown: onOpenDown == null
+                          ? null
+                          : () => onOpenDown!(markets[i]),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
     return SingleChildScrollView(
       key: const ValueKey('poly-top-markets-strip'),
       scrollDirection: Axis.horizontal,
@@ -150,7 +204,11 @@ class PolyTopMarketCard extends ConsumerWidget {
     required this.market,
     required this.onTap,
     this.onTapDown,
+    this.width,
   });
+
+  /// The card's width; null: the phone strip's ([polyTopMarketCardWidth]).
+  final double? width;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -167,12 +225,55 @@ class PolyTopMarketCard extends ConsumerWidget {
     };
     final lead = polyRowLeader(context.l10n, market.outcomes, live: live);
     final radius = BorderRadius.circular(AppRadius.xl);
+    final thumbnail = PolyCardThumbnail(
+      title: market.title,
+      imageUrl: market.imageUrl,
+      category: market.category,
+      size: kPolyTopMarketCardImage.w,
+      radius: 10.r,
+    );
+    final question = Text(
+      market.title,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: c.textPrimary,
+        fontSize: 15.sp,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        height: 1.25,
+      ),
+    );
+    final leader = lead == null
+        ? null
+        : FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: RollingFigure(
+              identity: market.slug,
+              text: '${lead.name} · ${polyCardChance(lead.price)}',
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 22.sp,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.6,
+                height: 1.2,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          );
+    // A desktop (EXPANDED) with a card wide enough: see [_wideBody].
+    final wide = KuteLayout.isExpanded(context) &&
+        width != null &&
+        width! >= _kWideLineMinWidth;
 
     return LiveTokenScope(
       tokens: tokens,
       child: Container(
-        width: polyTopMarketCardWidth(),
-        constraints: BoxConstraints(minHeight: kPolyTopMarketCardHeight.w),
+        width: width ?? polyTopMarketCardWidth(),
+        // The wide body is as tall as its content (no empty band).
+        constraints: BoxConstraints(
+            minHeight: wide ? 0 : kPolyTopMarketCardHeight.w),
         decoration: AppDecorations.card(context).copyWith(borderRadius: radius),
         child: Material(
           color: Colors.transparent,
@@ -183,54 +284,88 @@ class PolyTopMarketCard extends ConsumerWidget {
             borderRadius: radius,
             child: Padding(
               padding: EdgeInsets.all(14.w),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PolyCardThumbnail(
-                    title: market.title,
-                    imageUrl: market.imageUrl,
-                    category: market.category,
-                    size: kPolyTopMarketCardImage.w,
-                    radius: 10.r,
-                  ),
-                  SizedBox(height: 8.w),
-                  Text(
-                    market.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
-                      height: 1.25,
+              child: wide
+                  ? _wideBody(context, thumbnail, question, leader, lead)
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        thumbnail,
+                        SizedBox(height: 8.w),
+                        question,
+                        const Spacer(),
+                        SizedBox(height: 8.w),
+                        if (leader != null) leader,
+                      ],
                     ),
-                  ),
-                  const Spacer(),
-                  SizedBox(height: 8.w),
-                  if (lead != null)
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: RollingFigure(
-                        identity: market.slug,
-                        text: '${lead.name} · ${polyCardChance(lead.price)}',
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 22.sp,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.6,
-                          height: 1.2,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// The least card width that takes the wide body's line.
+  static const double _kWideLineMinWidth = 260;
+
+  /// The line's height in the wide body.
+  static const double _kWideLineHeight = 56;
+
+  /// THE CARD ON A DESKTOP (EXPANDED; founder, 24 November 2026: the
+  /// headline cards were mostly empty on a wide window): the image beside
+  /// the question at the top, and at the foot who leads at what chance
+  /// (as on a phone) beside the leading side's 7-day line, the list
+  /// cards' own ([polyCardWeekLine]) ending on the chance shown, filling
+  /// the rest of the card's width. A market with no line yet keeps its
+  /// place blank, the card's height the same.
+  Widget _wideBody(
+      BuildContext context,
+      Widget thumbnail,
+      Widget question,
+      Widget? leader,
+      ({String name, double price, bool binary})? lead) {
+    final c = context.colors;
+    PolymarketOutcome? side(String name) => market.outcomes
+        .where((o) => o.name.trim().toLowerCase() == name)
+        .firstOrNull;
+    final outcome = lead == null
+        ? null
+        : side(lead.name == context.l10n.yes ? 'yes' : 'no');
+    final token = outcome?.tokenId;
+    const gap = 16.0;
+    final textWidth = (width! - 28.w - gap) * 0.45;
+    return Column(
+      // The foot on the card's bottom when a neighbour's longer question
+      // makes the row taller.
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            thumbnail,
+            const SizedBox(width: 12),
+            Expanded(child: question),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            SizedBox(width: textWidth, child: leader),
+            const SizedBox(width: gap),
+            Expanded(
+              child: token == null || token.isEmpty || lead == null
+                  ? const SizedBox(height: _kWideLineHeight)
+                  : polyCardWeekLine(
+                      token: token,
+                      live: lead.price,
+                      color: c.textPrimary,
+                      height: _kWideLineHeight,
+                    ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

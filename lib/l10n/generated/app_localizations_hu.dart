@@ -9,6 +9,128 @@ class AppLocalizationsHu extends AppLocalizations {
   AppLocalizationsHu([String locale = 'hu']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Ez a pozíció tőkeáttételt használ, ezért itt csak csökkentheted vagy lezárhatod.';
+
+  @override
+  String get hlExpoNothingToReduce =>
+      'Itt nincs olyan pozíció, amelyet ez a megbízás csökkenthetne.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Még nincs pénz a kereskedéshez. Adj hozzá pénzt, mielőtt megadod ezt a megbízást.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nem sikerült ellenőrizni a pozíciódat ezen a piacon. Próbáld újra egy pillanat múlva.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'A stop losst az aktuális ár alá állítsa, különben azonnal lezárja a pozíciót.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'A stop losst az aktuális ár fölé állítsa, különben azonnal lezárja a pozíciót.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'A take profitot az aktuális ár fölé állítsa, különben azonnal lezárja a pozíciót.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'A take profitot az aktuális ár alá állítsa, különben azonnal lezárja a pozíciót.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'A limitárat a trigger árra vagy az alá állítsa.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'A limitárat a trigger árra vagy a fölé állítsa.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Ez a stop a likvidációs áron túl van: a pozíciót likvidálnák, mielőtt aktiválódna.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Ez az ár a piaci áron túl van: azonnal teljesül, a magasabb taker díjjal.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'A teljes zárás a stop és take profit megbízásait is törli ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Törölt védő megbízások';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow => 'Még nyitott védő megbízások';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'A stop és take profit megbízásait nem sikerült törölni. Törölje őket a Megbízásokban, hogy ne zárjanak le egy új pozíciót.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Az új stop loss elhelyezve, de a régit nem sikerült törölni. Törölje a Megbízásokban.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Ennek a pozíciónak már van stop lossa ennél az árnál: $price. Cserénél a régit csak az új elhelyezése után töröljük.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Ennek a pozíciónak már van ennyi stop lossa: $count. Cserénél a régieket csak az új elhelyezése után töröljük.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Csere';
+
+  @override
+  String get hlProtectAddStop => 'Még egy hozzáadása';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Minden megbízás törlése?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Ez minden nyitott megbízást töröl ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Ez minden nyitott megbízást töröl ($count), köztük pozíciót védőt: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'A Predictions megbízásai is törlődnek.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return '$left / $total maradt';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent% teljesült';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Az utolsó trailing stopja ezen a piacon még nincs megerősítve. Ellenőrizze a nyitott megbízásait. Második megbízás nem lett elküldve.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop: $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Törli ezt a megbízást?';
+
+  @override
   String get totalBalance => 'Teljes egyenleg';
 
   @override
@@ -7021,6 +7143,68 @@ class AppLocalizationsHu extends AppLocalizations {
   String get betUntilCanceled => 'Visszavonásig';
 
   @override
+  String get advancedFillsNow => 'Azonnal teljesül';
+
+  @override
+  String get advancedRests => 'Vár a könyvben';
+
+  @override
+  String get betLimitOrderFilled => 'Limitáras megbízás teljesült';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return '$shares $outcome részesedés vásárolva $price áron';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Válassz árat $step lépésekben.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Válassz árat $low és $high között.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'A legkisebb megbízás itt $count részesedés.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count részesedés nyitott megbízásokban';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Csak $count részesedés szabad eladásra. A többi a nyitott megbízásaidban van.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Minden megbízás visszavonása?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ez $count nyitott megbízást töröl:',
+      one: 'Ez 1 nyitott megbízást töröl:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Megbízások megtartása';
+
+  @override
+  String get betOrderTypeRow => 'Megbízás típusa';
+
+  @override
+  String get betReservedRow => 'Lefoglalva';
+
+  @override
   String get betProceedsToPredictions => 'Az Előrejelzésekbe';
 
   @override
@@ -11847,6 +12031,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Befektetések böngészése';
 
   @override
+  String get dollarsStartInvesting => 'Kezdj befektetni';
+
+  @override
   String get activityFilterTrades => 'Ügyletek';
 
   @override
@@ -12155,9 +12342,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendRecipientSearchHintNoPhone => 'Név vagy bármilyen kriptocím';
-
-  @override
-  String get shareGetKuteLine => 'Szállj be te is: getkute.com';
 
   @override
   String get sendMoveToYourDollars => 'Áthelyezés a Dollárodba';
@@ -14583,4 +14767,89 @@ class AppLocalizationsHu extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'A take-profit nem került be.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'A stop-loss nem került be.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'A take-profit és a stop-loss nem került be.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Csak $placed megbízás került be a(z) $total-ből.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'A megbízás részben teljesült';
+
+  @override
+  String get hlAdvStillOpen => 'Még nyitott';
+
+  @override
+  String get hlAdvRestStillOpen => 'A megbízás többi része még nyitott.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'A TWAP megbízásnak legalább $amount kell legyen.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'A TWAP megbízásod $minutes percig fut.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'A lépcsőzetes megbízás $min–$max megbízást vesz fel.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'A kezdő és a záró ár nem lehet azonos.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Mindkét árnak a jelenlegi ár alatt kell lennie.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Mindkét árnak a jelenlegi ár felett kell lennie.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Ez a stop-loss a becsült likvidációs áron túl van, így a pozíció előbb likvidálódhat.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'A megbízás teljesült, de a követő stop nem került be, mert nem hagytad jóvá.';
+
+  @override
+  String get getAppBannerTitle => 'Töltsd le a Kute appot';
+
+  @override
+  String get getAppBannerSubtitle => 'Elérhető iPhone-ra és Androidra';
+
+  @override
+  String get chartPriceScale => 'Árskála';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Ez az oldal egy másik alkalmazásban van megnyitva. A Face ID-hoz és a tárcád megőrzéséhez nyisd meg a Safariban.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Ez az oldal egy másik alkalmazásban van megnyitva. A hozzáférési kulcs használatához és a tárcád megőrzéséhez nyisd meg a Chrome-ban.';
+
+  @override
+  String get shareOpenInAppBody => 'Megvan a Kute alkalmazás? Nyisd meg ott.';
+
+  @override
+  String get shareOpenInApp => 'Megnyitás az alkalmazásban';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'A Ledgerrel történő zárás nem törli a pozíció stop és take profit megbízásait: minden törléshez a Ledgerére van szükség. Törölje őket a Megbízásokban, hogy ne zárjanak le egy új pozíciót.';
 }

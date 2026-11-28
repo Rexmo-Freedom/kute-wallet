@@ -20,34 +20,62 @@
 //     down on the close easing. A sheet is no horizontal page, so no back
 //     swipe; the page's own close and the system back work as before.
 //
+// WIDE WINDOWS (kute_layout.dart): on MEDIUM a pushed page is a centred
+// `KuteLayout.columnMaxWidth` column ([KuteFormColumn]), never a phone
+// page stretched across a tablet; a detail sheet's column stands over the
+// dimmed page. On EXPANDED every page names how it sits ([KuteWideMode],
+// kute_wide_frames.dart; round three, founder 25 November 2026: "it must
+// be all occupying full screen when we can"): `full` spans the window and
+// lays itself out, `split` is the onboarding split screen
+// (kute_split_screen.dart), `panel` the shared panel over the dimmed page
+// (a detail sheet that is truly short; kute_dialog.dart), `column` the
+// centred column still, `own` a page with panes of its own from MEDIUM up
+// (`form: false`, a market). [KutePageFrame] does the framing for the
+// router and the routes here. A phone: no difference.
+//
 // Reduce Motion: a 150 ms fade, no scale, no slide ([KuteMotion.reduce]).
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show KuteDialogCard;
+import 'package:kute/screens/shared/kute_split_screen.dart';
+import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/web_image.dart' show WebCovers;
 import 'package:kute/theme/kute_motion.dart';
 
 /// The transition every pushed page wears: fade and 0.97 → 1 scale in on
 /// the settle easing, out on the close easing; a fade alone under Reduce
 /// Motion. [child] is wrapped in [KuteBackSwipe] when [backSwipe].
+/// [masterDetail]: a Settings detail, whose [KuteMasterDetail] plays the
+/// route's motion itself on EXPANDED (the full page settling into the
+/// master column, the detail sliding in beside it): no fade or scale.
 Widget kutePageTransition(
   BuildContext context,
   Animation<double> animation,
   Widget child, {
   bool backSwipe = true,
+  bool scale = true,
+  bool masterDetail = false,
 }) {
+  if (masterDetail && kuteWindowIsExpanded(context)) {
+    return backSwipe ? KuteBackSwipe(child: child) : child;
+  }
   final reduce = KuteMotion.reduce(context);
   final curved = CurvedAnimation(
     parent: animation,
     curve: reduce ? Curves.linear : KuteMotion.settle,
     reverseCurve: reduce ? Curves.linear : KuteMotion.sheetOut,
   );
-  final scale = Tween<double>(begin: reduce ? 1.0 : 0.97, end: 1.0)
+  final grow = Tween<double>(begin: reduce || !scale ? 1.0 : 0.97, end: 1.0)
       .animate(curved);
   final page = backSwipe ? KuteBackSwipe(child: child) : child;
   return FadeTransition(
     opacity: curved,
     child: ScaleTransition(
-      scale: scale,
+      scale: grow,
       alignment: Alignment.center,
       child: page,
     ),
@@ -67,9 +95,18 @@ class KutePageRoute<T> extends PageRoute<T> {
     super.settings,
     this.maintainState = true,
     super.fullscreenDialog,
-  });
+    this.form = true,
+    KuteWideMode? wide,
+  }) : wide = wide ?? (form ? KuteWideMode.column : KuteWideMode.own);
 
   final WidgetBuilder builder;
+
+  /// A centred column from MEDIUM up (see the file header); false: the
+  /// page lays itself out ([KuteWideMode.own]). [wide] overrides it.
+  final bool form;
+
+  /// How the page sits on EXPANDED (see the file header).
+  final KuteWideMode wide;
 
   @override
   final bool maintainState;
@@ -84,8 +121,7 @@ class KutePageRoute<T> extends PageRoute<T> {
   bool get opaque => true;
 
   @override
-  Duration get transitionDuration =>
-      kutePageDuration(navigator?.context);
+  Duration get transitionDuration => kutePageDuration(navigator?.context);
 
   @override
   Duration get reverseTransitionDuration =>
@@ -95,7 +131,9 @@ class KutePageRoute<T> extends PageRoute<T> {
   Widget buildPage(BuildContext context, Animation<double> animation,
           Animation<double> secondaryAnimation) =>
       Semantics(
-          scopesRoute: true, explicitChildNodes: true, child: builder(context));
+          scopesRoute: true,
+          explicitChildNodes: true,
+          child: KutePageFrame(mode: wide, child: builder(context)));
 
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation,
@@ -113,9 +151,20 @@ class KuteSheetPageRoute<T> extends PageRoute<T> {
     super.settings,
     this.barrierColor = const Color(0x66000000),
     this.maintainState = true,
-  }) : super(fullscreenDialog: true);
+    this.form = true,
+    KuteWideMode? wide,
+  })  : wide = wide ?? (form ? KuteWideMode.column : KuteWideMode.own),
+        super(fullscreenDialog: true);
 
   final WidgetBuilder builder;
+
+  /// A centred column over the dimmed page from MEDIUM up (see the file
+  /// header); false for a page with two panes of its own (a market).
+  /// [wide] overrides it.
+  final bool form;
+
+  /// How the sheet sits on EXPANDED (see the file header).
+  final KuteWideMode wide;
 
   @override
   final Color? barrierColor;
@@ -130,18 +179,39 @@ class KuteSheetPageRoute<T> extends PageRoute<T> {
   bool get opaque => false;
 
   @override
-  Duration get transitionDuration =>
-      kutePageDuration(navigator?.context);
+  Duration get transitionDuration => kutePageDuration(navigator?.context);
 
   @override
   Duration get reverseTransitionDuration =>
       kutePageDuration(navigator?.context);
 
+  // The web: once up, the sheet covers the page under it, whose `<img>`
+  // logos step aside (WebCovers, platform/web_image.dart).
+  @override
+  void install() {
+    super.install();
+    if (kIsWeb) animation?.addStatusListener(_webCover);
+  }
+
+  void _webCover(AnimationStatus status) =>
+      WebCovers.set(this, status == AnimationStatus.completed);
+
+  @override
+  void dispose() {
+    if (kIsWeb) WebCovers.set(this, false);
+    super.dispose();
+  }
+
   @override
   Widget buildPage(BuildContext context, Animation<double> animation,
           Animation<double> secondaryAnimation) =>
       Semantics(
-          scopesRoute: true, explicitChildNodes: true, child: builder(context));
+          scopesRoute: true,
+          explicitChildNodes: true,
+          child: wide == KuteWideMode.panel
+              ? _KuteSheetPanel(route: this, builder: builder)
+              : KutePageFrame(
+                  mode: wide, background: false, child: builder(context)));
 
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation,
@@ -161,6 +231,78 @@ class KuteSheetPageRoute<T> extends PageRoute<T> {
         alignment: Alignment.topCenter,
         child: child,
       ),
+    );
+  }
+}
+
+/// A pushed page framed for the window by its [mode] (see the file
+/// header): the page as it is on a phone; on MEDIUM the centred column
+/// (but for [KuteWideMode.own]); on EXPANDED the column, the page across
+/// the window, or the split screen. [background]: the column paints the
+/// app's background at its sides (false over a dimmed page).
+class KutePageFrame extends StatelessWidget {
+  const KutePageFrame({
+    super.key,
+    required this.mode,
+    required this.child,
+    this.background = true,
+  });
+
+  final KuteWideMode mode;
+  final Widget child;
+  final bool background;
+
+  @override
+  Widget build(BuildContext context) {
+    final form = KuteLayout.forWidth(MediaQuery.sizeOf(context).width);
+    if (form == KuteFormFactor.compact || mode == KuteWideMode.own) {
+      return child;
+    }
+    if (mode == KuteWideMode.split) return KuteSplitScreen(child: child);
+    if (form == KuteFormFactor.medium ||
+        mode == KuteWideMode.column ||
+        mode == KuteWideMode.panel) {
+      return KuteFormColumn(background: background, child: child);
+    }
+    return child;
+  }
+}
+
+/// A detail sheet that is truly short ([KuteWideMode.panel]): the shared
+/// panel over the dimmed page on EXPANDED, at a page's height, its
+/// primary inside it (kute_dialog.dart); a click outside, Escape or its
+/// own close takes it down. Elsewhere the sheet's column as before.
+class _KuteSheetPanel extends StatelessWidget {
+  const _KuteSheetPanel({required this.route, required this.builder});
+
+  final KuteSheetPageRoute<dynamic> route;
+  final WidgetBuilder builder;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!kuteWindowIsExpanded(context)) {
+      return KutePageFrame(
+          mode: KuteWideMode.panel,
+          background: false,
+          child: Builder(builder: builder));
+    }
+    void dismiss() => route.navigator?.maybePop();
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: dismiss,
+          ),
+        ),
+        KuteDialogCard(
+          route: route,
+          fill: true,
+          color: context.colors.background,
+          onDismiss: dismiss,
+          child: Builder(builder: builder),
+        ),
+      ],
     );
   }
 }

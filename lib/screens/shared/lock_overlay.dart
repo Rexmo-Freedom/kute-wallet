@@ -23,8 +23,6 @@
 //     resets the small-action allowance budget, and a biometric unlock
 //     stores the iOS biometry domain state (D-14).
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,6 +30,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:local_auth/local_auth.dart';
 
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
+import 'package:kute/screens/shared/kute_split_screen.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_password_field.dart';
+import 'package:kute/screens/shared/password_copy.dart';
+import 'package:kute/platform/unlock_secret.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/helpers/pin_attempt_guard.dart';
 import 'package:kute/helpers/privacy_cover_bridge.dart';
@@ -48,9 +51,13 @@ import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/secure/biometric_pin_policy.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/web_biometrics.dart';
 
 class LockOverlay extends ConsumerStatefulWidget {
-  const LockOverlay({super.key});
+  const LockOverlay({super.key, @visibleForTesting this.localAuth});
+
+  final LocalAuthentication? localAuth;
 
   @override
   ConsumerState<LockOverlay> createState() => _LockOverlayState();
@@ -58,7 +65,8 @@ class LockOverlay extends ConsumerStatefulWidget {
 
 class _LockOverlayState extends ConsumerState<LockOverlay>
     with SingleTickerProviderStateMixin, PinSalMoodMixin {
-  final LocalAuthentication _localAuth = LocalAuthentication();
+  late final LocalAuthentication _localAuth =
+      widget.localAuth ?? LocalAuthentication();
   String _pin = '';
   bool _verifying = false;
   bool _biometricInFlight = false;
@@ -80,8 +88,26 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       if (s == AnimationStatus.completed) _shake.reverse();
     });
 
+  /// The vault's secret is a password (a web vault made with one between
+  /// 24 and 27 November 2026, unlock_secret.dart): one field instead of
+  /// the pad. Read per lock.
+  bool _password = UnlockSecret.current == VaultSecretKind.password;
+  final TextEditingController _field = TextEditingController();
+
+  void _clearEntry() {
+    _field.clear();
+    _pin = '';
+  }
+
+  void _submitPassword() {
+    if (_lockedOut || _verifying || _field.text.isEmpty) return;
+    _pin = _field.text;
+    _verifyPin();
+  }
+
   @override
   void dispose() {
+    _field.dispose();
     _shake.dispose();
     super.dispose();
   }
@@ -90,16 +116,16 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
   /// restore the persisted attempt/lockout state, then auto-prompt
   /// biometrics exactly like the cold-start PIN screen does.
   Future<void> _onLockEngaged() async {
-    _pin = '';
+    _clearEntry();
+    _password = UnlockSecret.current == VaultSecretKind.password;
     // Once per lock engagement (the listener in build fires on the
     // false → true edge only), so never per rebuild.
     TrackingService.track('lock_overlay_shown', params: {
       'biometrics_enabled': ref.read(settingsProvider).biometricsEnabled,
       // The background grace expiring, or a confirmation sheet that hit
       // its wrong-PIN threshold.
-      'reason': ref.read(pinSheetLockedProvider)
-          ? 'pin_sheet_lockout'
-          : 'auto_lock',
+      'reason':
+          ref.read(pinSheetLockedProvider) ? 'pin_sheet_lockout' : 'auto_lock',
     });
     resetStepUpSession();
     final guard = PinAttemptGuard(AuthModel());
@@ -135,6 +161,9 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
   Future<void> _tryBiometrics({bool auto = false}) async {
     if (_biometricInFlight || _lockedOut) return;
     if (!ref.read(settingsProvider).biometricsEnabled) return;
+    // Web without a platform authenticator: the PIN keypad is the only
+    // way in.
+    if (!PlatformCaps.hasBiometrics) return;
     _biometricInFlight = true;
     try {
       final dependency = await _v1Dependency();
@@ -148,9 +177,15 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       // Gate on ENROLLED biometrics, not just hardware presence —
       // same rule as open_pin (`canCheckBiometrics` lies on iOS when
       // Face ID is disabled).
-      final supported = await _localAuth.isDeviceSupported();
-      final enrolled = await _localAuth.getAvailableBiometrics();
-      if (!supported || enrolled.isEmpty || !mounted) return;
+      // Web: "enrolled" is this browser's WebAuthn PRF credential (it
+      // opens the vault, see web_biometrics.dart).
+      if (PlatformCaps.isWeb) {
+        if (!WebBiometrics.enrolled || !mounted) return;
+      } else {
+        final supported = await _localAuth.isDeviceSupported();
+        final enrolled = await _localAuth.getAvailableBiometrics();
+        if (!supported || enrolled.isEmpty || !mounted) return;
+      }
       // Read the reason BEFORE the prompt so no BuildContext is touched
       // across the await inside the scope below.
       final reason = context.l10n.pleaseAuthenticateToOpenTheApp;
@@ -161,11 +196,14 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       // Inside the scope the privacy cover stays down, so the user reads
       // this lock screen behind Face ID instead of a blank rectangle.
       final ok = await runBiometricPrompt(
-        () => _localAuth.authenticate(
-          localizedReason: reason,
-          persistAcrossBackgrounding: true,
-          biometricOnly: true,
-        ),
+        () => PlatformCaps.isWeb
+            ? WebBiometrics.verify()
+                .then((r) => r == WebBiometricResult.approved)
+            : _localAuth.authenticate(
+                localizedReason: reason,
+                persistAcrossBackgrounding: true,
+                biometricOnly: true,
+              ),
       );
       if (!ok) {
         TrackingService.track('biometric_prompt_cancelled',
@@ -186,9 +224,14 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       await BiometricPinPolicy().applyAfterUnlock(dependency);
       await recordBiometricUnlockDomainState();
       if (!mounted) return;
-      markSessionUnlocked(ref,
-          method: UnlockMethod.biometric, dependency: dependency);
-      _finishUnlock(method: 'biometric');
+      void finish() {
+        if (!mounted) return;
+        markSessionUnlocked(ref,
+            method: UnlockMethod.biometric, dependency: dependency);
+        _finishUnlock(method: 'biometric');
+      }
+
+      finish();
     } catch (e) {
       // local_auth 3 throws a LocalAuthException for a dismissed prompt
       // too; the helper files that as a cancel, not a failure. The PIN
@@ -209,7 +252,11 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
   }
 
   Future<void> _verifyPin() async {
-    if (_pin.length != 6 || _verifying || _lockedOut) return;
+    if ((_password ? _pin.isEmpty : _pin.length != 6) ||
+        _verifying ||
+        _lockedOut) {
+      return;
+    }
     setState(() => _verifying = true);
     try {
       final auth = AuthModel();
@@ -226,11 +273,16 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
         await BiometricPinPolicy()
             .applyAfterUnlock(dependency, typedPin: typedPin);
         if (!mounted) return;
-        markSessionUnlocked(ref,
-            method: UnlockMethod.pin,
-            typedPin: typedPin,
-            dependency: dependency);
-        _finishUnlock(method: 'pin');
+        void finish() {
+          if (!mounted) return;
+          markSessionUnlocked(ref,
+              method: UnlockMethod.pin,
+              typedPin: typedPin,
+              dependency: dependency);
+          _finishUnlock(method: 'pin');
+        }
+
+        finish();
         return;
       }
       if (check == PinCheck.mismatch) {
@@ -243,7 +295,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       salSad();
       HapticFeedback.heavyImpact();
       setState(() {
-        _pin = '';
+        _clearEntry();
         _verifying = false;
       });
     } catch (e, st) {
@@ -257,7 +309,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
           flow: 'unlock', stage: 'pin_check');
       if (mounted) {
         setState(() {
-          _pin = '';
+          _clearEntry();
           _verifying = false;
         });
       }
@@ -278,7 +330,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     );
     if (!mounted) return;
     setState(() {
-      _pin = '';
+      _clearEntry();
       _verifying = false;
     });
 
@@ -304,7 +356,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     // this one names the resume overlay.
     TrackingService.track('lock_overlay_unlocked', params: {'method': method});
     setState(() {
-      _pin = '';
+      _clearEntry();
       _verifying = false;
     });
     // Drop the cover FIRST so the user's screen is instantly back,
@@ -345,57 +397,88 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     // The same scaffold, title, dots and keypad as the cold-start PIN
     // screen, so a relock after backgrounding looks like Welcome back
     // and nothing else.
-    return Positioned.fill(
-      child: KutePinScaffold(
-        title: context.l10n.welcomeBack,
-        salMood: salMoodFor(_pin.length),
-        subtitle: _lockedOut
-            ? (ref.watch(pinSheetLockedProvider)
-                ? '${context.l10n.pinSheetLocked}\n'
-                    '${context.l10n.lockedForTime(_formatLockout(_lockoutRemaining))}'
-                : context.l10n.lockedForTime(_formatLockout(_lockoutRemaining)))
-            : null,
-        subtitleIsError: true,
-        dots: AnimatedBuilder(
-          animation: _shakeAnim,
-          builder: (context, child) => Transform.translate(
-            offset: Offset(_shakeAnim.value, 0),
-            child: child,
+    // The whole window covered; on MEDIUM the PIN pad is the centred
+    // form column on the background (kute_wide_frames.dart), on EXPANDED
+    // the split screen of the PIN steps (kute_split_screen.dart).
+    final page = KuteSplitScreen(
+        child: KutePinScaffold(
+          form: _password,
+          title: context.l10n.welcomeBack,
+          salMood: salMoodFor(_password ? _field.text.length : _pin.length),
+          subtitle: _lockedOut
+              ? (ref.watch(pinSheetLockedProvider)
+                  ? '${_password ? PasswordCopy.sheetLocked : context.l10n.pinSheetLocked}\n'
+                      '${context.l10n.lockedForTime(_formatLockout(_lockoutRemaining))}'
+                  : context.l10n
+                      .lockedForTime(_formatLockout(_lockoutRemaining)))
+              : null,
+          subtitleIsError: true,
+          dots: AnimatedBuilder(
+            animation: _shakeAnim,
+            builder: (context, child) => Transform.translate(
+              offset: Offset(_shakeAnim.value, 0),
+              child: child,
+            ),
+            child: _password
+                ? KuteBarContextScope(
+                    barContext: KuteBarContext.primary(
+                      label: context.l10n.unlock,
+                      enabled: !padInert && _field.text.isNotEmpty,
+                      busy: _verifying,
+                      source: 'lock_overlay',
+                      onPrimary: _submitPassword,
+                      disabledLabel: PasswordCopy.needPassword,
+                    ),
+                    child: KutePasswordField(
+                      controller: _field,
+                      enabled: !padInert,
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => _submitPassword(),
+                    ),
+                  )
+                : PinProgressIndicator(currentLength: _pin.length),
           ),
-          child: PinProgressIndicator(currentLength: _pin.length),
-        ),
-        keypad: IgnorePointer(
-          ignoring: padInert,
-          child: Opacity(
-            opacity: padInert ? 0.4 : 1.0,
-            child: CustomKeypad(
-              chromed: true,
-              onDigitPressed: (d) {
-                if (_lockedOut || _verifying) return;
-                if (_pin.length < 6) {
-                  HapticFeedback.lightImpact();
-                  setState(() => _pin += d);
-                  if (_pin.length == 6) {
-                    Future.delayed(
-                        const Duration(milliseconds: 100), _verifyPin);
+          keypad: _password
+              ? const SizedBox.shrink()
+              : IgnorePointer(
+            ignoring: padInert,
+            child: Opacity(
+              opacity: padInert ? 0.4 : 1.0,
+              child: CustomKeypad(
+                chromed: true,
+                // A laptop's keyboard types on the pad too (web only).
+                typeFromKeyboard: true,
+                onDigitPressed: (d) {
+                  if (_lockedOut || _verifying) return;
+                  if (_pin.length < 6) {
+                    HapticFeedback.lightImpact();
+                    setState(() => _pin += d);
+                    if (_pin.length == 6) {
+                      Future.delayed(
+                          const Duration(milliseconds: 100), _verifyPin);
+                    }
                   }
-                }
-              },
-              onBackspacePressed: () {
-                if (_pin.isNotEmpty) {
-                  HapticFeedback.lightImpact();
-                  setState(() => _pin = _pin.substring(0, _pin.length - 1));
-                }
-              },
-              onBiometricPressed:
-                  biometricsEnabled && !padInert && !_biometricInFlight
-                      ? _tryBiometrics
-                      : null,
+                },
+                onBackspacePressed: () {
+                  if (_pin.isNotEmpty) {
+                    HapticFeedback.lightImpact();
+                    setState(() => _pin = _pin.substring(0, _pin.length - 1));
+                  }
+                },
+                onBiometricPressed: biometricsEnabled &&
+                        !padInert &&
+                        !_biometricInFlight &&
+                        (!PlatformCaps.isWeb || WebBiometrics.enrolled)
+                    ? _tryBiometrics
+                    : null,
+              ),
             ),
           ),
         ),
-      ),
     );
+    // A text field above the Navigator needs an Overlay of its own.
+    return Positioned.fill(
+        child: _password ? KuteOverlayHost(child: page) : page);
   }
 }
 
@@ -416,7 +499,7 @@ class PrivacyCover extends ConsumerWidget {
     // the themed background rather than a bare rectangle. It no longer
     // appears during a biometric prompt (see privacy_cover_bridge.dart), so
     // it is not in the user's face on every fingerprint scan.
-    if (!Platform.isAndroid) return const SizedBox.shrink();
+    if (!PlatformOs.isAndroid) return const SizedBox.shrink();
     final visible = ref.watch(appVisibleProvider);
     if (visible) return const SizedBox.shrink();
     final c = context.colors;
@@ -430,8 +513,7 @@ class PrivacyCover extends ConsumerWidget {
             height: 88.w,
             // The file is 1024 px; decode at display size so going to the
             // background does not add a 4 MB bitmap.
-            cacheWidth:
-                (88.w * MediaQuery.devicePixelRatioOf(context)).round(),
+            cacheWidth: (88.w * MediaQuery.devicePixelRatioOf(context)).round(),
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
         ),

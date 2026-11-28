@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/widgets.dart';
@@ -8,12 +7,16 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:kute/services/http/fresh_connection.dart';
+import 'package:kute/constants/hyperliquid_constants.dart'
+    show kHlMaxOfferedLeverage;
 import 'package:kute/l10n/l10n.dart'
     show AppLocalizations, appL10n, l10nForLanguage;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
+import 'package:kute/services/web_advanced_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// The regions a region block covers, as the backend's policy names them
 /// (founder decision, October 2026: region blocks are configured only in
@@ -477,7 +480,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
         _ensureSession = (() => AffiliateService.ensureSession()),
         _renewSession =
             ((token) => AffiliateService.ensureSession(rejected: token)),
-        _platform = Platform.isIOS ? 'ios' : 'android',
+        _platform = PlatformOs.iosOrAndroid,
         _appVersion = (() async => (await PackageInfo.fromPlatform()).version),
         _clock = DateTime.now,
         _store = const HiveRuntimePolicySnapshotStore(),
@@ -668,6 +671,11 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   };
 
   CapabilityDecision decision(String id) {
+    // TEMPORARY (web_advanced_test.dart): on the web Advanced is on and
+    // the backend's value is not read. Remove with that file.
+    if (id == 'trading.advanced' && WebAdvancedTest.on) {
+      return const CapabilityDecision(allowed: true, reason: 'allowed');
+    }
     final current = snapshot;
     if (current != null) {
       final value = current.capabilities[id];
@@ -760,6 +768,14 @@ class RuntimeCapabilitiesService extends ChangeNotifier
 
   /// The decision with no fresh policy: what the policies last fetched said.
   CapabilityDecision _unavailableDecision(String id) {
+    // TEMPORARY (web_advanced_test.dart): also when the policy cannot be
+    // fetched. The check at placement asks for a fresh policy first and
+    // falls back here when that fetch fails; without this an Advanced
+    // order could be refused after its money had already moved, on a
+    // ticket that said Advanced was on. Remove with that file.
+    if (id == 'trading.advanced' && WebAdvancedTest.on) {
+      return const CapabilityDecision(allowed: true, reason: 'allowed');
+    }
     // The last decisions on hand for [id], session policy first. Account
     // rules the public route could not evaluate say nothing.
     final previous = <(CapabilityDecision, DateTime?)>[
@@ -797,16 +813,30 @@ class RuntimeCapabilitiesService extends ChangeNotifier
 
   bool allows(String id) => decision(id).allowed && !decision(id).comingSoon;
 
-  /// The Investing leverage cap for this region: null when the policy sets
-  /// none. Without a fresh policy the last cap seen stands (the session
-  /// policy's first, then the public one's), and with none ever seen the
-  /// cap is 1x, so an outage can only ever tighten leverage, never loosen
-  /// it.
+  /// The Investing leverage cap for this region: never above
+  /// [kHlMaxOfferedLeverage] (leverage is blocked in the app, whatever the
+  /// policy says), and tighter only if the policy's own cap is. Without a
+  /// fresh policy the last cap seen stands (the session policy's first,
+  /// then the public one's), and with none ever seen the cap is 1x, so an
+  /// outage can only ever tighten leverage, never loosen it.
+  ///
+  /// Typed nullable for older readers; it is never null. Even an override
+  /// returning null or more cannot loosen [offeredLeverage] or
+  /// [ensureLeverageAllowed], which hold to [kHlMaxOfferedLeverage] too.
   int? get maxLeverage {
+    // TEMPORARY (web_advanced_test.dart): leverage stays at 1x on the web
+    // while Advanced is forced on there. Remove with that file.
+    if (WebAdvancedTest.on) return 1;
+    int? policyCap = 1;
     for (final policy in [snapshot, publicSnapshot, _held, _public]) {
-      if (policy != null) return policy.maxLeverage;
+      if (policy != null) {
+        policyCap = policy.maxLeverage;
+        break;
+      }
     }
-    return 1;
+    return policyCap == null || policyCap > kHlMaxOfferedLeverage
+        ? kHlMaxOfferedLeverage
+        : policyCap;
   }
 
   /// Kute's Polymarket builder (attribution) code from the newest policy on
@@ -821,20 +851,27 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     return null;
   }
 
-  /// The leverage a ticket may offer for [venueMax]: the venue's own
-  /// maximum, tightened to the policy cap when one applies.
-  int offeredLeverage(int venueMax) {
+  int get _appCap {
     final cap = maxLeverage;
+    return cap == null || cap > kHlMaxOfferedLeverage
+        ? kHlMaxOfferedLeverage
+        : cap;
+  }
+
+  /// The leverage a ticket may offer for [venueMax]: the venue's own
+  /// maximum, held to [maxLeverage] (1x: leverage is blocked in the app).
+  int offeredLeverage(int venueMax) {
+    final cap = _appCap;
     final venue = venueMax < 1 ? 1 : venueMax;
-    return cap == null || cap >= venue ? venue : cap;
+    return cap >= venue ? venue : cap;
   }
 
   /// Refuses an order that asks for more leverage than the policy allows.
   /// Hot and Ledger order paths call this at the same point, so the cap
   /// is one rule with one wording wherever the order is signed.
   void ensureLeverageAllowed(int leverage) {
-    final cap = maxLeverage;
-    if (cap != null && leverage > cap) {
+    final cap = _appCap;
+    if (leverage > cap) {
       throw LeverageCapExceededException(cap);
     }
   }

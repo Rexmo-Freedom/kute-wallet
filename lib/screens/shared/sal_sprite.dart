@@ -90,6 +90,25 @@
 // when it is next asked for. Giving one up only drops the cache's hold:
 // a sprite still showing it keeps its own, and nothing is disposed.
 //
+// THE WEB (26 November 2026: Safari on an iPhone 16 Pro Max killed and
+// reloaded the page on the Dollars empty state). On CanvasKit a decoded
+// sheet lives in the WASM heap and a GPU texture until a finalizer runs,
+// and the WASM heap never shrinks, so the cap above (which only drops the
+// cache's hold) does not bound what the page keeps. On the web only
+// ([SalSpriteCache.webLimits]; phones are unchanged):
+//   * never @3x ([SalSpriteCache.densityFor] answers 2): a hero sheet is
+//     18.75 MiB decoded instead of 42.2 MiB;
+//   * a lower cap, [kSalSpriteCacheWebMaxBytes] (64 MiB): the hero loop
+//     plus two more @2x hero sheets (56.25 MiB) and the bar's small face
+//     sheets beside them;
+//   * [SalSpriteCache.warm] decodes its list one sheet after another, so
+//     the peak is one sheet above what is resident;
+//   * [SalIdleDirector] warms only the hero loop and reads a beat, the
+//     sleep loop or the wake one-shot ahead of when it plays (see there).
+// Pixels are still never disposed when the cache gives a sheet up: the
+// painters hold the cache's own `ui.Image`, and a disposed one would be
+// painted.
+//
 // [SalIdleDirector] is the empty states' Sal, calm (founder, 12 November
 // 2026: "an occasional blink/stretch on a slow random cadence, not
 // constant motion"): he stands still in the hero pose, and every 8–15 s
@@ -129,6 +148,11 @@ const String kSalSpriteDir = 'lib/assets/sal';
 /// The most decoded bytes [SalSpriteCache] holds: four @3x body sheets
 /// and the result sheet's faces (see the file header).
 const int kSalSpriteCacheMaxBytes = 120 * 1024 * 1024;
+
+/// The cap on the web (see the file header): three @2x hero sheets
+/// (1920 x 2560 RGBA, 18.75 MiB each: 56.25 MiB) and 7.75 MiB for the
+/// bar's face sheets (about 1.7 MiB each at @2x).
+const int kSalSpriteCacheWebMaxBytes = 64 * 1024 * 1024;
 
 /// The cross-dissolve between two clips (see the file header).
 const Duration kSalCrossfade = Duration(milliseconds: 120);
@@ -240,6 +264,25 @@ class SalClip {
 /// app's life. A clip that cannot be read resolves to null (and is asked
 /// again next time, so the assets can land while the app runs).
 abstract final class SalSpriteCache {
+  /// Tests: stands in for `kIsWeb` in every web-only decision of the cache
+  /// and of [SalIdleDirector] while it is set (`kIsWeb` cannot be flipped
+  /// in a test).
+  @visibleForTesting
+  static bool? debugWebOverride;
+
+  /// Whether the web's memory limits apply (see the file header): the
+  /// browser build, or a test that says so.
+  static bool get webLimits => debugWebOverride ?? kIsWeb;
+
+  /// The cap this platform starts with: [kSalSpriteCacheWebMaxBytes] on
+  /// the web, [kSalSpriteCacheMaxBytes] everywhere else.
+  static int get defaultMaxBytes =>
+      webLimits ? kSalSpriteCacheWebMaxBytes : kSalSpriteCacheMaxBytes;
+
+  /// The density of a sheet drawn at full resolution whatever the screen
+  /// (the share cards): @3x, @2x on the web.
+  static int get fullDensity => webLimits ? 2 : 3;
+
   static Future<Map<String, dynamic>?>? _manifest;
   static final Map<String, Future<SalClip?>> _clips = {};
 
@@ -269,6 +312,7 @@ abstract final class SalSpriteCache {
     _clips.clear();
     _ready.clear();
     _failed.clear();
+    _kept.clear();
     _debugStaged.clear();
     _bytes = 0;
     SalCoinAnchors.debugSet(null);
@@ -323,9 +367,10 @@ abstract final class SalSpriteCache {
     _clips.clear();
     _ready.clear();
     _failed.clear();
+    _kept.clear();
     _debugStaged.clear();
     _bytes = 0;
-    maxBytes = kSalSpriteCacheMaxBytes;
+    maxBytes = defaultMaxBytes;
     debugLoader = null;
     SalCoinAnchors.debugReset();
     SalSpotlight.debugReset();
@@ -379,9 +424,21 @@ abstract final class SalSpriteCache {
   /// Decodes [names] at [density] once, ahead of their use (a director's
   /// group on mount), and keeps them for the app's life. Resolves to the
   /// names that could not be read, so the caller can drop them.
+  ///
+  /// On the web ([webLimits]) the sheets are decoded one after another,
+  /// never all at once, so the peak is one sheet above the resident set;
+  /// elsewhere they are all asked for at once, as always.
   static Future<List<String>> warm(Iterable<String> names, int density) async {
     final list = names.toList();
-    final clips = await Future.wait([for (final n in list) clip(n, density)]);
+    final List<SalClip?> clips;
+    if (webLimits) {
+      clips = [];
+      for (final n in list) {
+        clips.add(await clip(n, density));
+      }
+    } else {
+      clips = await Future.wait([for (final n in list) clip(n, density)]);
+    }
     return [for (var i = 0; i < list.length; i++) if (clips[i] == null) list[i]];
   }
 
@@ -400,7 +457,7 @@ abstract final class SalSpriteCache {
   static int _bytes = 0;
 
   /// The most decoded bytes the cache holds (see the file header).
-  static int maxBytes = kSalSpriteCacheMaxBytes;
+  static int maxBytes = defaultMaxBytes;
 
   /// What the cache holds now, in decoded bytes.
   static int get residentBytes => _bytes;
@@ -417,18 +474,33 @@ abstract final class SalSpriteCache {
 
   /// [clip] is held under [key], the most recently used; the least
   /// recently used go until the cache is within [maxBytes] (never the
-  /// one just admitted).
+  /// one just admitted, never one [keep] names).
   static void _admit(String key, SalClip clip) {
     final old = _ready.remove(key);
     if (old != null) _bytes -= bytesOf(old);
     _ready[key] = clip;
     _bytes += bytesOf(clip);
-    while (_bytes > maxBytes && _ready.length > 1) {
-      final victim = _ready.keys.first;
-      if (victim == key) break;
+    while (_bytes > maxBytes) {
+      String? victim;
+      for (final k in _ready.keys) {
+        if (k == key) break;
+        if (!_kept.contains(k.substring(0, k.lastIndexOf('@')))) {
+          victim = k;
+          break;
+        }
+      }
+      if (victim == null) break;
       _drop(victim);
     }
   }
+
+  /// The clips the cap never gives up ([keep]).
+  static final Set<String> _kept = <String>{};
+
+  /// [name] stays decoded once read, whatever the cap (a small face
+  /// sheet a mark shows wherever it is: the web's [BrandMark], where a
+  /// clip given up means a second's blank while it is read again).
+  static void keep(String name) => _kept.add(name);
 
   static void _drop(String key) {
     final c = _ready.remove(key);
@@ -465,8 +537,9 @@ abstract final class SalSpriteCache {
   static bool failed(String name, int density) =>
       _failed.contains('$name@$density');
 
-  /// The density for a device pixel ratio: @3x from 2.5 up.
-  static int densityFor(double dpr) => dpr >= 2.5 ? 3 : 2;
+  /// The density for a device pixel ratio: @3x from 2.5 up; always @2x on
+  /// the web ([webLimits], see the file header).
+  static int densityFor(double dpr) => webLimits ? 2 : (dpr >= 2.5 ? 3 : 2);
 
   /// A clip already decoded, for a painter that cannot await (the money
   /// journey's Sal, a sprite switching clips): null while it is still
@@ -1243,6 +1316,12 @@ class _SalIdleDirectorState extends State<SalIdleDirector>
   String? _last;
   Timer? _timer;
   Timer? _sleepTimer;
+
+  /// Web: reads the sleep loop's sheet ahead of the sleep.
+  Timer? _sleepPrefetch;
+
+  /// Web: the beat the armed timer will play, its sheet read ahead.
+  String? _nextBeat;
   bool _reduce = false;
   bool _started = false;
   bool _onScreen = true;
@@ -1305,6 +1384,7 @@ class _SalIdleDirectorState extends State<SalIdleDirector>
     } else {
       _timer?.cancel();
       _sleepTimer?.cancel();
+      _sleepPrefetch?.cancel();
       // Nothing of his moves now: the spotlight is free for the others.
       SalSpotlight.release(this);
     }
@@ -1325,6 +1405,14 @@ class _SalIdleDirectorState extends State<SalIdleDirector>
     });
     _armNext();
     _armSleep();
+    // The web decodes only the hero loop now (what he shows first); every
+    // other sheet is read ahead of when it plays ([_armNext], [_armSleep],
+    // [_sleep]) and given up by the cap when it is not, so the page never
+    // holds all five at once (see the file header).
+    if (SalSpriteCache.webLimits) {
+      unawaited(SalSpriteCache.warm([kSalHeroLoop], _density));
+      return;
+    }
     // The beats decoded once, now, so no beat ever waits on a read; a
     // clip that cannot be read leaves the pool here and now.
     unawaited(SalSpriteCache.warm([
@@ -1363,12 +1451,39 @@ class _SalIdleDirectorState extends State<SalIdleDirector>
     final wait = widget.minGap.inMilliseconds +
         (span > 0 ? _random.nextInt(span + 1) : 0);
     _timer = Timer(Duration(milliseconds: wait), _playBeat);
+    if (SalSpriteCache.webLimits) _prepareNextBeat();
+  }
+
+  /// Web: picks the beat the armed timer will play (never the same twice
+  /// in a row) and reads its sheet now, 8–15 s ahead of it.
+  void _prepareNextBeat() {
+    final choices = _pool.length > 1
+        ? [for (final c in _pool) if (c != _last) c]
+        : _pool;
+    if (choices.isEmpty) return;
+    final pick = choices[_random.nextInt(choices.length)];
+    _nextBeat = pick;
+    _readAhead(pick);
+  }
+
+  /// Web: reads [clip]'s sheet; one that cannot be read leaves the pool.
+  void _readAhead(String clip) {
+    unawaited(SalSpriteCache.clip(clip, _density).then((c) {
+      if (c == null && clip != kSalHeroLoop) _unavailable(clip);
+    }));
   }
 
   void _armSleep() {
     _sleepTimer?.cancel();
+    _sleepPrefetch?.cancel();
     if (!_live || !_hasSleep) return;
     _sleepTimer = Timer(widget.sleepAfter, _sleep);
+    if (SalSpriteCache.webLimits) {
+      // The sleep loop is read 10 s before he falls asleep.
+      final lead = widget.sleepAfter - const Duration(seconds: 10);
+      _sleepPrefetch = Timer(lead.isNegative ? Duration.zero : lead,
+          () => _readAhead(kSalHeroSleep));
+    }
   }
 
   void _playBeat() {
@@ -1383,6 +1498,26 @@ class _SalIdleDirectorState extends State<SalIdleDirector>
     }
     // Never the same twice in a row (one clip alone repeats, there is
     // nothing else); a clip already decoded over one still reading.
+    if (SalSpriteCache.webLimits) {
+      // Web: the beat read ahead plays once its sheet is decoded; still
+      // reading (a slow link), he skips this turn rather than wait on a
+      // read, and the next one is picked and read.
+      final next = _nextBeat;
+      if (next == null ||
+          !_pool.contains(next) ||
+          SalSpriteCache.ready(next, _density) == null) {
+        _armNext();
+        return;
+      }
+      SalSpotlight.hold(this);
+      setState(() {
+        _phase = _DirectorPhase.beat;
+        _clip = next;
+        _last = next;
+        _cue++;
+      });
+      return;
+    }
     final choices = _pool.length > 1
         ? [for (final c in _pool) if (c != _last) c]
         : _pool;
@@ -1403,6 +1538,20 @@ class _SalIdleDirectorState extends State<SalIdleDirector>
 
   void _sleep() {
     if (!mounted || !_hasSleep || _phase == _DirectorPhase.sleeping) return;
+    if (SalSpriteCache.webLimits &&
+        SalSpriteCache.ready(kSalHeroSleep, _density) == null) {
+      // Web: the sleep loop is not decoded yet; he stays as he is and
+      // falls asleep once it is (or never, when it cannot be read).
+      unawaited(SalSpriteCache.clip(kSalHeroSleep, _density).then((c) {
+        if (!mounted) return;
+        if (c == null) {
+          _unavailable(kSalHeroSleep);
+        } else if (_live && _phase == _DirectorPhase.rest) {
+          _sleep();
+        }
+      }));
+      return;
+    }
     _timer?.cancel();
     SalSpotlight.release(this);
     setState(() {
@@ -1410,11 +1559,17 @@ class _SalIdleDirectorState extends State<SalIdleDirector>
       _clip = kSalHeroSleep;
       _cue++;
     });
+    // Web: the wake one-shot is read while he sleeps.
+    if (SalSpriteCache.webLimits && _hasWake) _readAhead(kSalHeroWake);
   }
 
   void _wake() {
     if (!mounted) return;
-    if (_hasWake) {
+    // Web: a wake whose sheet is not decoded yet (a touch right as he fell
+    // asleep) goes straight to the hero pose, as with no wake at all.
+    final wakeReady = !SalSpriteCache.webLimits ||
+        SalSpriteCache.ready(kSalHeroWake, _density) != null;
+    if (_hasWake && wakeReady) {
       setState(() {
         _phase = _DirectorPhase.waking;
         _clip = kSalHeroWake;
@@ -1459,6 +1614,7 @@ class _SalIdleDirectorState extends State<SalIdleDirector>
   void dispose() {
     _timer?.cancel();
     _sleepTimer?.cancel();
+    _sleepPrefetch?.cancel();
     SalSpotlight.release(this);
     WidgetsBinding.instance.removeObserver(this);
     GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);

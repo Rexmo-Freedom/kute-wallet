@@ -1,3 +1,5 @@
+import 'package:kute/constants/hyperliquid_constants.dart' show hlAppLeverage;
+import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,8 +68,8 @@ class HlTrailingStopSheet extends ConsumerStatefulWidget {
     // A full page with the Advanced ticket's chrome, not a bottom sheet:
     // it is one of the Advanced order doors and reads like the rest.
     return Navigator.of(context, rootNavigator: true).push<HlOrderResult>(
-        MaterialPageRoute<HlOrderResult>(
-            fullscreenDialog: true,
+        // The page; the shared panel on EXPANDED (kute_form_panel_route).
+        kuteFormPanelRoute<HlOrderResult>(context,
             settings: const RouteSettings(name: 'hyperliquid-trailing-stop'),
             builder: (_) => HlTrailingStopSheet(
                 market: market,
@@ -150,7 +152,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
           if (mounted) {
             setState(() {
               _pending = true;
-              _error = const PendingTrailingStopException().toString();
+              _error = context.l10n.hlProtectTrailPending;
             });
           }
         });
@@ -188,14 +190,11 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
       }
       if (widget.ledger && result != null) {
         // The hot path reports from the trading notifier; a Ledger order
-        // never touches it, so its placement is reported here.
-        // offeredMaxLeverage is at least 1, so the bounds never cross on
-        // a market that reports no leverage.
+        // never touches it, so its placement is reported here, at the
+        // app's own leverage (1x: leverage is blocked in this app).
         final lev = widget.market.isSpot
             ? 1
-            : widget.leverage
-                .clamp(1, widget.market.offeredMaxLeverage)
-                .toInt();
+            : hlAppLeverage(widget.leverage, widget.market.maxLeverage);
         final notional = widget.size * price;
         TrackingService.hyperliquidOrderPlaced(
           coin: widget.market.coin,
@@ -234,7 +233,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
           _error = e is ArgumentError
               ? e.message.toString()
               : e is PendingTrailingStopException
-                  ? e.toString()
+                  ? context.l10n.hlProtectTrailPending
                   : hlTradeErrorMessage(context.l10n, e);
         });
       }
@@ -270,12 +269,17 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
     final c = context.colors;
     final form = <Widget>[
       Row(children: [
-        HlCoinIcon(
-            coin: HlMarket.baseCoin(widget.market.coin),
-            wireCoin: widget.market.wireCoin,
-            iconUrl: widget.market.iconUrl,
-            category: widget.market.category),
-        const SizedBox(width: 12),
+        // Web: no logo to draw, no box and no gap (hlLogoShown).
+        if (hlLogoShown(HlMarket.baseCoin(widget.market.coin),
+            widget.market.wireCoin, widget.market.iconUrl,
+            widget.market.category)) ...[
+          HlCoinIcon(
+              coin: HlMarket.baseCoin(widget.market.coin),
+              wireCoin: widget.market.wireCoin,
+              iconUrl: widget.market.iconUrl,
+              category: widget.market.category),
+          const SizedBox(width: 12),
+        ],
         Expanded(
             child: Text(
                 '${widget.reduceOnly ? context.l10n.trailingClose : widget.isBuy ? context.l10n.longLabel : context.l10n.shortLabel} '

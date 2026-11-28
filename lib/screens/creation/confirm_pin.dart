@@ -1,3 +1,4 @@
+import 'package:kute/services/share_targets.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/helpers/session_auth.dart';
 import 'package:kute/providers/auth_provider.dart';
@@ -7,7 +8,6 @@ import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/providers/words_provider.dart';
 import 'package:kute/screens/creation/set_pin.dart'; // Contains pinProvider & PinProgressIndicator
 import 'package:kute/screens/recovery/restore_secrets_screen.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
@@ -42,6 +42,21 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
 
   /// Onboarding path (create | restore | restore_secrets), read once.
   late final String _path;
+
+  /// Six digits, on every platform: the web takes the PIN in every
+  /// browser too (unlock_secret.dart, 27 November 2026).
+  bool get _ready => confirmPin.length == 6;
+
+  bool _sameAs(String originalPin) => confirmPin == originalPin;
+
+  void _submit(String originalPin) {
+    if (!_ready || ref.read(confirmPinLoadingProvider)) return;
+    if (_sameAs(originalPin)) {
+      _handleSetPin(originalPin);
+    } else {
+      _handlePinMismatch();
+    }
+  }
 
   @override
   void initState() {
@@ -133,7 +148,12 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
       ref.read(pinProvider.notifier).state = '';
       ref.read(confirmPinLoadingProvider.notifier).state = false;
       if (mounted) {
-        context.go('/passkey_choice', extra: '/beta_survey');
+        // A share arrival goes back to the shared market after the wallet
+        // (share_wallet_gate.dart): no survey, no code screens.
+        context.go('/passkey_choice',
+            extra: ShareTargets.arrivedThroughShare
+                ? kShareOnboardingNext
+                : '/beta_survey');
       }
     } catch (e, st) {
       final category = TrackingService.errorCategory(e);
@@ -190,6 +210,7 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     final originalPin = ref.watch(pinProvider);
     final isLoading = ref.watch(confirmPinLoadingProvider);
+    final ready = _ready;
 
     return Stack(
       children: [
@@ -200,7 +221,7 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
           // instead of arriving as a snackbar over a screen that reads as
           // if nothing went wrong.
           title: context.l10n.confirmYourPin,
-          salMood: confirmPin.length == 6 && confirmPin == originalPin
+          salMood: ready && _sameAs(originalPin)
               ? 'happy'
               : salMoodFor(confirmPin.length),
           subtitle: _mismatched ? context.l10n.pinsDoNotMatchRetry : null,
@@ -219,6 +240,8 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
             ignoring: isLoading,
             child: CustomKeypad(
               chromed: true,
+              // A laptop's keyboard types on the pad too (web only).
+              typeFromKeyboard: true,
               onDigitPressed: (digit) {
                 if (confirmPin.length < 6) {
                   HapticFeedback.lightImpact();
@@ -240,13 +263,13 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
             ),
           ),
           footer: AnimatedOpacity(
-            opacity: confirmPin.length == 6 ? 1.0 : 0.0,
+            opacity: ready ? 1.0 : 0.0,
             duration: reduceMotion
                 ? Duration.zero
                 : const Duration(milliseconds: 250),
             curve: Curves.easeOut,
             child: IgnorePointer(
-              ignoring: confirmPin.length != 6 || isLoading,
+              ignoring: !ready || isLoading,
               // THE BAR IS THE BUTTON (kute_bar_context.dart): Set PIN is
               // the floating Sal bar's primary action, on with six digits.
               // The wait is on the button, the way the bet slip waits
@@ -256,20 +279,12 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
                 label: context.l10n.setPin,
                 busyLabel: context.l10n.creatingWallet,
                 busy: isLoading,
-                enabled: confirmPin.length == 6,
+                enabled: ready,
                 source: 'confirm_pin',
-                onPrimary: () {
-                  if (confirmPin.length == 6) {
-                    if (confirmPin == originalPin) {
-                      _handleSetPin(originalPin);
-                    } else {
-                      _handlePinMismatch();
-                    }
-                  }
-                },
+                onPrimary: () => _submit(originalPin),
                 disabledLabel: context.l10n.barNeedPinAgain,
                 ),
-                child: SizedBox(height: kuteBarScrollClearance.h),
+                child: KutePinScaffold.barRoom(context, form: false),
               ),
             ),
           ),

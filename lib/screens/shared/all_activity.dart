@@ -51,11 +51,11 @@
 // in the same scope ([AllActivitySliver]), built a page at a time as it
 // scrolls.
 
+import 'package:kute/screens/shared/desk_lists.dart' show ActivityDayColumns;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kute/helpers/cash_app_destination.dart'
-    show cashAppDestination;
+import 'package:kute/helpers/cash_app_destination.dart' show cashAppDestination;
 import 'package:kute/helpers/swap_activity.dart'
     show SwapActivityKind, swapActivityFor;
 import 'package:kute/l10n/l10n.dart';
@@ -316,10 +316,8 @@ AllActivity watchAllActivity(WidgetRef ref,
   final fills = ref.watch(hyperliquidActivityFillsProvider);
   final history = ref.watch(hyperliquidUserFillsProvider);
   final entries = activityInScope(
-      mergeAllActivity(walletRows: walletRows, bets: bets, fills: fills),
-      scope,
-      classify: classify,
-      marks: marks);
+      mergeAllActivity(walletRows: walletRows, bets: bets, fills: fills), scope,
+      classify: classify, marks: marks);
   return (
     entries: entries,
     curated: curateAllActivity(entries, classify: classify),
@@ -405,8 +403,8 @@ class AllActivityPreview extends ConsumerWidget {
     // money is on its way) leads the Investments' activity: a row that
     // can be cancelled, opening its journey.
     final standing = scope != ActivityScope.bitcoin &&
-        ref.watch(standingOrdersProvider
-            .select((all) => all.any((o) => o.isOpen)));
+        ref.watch(
+            standingOrdersProvider.select((all) => all.any((o) => o.isOpen)));
     if (shown.isEmpty) {
       if (standing) return const StandingOrdersSection();
       return emptyState ?? buildNoTransactionsFound(context);
@@ -533,12 +531,22 @@ class AllActivitySliver extends ConsumerStatefulWidget {
     required this.controller,
     this.pageSize = 60,
     this.scope = ActivityScope.all,
+    this.emptyState,
+    this.columns = false,
   });
+
+  /// The Activity screen on EXPANDED: the day cards in masonry columns
+  /// (ActivityDayColumns, desk_lists.dart), the standing orders over the
+  /// first column.
+  final bool columns;
 
   /// The screen's scroll controller, read to load the next page.
   final ScrollController controller;
   final int pageSize;
   final ActivityScope scope;
+
+  /// What an empty list shows; null is the plain "No transactions yet".
+  final Widget? emptyState;
 
   @override
   ConsumerState<AllActivitySliver> createState() => _AllActivitySliverState();
@@ -597,21 +605,26 @@ class _AllActivitySliverState extends ConsumerState<AllActivitySliver> {
           ),
         );
       }
-      return SliverToBoxAdapter(child: buildNoTransactionsFound(context));
+      return SliverToBoxAdapter(
+          child: widget.emptyState ?? buildNoTransactionsFound(context));
     }
     final shown =
         entries.length > _limit ? entries.sublist(0, _limit) : entries;
     final sections =
         allActivityDaySections(context, ref, shown, curated: activity.curated);
-    final children = <Widget>[
+    final leading = <Widget>[
       if (widget.scope != ActivityScope.bitcoin) const StandingOrdersSection(),
       if (activity.failed)
         TextButton.icon(
             onPressed: () => ref.invalidate(hyperliquidUserFillsProvider),
             icon: const Icon(Icons.refresh_rounded),
             label: Text(context.l10n.hlActivityRefreshFailedRetry)),
-      ...sections,
     ];
+    if (widget.columns) {
+      return SliverToBoxAdapter(
+          child: ActivityDayColumns(sections: sections, leading: leading));
+    }
+    final children = <Widget>[...leading, ...sections];
     return SliverList.builder(
       itemCount: children.length,
       itemBuilder: (_, i) => children[i],

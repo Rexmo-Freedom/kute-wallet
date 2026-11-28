@@ -1,4 +1,12 @@
 <!DOCTYPE html><html><head>
+  <!-- Content-Security-Policy (web seed vault hardening): scripts only from
+       this origin, no eval (WebAssembly compiles under 'wasm-unsafe-eval'),
+       no inline script, network limited to the hosts the app calls. Serve
+       the same policy as an HTTP header too, plus `frame-ancestors 'none'`
+       and `Referrer-Policy: no-referrer`, which a meta tag cannot set. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://backend.kutewallet.com https://m.rexmo.io https://paykute.com https://*.breez.technology https://datasync.breez.technology:442 wss://*.breez.technology https://*.lightspark.com https://*.flashnet.xyz https://cloudflare-dns.com https://mempool.space wss://mempool.space https://blockstream.info https://liquid.network https://api.hyperliquid.xyz wss://api.hyperliquid.xyz https://rpc.hyperliquid.xyz https://polymarket.com https://*.polymarket.com wss://*.polymarket.com https://polygon.drpc.org https://1rpc.io https://rpc-mainnet.matic.quiknode.pro https://polygon.gateway.tenderly.co https://polygon-bor-rpc.publicnode.com https://arbitrum.gateway.tenderly.co https://arbitrum.drpc.org https://arbitrum-one-rpc.publicnode.com https://arb1.arbitrum.io https://api.binance.com wss://stream.binance.com:9443 https://api.coingecko.com https://api.frankfurter.dev https://branta.pro https://fonts.gstatic.com; img-src 'self' data: blob: https://*.flashnet.xyz https://polymarket-upload.s3.us-east-2.amazonaws.com https://*.polymarket.com https://assets.coincap.io https://assets.parqet.com https://assets.coingecko.com https://coin-images.coingecko.com https://app.hyperliquid.xyz https://backend.kutewallet.com; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'">
+  <meta name="referrer" content="no-referrer">
+
   <!--
     If you are serving your web app in a path other than the root, change the
     href value below to reflect the base path you are serving from.
@@ -18,77 +26,138 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Kute: Bitcoin, Lightning, predictions and investing wallet.">
 
-  <!-- iOS meta tags & icons -->
+  <!-- Installable app (PWA): manifest.json, sw.js (registered by
+       flutter_bootstrap.js), and on iOS these tags: full screen from the
+       Home Screen, its title, icon, status bar and launch images (Sal on
+       white, on black in dark mode, as the splash below). -->
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1D2024" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="kute">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Kute">
+  <meta name="application-name" content="Kute">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/light-1320x2868.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/dark-1320x2868.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/light-1260x2736.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/dark-1260x2736.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/light-1206x2622.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/dark-1206x2622.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/light-1290x2796.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/dark-1290x2796.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/light-1179x2556.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/dark-1179x2556.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/light-1284x2778.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/dark-1284x2778.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/light-1170x2532.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/dark-1170x2532.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/light-1242x2688.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/dark-1242x2688.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/light-1125x2436.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/startup/dark-1125x2436.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/light-828x1792.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/dark-828x1792.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/light-750x1334.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/dark-750x1334.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 1032px) and (device-height: 1376px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/light-2064x2752.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 1032px) and (device-height: 1376px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/dark-2064x2752.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 1032px) and (device-height: 1376px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/light-2752x2064.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 1032px) and (device-height: 1376px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/dark-2752x2064.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/light-2048x2732.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/dark-2048x2732.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/light-2732x2048.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/dark-2732x2048.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 834px) and (device-height: 1210px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/light-1668x2420.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 834px) and (device-height: 1210px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/dark-1668x2420.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 834px) and (device-height: 1210px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/light-2420x1668.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 834px) and (device-height: 1210px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/dark-2420x1668.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/light-1668x2388.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/dark-1668x2388.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/light-2388x1668.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/dark-2388x1668.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/light-1640x2360.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/dark-1640x2360.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/light-2360x1640.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/dark-2360x1640.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/light-1620x2160.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/dark-1620x2160.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/light-2160x1620.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/dark-2160x1620.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/light-1488x2266.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/dark-1488x2266.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/light-2266x1488.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/dark-2266x1488.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/light-1536x2048.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/startup/dark-1536x2048.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: light) and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/light-2048x1536.png">
+  <link rel="apple-touch-startup-image" media="(prefers-color-scheme: dark) and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/startup/dark-2048x1536.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png">
 
-  <title>kute</title>
+  <title>Kute</title>
   <link rel="manifest" href="manifest.json">
 
-  <script>
-    // The value below is injected by flutter build, do not touch.
-    const serviceWorkerVersion = null;
-  </script>
-  <!-- This script adds the flutter initialization JS code -->
-  <script src="flutter.js" defer=""></script>
-  
-  
-  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  <!-- The vendored wasm libraries start loading before the app. -->
+  <script type="module" src="breez_boot.js"></script>
+  <script type="module" src="bdk_boot.js"></script>
+  <!-- Flutter's loader, generated by `flutter build web`. -->
+  <!-- Haptics in Safari on iPhone / iPad: gives the engine a
+       navigator.vibrate there (ios_haptics.js). Before Flutter. -->
+  <script src="ios_haptics.js"></script>
+  <script src="flutter_bootstrap.js" async></script>
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
   <style id="splash-screen-style">
+    /* The page is exactly the visible window and never scrolls itself:
+       the Flutter view fills it, so the floating bar at its foot is
+       always inside the viewport (a body taller than the window, by
+       min-height or a leftover splash, pushed it under the edge). */
     html {
-      height: 100%
+      height: 100%;
+      overflow: hidden;
     }
 
     body {
       margin: 0;
-      min-height: 100%;
-      background-color: #000000;
-          background-size: 100% 100%;
+      height: 100%;
+      overflow: hidden;
+      /* Kute's splash, as on iOS and Android: Sal on white, on black in
+         dark mode (pubspec flutter_native_splash colours). */
+      background-color: #FFFFFF;
+      background-size: 100% 100%;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #000000;
+      }
+    }
+
+    /* Safari (iOS 26 on) paints the bands behind its status bar and its
+       toolbar in the colour of a full-width fixed element, 8 px or more,
+       lying over the page at that edge, read again only when one is
+       inserted. Before the app starts this strip (and the body) give the
+       splash colour; then the app inserts a new top and bottom strip in
+       its own edge colours on every change, each shown for a moment
+       only: the band keeps the colour it read
+       (lib/platform/web_edge_colors_web.dart). No taps. */
+    #kute-edge-top {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 8px;
+      z-index: 2;
+      pointer-events: none;
+      background-color: #FFFFFF;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      #kute-edge-top {
+        background-color: #000000;
+      }
     }
 
     .center {
@@ -137,55 +206,16 @@
       right: 0;
     }
   </style>
-  <script id="splash-screen-script">
-    function removeSplashFromWeb() {
-      document.getElementById("splash")?.remove();
-      document.getElementById("splash-branding")?.remove();
-      document.body.style.background = "transparent";
-    }
-  </script>
+  <script id="splash-screen-script" src="splash.js"></script>
 </head>
 <body>
+  <div id="kute-edge-top" aria-hidden="true"></div>
   <picture id="splash">
       <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light)">
       <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
       <img class="center" aria-hidden="true" src="splash/img/light-1x.png" alt="">
   </picture>
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  <script>
-    window.addEventListener('load', function(ev) {
-      // Download main.dart.js
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-        },
-        onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine().then(function(appRunner) {
-            appRunner.runApp();
-          });
-        }
-      });
-    });
-  </script>
+
 
 
 </body></html>

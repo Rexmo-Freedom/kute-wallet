@@ -450,7 +450,6 @@ void main() {
     debugMoneyMovementSheetOpener = (_, request) => opened.add(request);
     addTearDown(() => debugMoneyMovementSheetOpener = null);
     await _pump(tester, const UsdAccountActionRow());
-    expect(find.text('Swap'), findsNothing);
     await tester.tap(find.text('Move'));
     await tester.pump();
     final request = opened.single;

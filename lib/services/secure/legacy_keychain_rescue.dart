@@ -14,6 +14,7 @@ import 'package:kute/services/secure/recovery_check.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/secret_store.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Read-only Keychain lookup that ignores the item's accessibility.
 ///
@@ -50,7 +51,7 @@ class NativeLegacyKeychainLookup implements LegacyKeychainLookup {
   /// an empty list, so a caller can tell "none listed" from "unknown".
   final bool reportListFailures;
 
-  bool get _native => (platform ?? defaultTargetPlatform) == TargetPlatform.iOS;
+  bool get _native => (platform ?? PlatformOs.nativeTarget) == TargetPlatform.iOS;
 
   @override
   Future<SecretRead> read(String account, {bool synchronizable = false}) async {
@@ -236,7 +237,7 @@ class LegacyKeychainRescue {
         _deriveProxyWallets = deriveProxyWallets,
         _cachedProxyWallet = cachedProxyWallet,
         _isCupertino =
-            isCupertino ?? defaultTargetPlatform == TargetPlatform.iOS;
+            isCupertino ?? PlatformOs.nativeTarget == TargetPlatform.iOS;
 
   final LegacyKeychainLookup _lookup;
   final SecretStore _store;

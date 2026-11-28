@@ -52,6 +52,7 @@ import 'package:kute/helpers/hyperliquid_error_message.dart';
 
 import 'dart:async';
 import 'package:kute/constants/hyperliquid_constants.dart';
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
 import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
@@ -78,6 +79,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
     show
         HlOrderResult,
+        hlScaleLegCloids,
         HyperliquidInsufficientMarginException,
         HyperliquidOrderNotPlacedException,
         HyperliquidOrderUnconfirmedException;
@@ -145,6 +147,7 @@ class PendingHlOrderPlacement {
     required this.placeAt,
     required this.resizable,
     this.cloid,
+    this.scaleLegs,
   });
 
   final SensitiveIntent Function(double marginUsd) intentAt;
@@ -156,6 +159,38 @@ class PendingHlOrderPlacement {
 
   /// The client order id the slip's fill listener matches on.
   final String? cloid;
+
+  /// A scale order's leg count: its legs carry the ids derived from the
+  /// cloid sent ([hlScaleLegCloids]), never that cloid itself, so a send
+  /// is looked up by them. Null for a single order.
+  final int? scaleLegs;
+}
+
+/// The client order ids every send of the order first sent as
+/// [firstCloid] carries on the venue: each send's own cloid
+/// ([HlResendCloids]), or, for a scale order of [scaleLegs] legs, the legs'
+/// ids derived from it.
+@visibleForTesting
+List<String> hlSentOrderCloids(String firstCloid, {int? scaleLegs}) => [
+      for (final sent in HlResendCloids.all(firstCloid))
+        ...(scaleLegs != null && scaleLegs >= 2
+            ? hlScaleLegCloids(sent, scaleLegs)
+            : [sent]),
+    ];
+
+/// What [trace] found of the order first sent as [firstCloid]: a scale
+/// order of [scaleLegs] legs said "N of M" over every leg the account
+/// shows ([hlScaleLegsFound]), as its own answer would say it, never one
+/// leg standing for the ladder.
+@visibleForTesting
+HlOrderResult? hlSentOrderFound(HlSentOrderTrace trace, String firstCloid,
+    {int? scaleLegs}) {
+  final found = trace.found;
+  if (found == null || scaleLegs == null || scaleLegs < 2) return found;
+  return hlScaleLegsFound(found,
+      matched: trace.matched,
+      cloids: hlSentOrderCloids(firstCloid, scaleLegs: scaleLegs),
+      legs: scaleLegs);
 }
 
 class PendingHlOrderIntent {
@@ -527,6 +562,12 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
       // money are not this one's to take.
       return const OrderFundingRefused(kHlOrderQueuedReason);
     }
+    // The exposure rule before any money moves: a funded order is new
+    // exposure, so on a market held above 1x or in cross, or whose
+    // position cannot be read, nothing is queued and Dollars stay put.
+    final exposure =
+        ensureHlQueuedOrderExposure(ref.read(hlHeldPositionProvider), intent);
+    if (exposure is Future<void>) await exposure;
     // The watcher ([pendingHlOrderAutoFireProvider]) must be alive: the
     // slip reads it before calling, and every state change below reaches
     // its listener, so the first check runs as soon as the move is sent.
@@ -601,6 +642,43 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
       state = null;
     }
   }
+}
+
+/// The exposure rule (hl_exposure_rule.dart) for a queued Investing order,
+/// at [marginUsd] (its approved margin by default) on [market] (its own by
+/// default). A queued order is funded new exposure, never reduce-only, so
+/// it passes only where the rule allows it as asked. Throws
+/// [HlExposureRefusedException]; spot passes.
+FutureOr<void> ensureHlQueuedOrderExposure(
+  FutureOr<HlHeldPosition> Function(HlMarket market) heldPosition,
+  PendingHlOrderIntent intent, {
+  HlMarket? market,
+  double? marginUsd,
+}) {
+  if (intent.kind == HlMarketKind.spot) return null;
+  final m = market ?? intent.market;
+  if (m == null) {
+    throw const HlExposureRefusedException(HlExposureRefusal.positionUnknown);
+  }
+  if (m.isSpot) return null;
+  final margin = marginUsd ?? intent.marginUsd;
+  final px = intent.expectedPx > 0
+      ? intent.expectedPx
+      : (m.midPx > 0 ? m.midPx : m.markPx);
+  final size = px > 0 ? margin * intent.leverage / px : 0.0;
+  void judge(HlHeldPosition held) => hlExposureCheck(
+        market: m,
+        held: held,
+        isBuy: intent.isLong,
+        size: size,
+      ).ensureAllows(sentReduceOnly: false);
+  final held = heldPosition(m);
+  // Known now (a loaded account): judged in this same turn.
+  if (held is HlHeldPosition) {
+    judge(held);
+    return null;
+  }
+  return held.then(judge);
 }
 
 /// [OrderFundingRefused.reason] for a funded order refused because
@@ -1296,6 +1374,13 @@ class PendingHlOrderAutoFire {
     try {
       final market = intent.market ?? await _resolveMarket(intent);
       if (market.dex.isEmpty) collateralReadyAt = placingAt;
+      // The exposure rule again, before anything is signed: the market's
+      // position may have changed while the money was on its way (a
+      // position opened elsewhere at more leverage), and a standing order
+      // resumed after a restart is placed by this path alone.
+      await ensureHlQueuedOrderExposure(
+          ref.read(hlHeldPositionProvider), intent,
+          market: market, marginUsd: margin);
       if (intent.needsBuilderApproval) {
         // First order on a new account: the approval the slip could not
         // sign before the money landed. A failure is not final here: the
@@ -1370,10 +1455,14 @@ class PendingHlOrderAutoFire {
             // placed; unreadable is unconfirmed, never failed.
             final looked = e is HyperliquidOrderUnconfirmedException;
             final trace = looked
-                ? await _traceSent(firstCloid, market)
+                ? await _traceSent(firstCloid, market,
+                    scaleLegs: intent.placement?.scaleLegs)
                 : await hlReconcileSentOrder(ref.read(hlSentOrderTraceProvider),
-                    HlResendCloids.all(firstCloid), market);
-            final found = trace.found;
+                    hlSentOrderCloids(firstCloid,
+                        scaleLegs: intent.placement?.scaleLegs),
+                    market);
+            final found = hlSentOrderFound(trace, firstCloid,
+                scaleLegs: intent.placement?.scaleLegs);
             if (found != null) {
               result = found;
               break;
@@ -1387,8 +1476,10 @@ class PendingHlOrderAutoFire {
           if (next == null) rethrow;
           // Never twice: an earlier send that rested or filled after all
           // is followed instead; one that cannot be read is not resent.
-          final trace = await _traceSent(firstCloid, market);
-          final found = trace.found;
+          final trace = await _traceSent(firstCloid, market,
+              scaleLegs: intent.placement?.scaleLegs);
+          final found = hlSentOrderFound(trace, firstCloid,
+              scaleLegs: intent.placement?.scaleLegs);
           if (found != null) {
             result = found;
             break;
@@ -1503,9 +1594,10 @@ class PendingHlOrderAutoFire {
 
   /// Every earlier send of the order first sent as [firstCloid], looked up
   /// (three reads at most, a second apart, before giving up as unknown).
-  Future<HlSentOrderTrace> _traceSent(String firstCloid, HlMarket market) =>
+  Future<HlSentOrderTrace> _traceSent(String firstCloid, HlMarket market,
+          {int? scaleLegs}) =>
       hlTraceSentOrder(ref.read(hlSentOrderTraceProvider),
-          HlResendCloids.all(firstCloid), market,
+          hlSentOrderCloids(firstCloid, scaleLegs: scaleLegs), market,
           every: kAwaitFastInterval);
 
   /// After [e]: a market order the venue refused for margin right after

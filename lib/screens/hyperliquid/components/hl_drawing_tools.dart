@@ -347,7 +347,8 @@ class HlCornerTickPainter extends CustomPainter {
   bool shouldRepaint(HlCornerTickPainter old) => old.color != color;
 }
 
-/// One tool on the rail: its glyph, its name on a long press, and the
+/// One tool on the rail: its glyph, its name on a long press (on hover
+/// with a mouse, with the pointer cursor and a light wash), and the
 /// app's white pill while it is the tool in hand. [sticky] adds a small
 /// lock: the tool stays in hand after each drawing (a double tap).
 ///
@@ -355,7 +356,7 @@ class HlCornerTickPainter extends CustomPainter {
 /// group's fly-out from a long press, a right click or a tap on the mark
 /// ([moreLabel] names that action for screen readers); its name is then
 /// in the fly-out, so the long press no longer shows it.
-class HlRailButton extends StatelessWidget {
+class HlRailButton extends StatefulWidget {
   const HlRailButton({
     super.key,
     required this.label,
@@ -364,9 +365,13 @@ class HlRailButton extends StatelessWidget {
     this.icon,
     this.selected = false,
     this.sticky = false,
+    this.large = false,
     this.onMore,
     this.moreLabel,
   }) : assert(glyph != null || icon != null);
+
+  /// EXPANDED's roomier rail (a mouse): a 52 x 48 target.
+  final bool large;
 
   final HlRailGlyph? glyph;
   final IconData? icon;
@@ -381,13 +386,31 @@ class HlRailButton extends StatelessWidget {
 
   static const double width = 44;
   static const double height = 42;
+  static const double largeWidth = 52;
+  static const double largeHeight = 48;
 
   /// The corner mark's touch area, bottom right: a tap there opens the
   /// fly-out instead of taking the tool.
   static const double cornerHit = 16;
 
   @override
+  State<HlRailButton> createState() => _HlRailButtonState();
+}
+
+class _HlRailButtonState extends State<HlRailButton> {
+  /// A mouse is over the button.
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
+    final glyph = widget.glyph;
+    final icon = widget.icon;
+    final label = widget.label;
+    final selected = widget.selected;
+    final sticky = widget.sticky;
+    final large = widget.large;
+    final onTap = widget.onTap;
+    final moreLabel = widget.moreLabel;
     final c = context.colors;
     final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final color = onTap == null
@@ -395,7 +418,9 @@ class HlRailButton extends StatelessWidget {
         : selected
             ? c.textPrimary
             : c.textSecondary;
-    final more = onMore;
+    final more = widget.onMore;
+    final w = large ? HlRailButton.largeWidth : HlRailButton.width;
+    final h = large ? HlRailButton.largeHeight : HlRailButton.height;
     final button = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: more == null ? onTap : null,
@@ -403,7 +428,8 @@ class HlRailButton extends StatelessWidget {
           ? null
           : (d) {
               final p = d.localPosition;
-              if (p.dx >= width - cornerHit && p.dy >= height - cornerHit) {
+              if (p.dx >= w - HlRailButton.cornerHit &&
+                  p.dy >= h - HlRailButton.cornerHit) {
                 more();
               } else {
                 onTap?.call();
@@ -412,19 +438,21 @@ class HlRailButton extends StatelessWidget {
       onLongPress: more,
       onSecondaryTap: more,
       child: SizedBox(
-        width: width,
-        height: height,
+        width: w,
+        height: h,
         child: Center(
           child: AnimatedContainer(
             duration:
                 reduce ? Duration.zero : const Duration(milliseconds: 150),
             curve: Curves.easeOut,
-            width: 38,
-            height: 34,
+            width: large ? 44 : 38,
+            height: large ? 40 : 34,
             decoration: selected
                 ? hlSelectedPillDecoration(context, radius: 17)
                 : BoxDecoration(
-                    color: Colors.transparent,
+                    color: _hover && onTap != null
+                        ? c.textPrimary.withValues(alpha: 0.06)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(17),
                     border: Border.all(color: Colors.transparent, width: 1),
                   ),
@@ -432,7 +460,7 @@ class HlRailButton extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 if (glyph != null)
-                  HlGlyph(glyph!, color: color)
+                  HlGlyph(glyph, color: color)
                 else
                   Icon(icon, size: 19, color: color),
                 if (sticky)
@@ -467,14 +495,23 @@ class HlRailButton extends StatelessWidget {
       excludeSemantics: true,
       customSemanticsActions: more == null || moreLabel == null
           ? null
-          : {CustomSemanticsAction(label: moreLabel!): more},
+          : {CustomSemanticsAction(label: moreLabel): more},
+      // The tool's name: on a long press (a group's long press opens its
+      // fly-out, which names its tools), and on hover with a mouse.
       child: Tooltip(
         message: label,
-        // A group's long press opens its fly-out, which names its tools.
         triggerMode: more == null
             ? TooltipTriggerMode.longPress
             : TooltipTriggerMode.manual,
-        child: button,
+        waitDuration: const Duration(milliseconds: 300),
+        child: MouseRegion(
+          cursor: onTap == null && more == null
+              ? SystemMouseCursors.basic
+              : SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: button,
+        ),
       ),
     );
   }
@@ -586,7 +623,9 @@ class _HlDrawingToolbarState extends State<HlDrawingToolbar> {
       child: Tooltip(
         message: tip,
         triggerMode: TooltipTriggerMode.longPress,
-        child: GestureDetector(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
           key: key,
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
@@ -602,6 +641,7 @@ class _HlDrawingToolbarState extends State<HlDrawingToolbar> {
             ),
             child: child,
           ),
+        ),
         ),
       ),
     );

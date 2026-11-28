@@ -19,8 +19,8 @@
 //     itself withheld (`….browse`) the sheet lists nothing and shows the
 //     venue page's own notice, the named-region copy carrying only the
 //     VPN sentence.
-//   * The Dollars page opens on Investing whatever the policy withholds
-//     (founder, 25 November 2026; Overview until then); its Overview pill
+//   * The Dollars page opens on Overview whatever the policy withholds
+//     (founder, 26 November 2026; Investing from 25 November); its Overview pill
 //     holds what is open and the P&L, no
 //     market map. With `hyperliquid.browse` withheld, nothing held reads Sal
 //     over "No open positions" (Overview's own, true either way), and the
@@ -348,14 +348,14 @@ void main() {
 
   group('the Dollars page', () {
     testWidgets(
-        'everything allowed: the page opens on Investing; no map anywhere',
+        'everything allowed: the page opens on Overview; no map anywhere',
         (tester) async {
       final policy = auditPolicy();
       expect(await policy.refresh(), isTrue);
       expect(
           await _pumpDollars(tester, policy,
               overrides: [_holdingOne()], size: const Size(390, 844)),
-          InvestmentsTab.investing);
+          InvestmentsTab.activity);
       expect(_map, findsNothing);
       expect(find.byKey(const ValueKey('dollars-activity-empty')), findsNothing);
       await unmountInvestments(tester);
@@ -365,12 +365,12 @@ void main() {
     for (final denial in AuditDenial.values) {
       testWidgets(
           'hyperliquid.browse ${denial.name}: the page still opens on '
-          'Investing; Overview, Sal over "No open positions", no map, no skeleton; '
+          'Overview: Sal over "No open positions", no map, no skeleton; '
           'Investing has no squares, only its notice', (tester) async {
         final policy = auditDenying(const ['hyperliquid.browse'], denial);
         expect(await policy.refresh(), isTrue);
         expect(policy.allows('polymarket.browse'), isTrue);
-        expect(await _pumpDollars(tester, policy), InvestmentsTab.investing);
+        expect(await _pumpDollars(tester, policy), InvestmentsTab.activity);
         expect(_map, findsNothing);
         expect(_mapBones, findsNothing);
         expect(_squares, findsNothing);
@@ -387,11 +387,11 @@ void main() {
 
       testWidgets(
           'both venues\' browsing ${denial.name}: the page opens on '
-          'Investing; no map anywhere', (tester) async {
+          'Overview; no map anywhere', (tester) async {
         final policy = auditDenying(
             const ['hyperliquid.browse', 'polymarket.browse'], denial);
         expect(await policy.refresh(), isTrue);
-        expect(await _pumpDollars(tester, policy), InvestmentsTab.investing);
+        expect(await _pumpDollars(tester, policy), InvestmentsTab.activity);
         expect(_map, findsNothing);
         expect(_mapBones, findsNothing);
         expect(find.text('No open positions'), findsOneWidget);

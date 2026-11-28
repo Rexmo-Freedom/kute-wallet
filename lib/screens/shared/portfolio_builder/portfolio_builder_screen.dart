@@ -1,3 +1,6 @@
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_page_route.dart' show KutePageFrame;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreMaxOrderUsd;
 import 'package:kute/screens/shared/sal_sprite.dart';
@@ -53,6 +56,7 @@ import 'package:kute/screens/home/home_feature_carousel.dart'
     show checkPolymarketGeoblock;
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
@@ -119,8 +123,12 @@ class PortfolioBuilderScreen extends ConsumerStatefulWidget {
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) =>
-            PortfolioBuilderScreen(pool: pool, ledgerWalletId: ledgerWalletId),
+        // A centred column on MEDIUM; across the window on EXPANDED
+        // (kute_page_route.dart, KuteWideMode.full).
+        builder: (_) => KutePageFrame(
+            mode: KuteWideMode.full,
+            child: PortfolioBuilderScreen(
+                pool: pool, ledgerWalletId: ledgerWalletId)),
       ),
     );
   }
@@ -295,9 +303,9 @@ class _PortfolioBuilderScreenState
       capability = error.capability;
     } catch (_) {
       // A check that could not be made allows nothing.
-      message = const CapabilityDecision(
-              allowed: false, reason: 'policy_unavailable')
-          .message;
+      message =
+          const CapabilityDecision(allowed: false, reason: 'policy_unavailable')
+              .message;
     }
     if (!mounted) return;
     setState(() {
@@ -353,7 +361,11 @@ class _PortfolioBuilderScreenState
     // Still being read: the loading state, not a verdict.
     if (_runOnScreen || !_gateAnswered) return null;
     if (_gateMessage case final message?) {
-      return (message: message, region: _gateRegion, capability: _gateCapability);
+      return (
+        message: message,
+        region: _gateRegion,
+        capability: _gateCapability
+      );
     }
     for (final id in _kOpenCapabilities) {
       final decision = policy.decision(id);
@@ -399,6 +411,7 @@ class _PortfolioBuilderScreenState
         for (final l in _readPredictionLegs())
           ...polymarketBetCapabilitiesFor([l.tokenId, l.conditionId, l.slug]),
       }.toList();
+
   /// Every policy gate the draft's orders need: opening investments, plus
   /// the stock-perp gate when a leg is a stock-linked perpetual (the list
   /// the order ticket checks for one market, [hlOpenCapabilities]).
@@ -596,7 +609,9 @@ class _PortfolioBuilderScreenState
     final leg = _legFromEvent(e, outcome: outcome);
     final current = _readPredictionLegs();
     final held = current.where((value) => value.key == leg.key).firstOrNull;
-    if (held != null && outcome != null && !builderLegIsOutcome(held, outcome)) {
+    if (held != null &&
+        outcome != null &&
+        !builderLegIsOutcome(held, outcome)) {
       _writePredictionLegs(
           [for (final value in current) value.key == leg.key ? leg : value]);
       return;
@@ -742,8 +757,8 @@ class _PortfolioBuilderScreenState
   /// per leg set, and stores them on the legs. Hot Predictions only.
   Future<void> _lookupComboEligibility(List<PredictionBuilderLeg> legs) async {
     if (_isLedger || !_isPredictions || legs.length < 2) return;
-    final key = ([for (final l in legs) l.conditionId ?? l.slug]..sort())
-        .join(',');
+    final key =
+        ([for (final l in legs) l.conditionId ?? l.slug]..sort()).join(',');
     if (key == _comboLookupKey) return;
     _comboLookupKey = key;
     final ids = [
@@ -752,9 +767,8 @@ class _PortfolioBuilderScreenState
     ];
     if (ids.length != legs.length) return;
     try {
-      final found = await ref
-          .read(polymarketComboServiceProvider)
-          .fetchEligibility(ids);
+      final found =
+          await ref.read(polymarketComboServiceProvider).fetchEligibility(ids);
       if (!mounted || _comboLookupKey != key) return;
       _writePredictionLegs([
         for (final leg in _readPredictionLegs())
@@ -1214,9 +1228,88 @@ class _PortfolioBuilderScreenState
     }
   }
 
+  // ── EXPANDED (round three; founder, 25 November 2026: "it must be all
+  // occupying full screen when we can") ────────────────────────────────
+  // The Builder spans the window inside the page gutters: each stage's
+  // cards (the picks, the amounts, the review) as a grid of up to three
+  // columns, the search and the Combine switch a readable column on the
+  // left gutter, the stage's total and notes a column centred over the
+  // floating bar's button. MEDIUM and phones: as they were.
+
+  bool get _wide => kuteIsExpanded(context);
+
+  EdgeInsets get _side => kuteWidePadding(context);
+
+  /// [child] (a field, a switch row) at a readable width on the left
+  /// gutter on EXPANDED; as it is elsewhere.
+  Widget _leftColumn(Widget child) => _wide
+      ? Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints:
+                const BoxConstraints(maxWidth: KuteLayout.columnMaxWidth),
+            child: child,
+          ),
+        )
+      : child;
+
+  /// A stage's list: on a phone the list as it was ([ListView.separated]
+  /// with [padding] and [separatorBuilder]); on EXPANDED the same items in
+  /// rows of up to three columns inside the page gutters, [divided] rows
+  /// keeping their hairline under each.
+  Widget _stageList({
+    required EdgeInsets padding,
+    required int itemCount,
+    required IndexedWidgetBuilder separatorBuilder,
+    required IndexedWidgetBuilder itemBuilder,
+    ScrollViewKeyboardDismissBehavior keyboardDismissBehavior =
+        ScrollViewKeyboardDismissBehavior.manual,
+    bool divided = false,
+  }) {
+    if (!_wide) {
+      return ListView.separated(
+        padding: padding,
+        keyboardDismissBehavior: keyboardDismissBehavior,
+        itemCount: itemCount,
+        separatorBuilder: separatorBuilder,
+        itemBuilder: itemBuilder,
+      );
+    }
+    final side = _side;
+    return LayoutBuilder(builder: (context, constraints) {
+      final n = kuteColumnsFor(constraints.maxWidth - side.horizontal,
+          max: 3, maxItem: kuteWideColumnMax);
+      final rows = (itemCount + n - 1) ~/ n;
+      return ListView.builder(
+        padding: EdgeInsets.fromLTRB(
+            side.left, padding.top, side.right, padding.bottom),
+        keyboardDismissBehavior: keyboardDismissBehavior,
+        itemCount: rows,
+        itemBuilder: (context, r) => Padding(
+          padding: EdgeInsets.only(top: r == 0 || divided ? 0 : 12.h),
+          child: kuteGridRow([
+            for (var i = r * n; i < math.min(itemCount, (r + 1) * n); i++)
+              divided
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        itemBuilder(context, i),
+                        separatorBuilder(context, i),
+                      ],
+                    )
+                  : itemBuilder(context, i),
+          ], columns: n),
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final wide = _wide;
+    final side = _side;
     final block = _watchBlock();
     // Nothing is picked, sized or reviewed until the gate has allowed.
     _shut = block != null || !_gateAnswered;
@@ -1242,8 +1335,19 @@ class _PortfolioBuilderScreenState
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
-          centerTitle: true,
-          leading: KuteBackButton(onPressed: _goBack),
+          // On EXPANDED the back button and the title sit on the page's
+          // left gutter.
+          centerTitle: !wide,
+          titleSpacing: wide ? 8 : null,
+          leadingWidth: wide ? side.left + 40 : null,
+          leading: wide
+              ? Padding(
+                  padding: EdgeInsets.only(left: side.left - 2),
+                  child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: KuteBackButton(onPressed: _goBack)),
+                )
+              : KuteBackButton(onPressed: _goBack),
           title: Text(_shut ? context.l10n.builderStepBuild : _stageTitle,
               style: TextStyle(
                   color: c.textPrimary,
@@ -1327,7 +1431,9 @@ class _PortfolioBuilderScreenState
                       message,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: c.textSecondary, fontSize: 16.sp, height: 1.35),
+                          color: c.textSecondary,
+                          fontSize: 16.sp,
+                          height: 1.35),
                     ),
                   ),
                 ],
@@ -1367,8 +1473,10 @@ class _PortfolioBuilderScreenState
   Widget _pickStage(AppColorsExtension c) {
     return Column(children: [
       Padding(
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 10.h),
-        child: _searchField(c),
+        padding: _wide
+            ? EdgeInsets.fromLTRB(_side.left, 8.h, _side.right, 10.h)
+            : EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 10.h),
+        child: _leftColumn(_searchField(c)),
       ),
       // A search reads every category, so the row steps aside for it.
       if (_isPredictions && _query.trim().isEmpty) ...[
@@ -1391,6 +1499,8 @@ class _PortfolioBuilderScreenState
     final selected = pills.contains(_pill) ? _pill : PolyPill.breaking;
     return PolyAutoScrollRow(
       height: 34.h,
+      // On EXPANDED the first pill on the page's gutter.
+      padding: _wide ? _side.left : 16,
       itemCount: pills.length,
       selectedIndex: pills.indexOf(selected),
       itemBuilder: (context, i) => KutePill(
@@ -1440,7 +1550,9 @@ class _PortfolioBuilderScreenState
             ? context.l10n.searchMarketsHint
             : context.l10n.builderSearchCoinsStocks,
         hintStyle: TextStyle(
-            color: c.textTertiary, fontSize: 16.sp, fontWeight: FontWeight.w500),
+            color: c.textTertiary,
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w500),
         contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 13.h),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),
@@ -1484,7 +1596,7 @@ class _PortfolioBuilderScreenState
                   : context.l10n.builderNoMarketsFound);
         }
         // The Predictions list's own cards, each answer a pick.
-        return ListView.separated(
+        return _stageList(
           padding: EdgeInsets.fromLTRB(16.w, 2.h, 16.w, 16.h),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           itemCount: list.length,
@@ -1534,9 +1646,10 @@ class _PortfolioBuilderScreenState
           if (list.isEmpty) {
             return _pickEmpty(c, context.l10n.builderNoMarketsNow);
           }
-          return ListView.separated(
+          return _stageList(
             padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 16.h),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            divided: true,
             itemCount: list.length,
             separatorBuilder: (_, __) =>
                 Divider(height: 1, color: context.colors.borderSubtle),
@@ -1573,8 +1686,7 @@ class _PortfolioBuilderScreenState
           );
         },
         loading: () => _pickLoading(),
-        error: (_, __) =>
-            _pickEmpty(c, context.l10n.builderMarketsLoadFailed),
+        error: (_, __) => _pickEmpty(c, context.l10n.builderMarketsLoadFailed),
       );
     }
 
@@ -1592,9 +1704,10 @@ class _PortfolioBuilderScreenState
         if (results.isEmpty) {
           return _pickEmpty(c, context.l10n.builderNoMarketsFound);
         }
-        return ListView.separated(
+        return _stageList(
           padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 16.h),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          divided: true,
           itemCount: results.length,
           separatorBuilder: (_, __) =>
               Divider(height: 1, color: context.colors.borderSubtle),
@@ -1710,8 +1823,20 @@ class _PortfolioBuilderScreenState
         color: c.background,
         border: Border(top: BorderSide(color: c.borderSubtle, width: 0.5)),
       ),
-      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
-      child: child,
+      padding: _wide
+          ? EdgeInsets.fromLTRB(_side.left, 12.h, _side.right, 12.h)
+          : EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
+      // On EXPANDED the total and the notes a column centred over the
+      // bar's button.
+      child: _wide
+          ? Center(
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: KuteLayout.columnMaxWidth),
+                child: child,
+              ),
+            )
+          : child,
     );
   }
 
@@ -1777,7 +1902,7 @@ class _PortfolioBuilderScreenState
         Expanded(
           child: count == 0
               ? _pickEmpty(c, context.l10n.builderChooseMarkets)
-              : ListView.separated(
+              : _stageList(
                   padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
                   itemCount: count,
                   separatorBuilder: (_, __) => SizedBox(height: 12.h),
@@ -2091,7 +2216,7 @@ class _PortfolioBuilderScreenState
         Expanded(
           child: count == 0
               ? _pickEmpty(c, context.l10n.builderChooseMarkets)
-              : ListView.separated(
+              : _stageList(
                   padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
                   itemCount: count,
                   separatorBuilder: (_, __) => SizedBox(height: 12.h),
@@ -2278,8 +2403,10 @@ class _PortfolioBuilderScreenState
 
   Widget _comboToggle(AppColorsExtension c) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 4.h, 8.w, 4.h),
-      child: Row(
+      padding: _wide
+          ? EdgeInsets.fromLTRB(_side.left, 4.h, _side.right, 4.h)
+          : EdgeInsets.fromLTRB(16.w, 4.h, 8.w, 4.h),
+      child: _leftColumn(Row(
         children: [
           Expanded(
             child: Column(
@@ -2292,8 +2419,7 @@ class _PortfolioBuilderScreenState
                         fontWeight: FontWeight.w700)),
                 SizedBox(height: 2.h),
                 Text(context.l10n.comboCombineSubtitle,
-                    style:
-                        TextStyle(color: c.textSecondary, fontSize: 13.sp)),
+                    style: TextStyle(color: c.textSecondary, fontSize: 13.sp)),
               ],
             ),
           ),
@@ -2303,7 +2429,7 @@ class _PortfolioBuilderScreenState
             onChanged: _comboBusy ? null : _setCombine,
           ),
         ],
-      ),
+      )),
     );
   }
 
@@ -2317,7 +2443,7 @@ class _PortfolioBuilderScreenState
       children: [
         if (!placed) _comboToggle(c),
         Expanded(
-          child: ListView.separated(
+          child: _stageList(
             padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
             itemCount: legs.length,
             separatorBuilder: (_, __) => SizedBox(height: 12.h),

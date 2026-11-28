@@ -7,7 +7,9 @@
 // callsite re-reading dotenv and re-constructing the Crisp config.
 
 import 'package:crisp_chat/crisp_chat.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:kute/platform/open_external.dart';
 
 /// Opens the live support chat (Crisp). Reads the website id from
 /// `CRISP_ID` in dotenv and no-ops when it's missing/empty so a
@@ -19,6 +21,14 @@ Future<void> openSupportChat() async {
   try {
     final websiteId = dotenv.env['CRISP_ID'];
     if (websiteId == null || websiteId.isEmpty) return;
+    if (kIsWeb) {
+      // Web: Crisp's own chat page in a new tab. The plugin's web widget
+      // injects client.crisp.chat's script into this page, and no
+      // third-party script may run in the wallet's origin.
+      await openExternally(Uri.https('go.crisp.chat', '/chat/embed/',
+          {'website_id': websiteId}));
+      return;
+    }
     await FlutterCrispChat.openCrispChat(
       config: CrispConfig(websiteID: websiteId),
     );

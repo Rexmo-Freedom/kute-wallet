@@ -13,8 +13,12 @@ import 'package:kute/services/secure/legacy_keychain_rescue.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/seed_access.dart';
 import 'package:kute/services/secure/secret_store.dart';
+import 'package:kute/services/secure/web_vault/seed_vault.dart'
+    show VaultSecretKind;
+import 'package:kute/services/secure/web_vault/web_vault.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/hive_wipe.dart' show wipeHiveBoxes;
+import 'package:kute/models/breez/init.dart' show deleteWalletWebStorage;
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
@@ -82,6 +86,12 @@ class PinAlreadySetException implements Exception {
 /// copy before the app unlocks, and [readMnemonic] falls back to the
 /// legacy lookup when the filtered reads find nothing. Off iOS both are
 /// no-ops.
+///
+/// Web: the seed vault (`services/secure/web_vault/`) holds the secrets.
+/// There is no `pin_hash` there: the PIN is verified by opening the vault,
+/// a new PIN creates the vault and a PIN change re-wraps it. Every
+/// `_web != null` branch below is web only; on iOS and Android [_web] is
+/// null and the code runs exactly as before.
 class AuthModel {
   AuthModel({
     SecretStore? store,
@@ -89,7 +99,9 @@ class AuthModel {
     LegacyKeychainRescue? rescue,
     LegacyKeychainLookup? legacyLookup,
     Future<List<WalletConfig>> Function()? wallets,
-  })  : _store = store ?? SecretStores.local,
+    VaultStoragePlatform? webVault,
+  })  : _web = webVault ?? WebVault.instance,
+        _store = store ?? SecretStores.local,
         _syncedStore = syncedStore ?? SecretStores.synced,
         _legacyLookup = legacyLookup ?? const NativeLegacyKeychainLookup(),
         _rescue = rescue ??
@@ -100,6 +112,7 @@ class AuthModel {
             ),
         _wallets = wallets ?? _hiveWallets;
 
+  final VaultStoragePlatform? _web;
   final SecretStore _store;
   final SecretStore _syncedStore;
   final LegacyKeychainLookup _legacyLookup;
@@ -138,6 +151,8 @@ class AuthModel {
   /// The raw PIN kept for biometric unlock of wallets that still need it.
   /// Only `BiometricPinPolicy` writes or removes it.
   Future<String?> getBiometricPin() async {
+    // Web never keeps a raw PIN: biometrics open the vault through PRF.
+    if (_web != null) return null;
     return await _read('biometric_pin');
   }
 
@@ -153,6 +168,8 @@ class AuthModel {
   /// restore-secrets return path and onboarding with no wallet records.
   /// An existing PIN is changed through [changePin].
   Future<void> setPin(String pin, {bool replace = false}) async {
+    final web = _web;
+    if (web != null) return _setPinWeb(web, pin, replace);
     await _refuseExistingPinHash(replace);
     final hashedPin = PinHashHelper.hashPin(pin);
     await _writePinHash(hashedPin);
@@ -161,10 +178,27 @@ class AuthModel {
 
   /// [setPin] with the hash computed off the main isolate.
   Future<void> setPinAsync(String pin, {bool replace = false}) async {
+    final web = _web;
+    if (web != null) return _setPinWeb(web, pin, replace);
     await _refuseExistingPinHash(replace);
     final hashedPin = await PinHashHelper.hashPinAsync(pin);
     await _writePinHash(hashedPin);
     await _store.deleteLocalOnly(key: 'pin');
+  }
+
+  /// Web: a new vault under [pin]. An existing vault (or the old layout's
+  /// PIN) is replaced only with [replace], as `pin_hash` is natively; the
+  /// old layout's values then move into the new vault. A new vault is
+  /// always made with the 6-digit PIN, on every browser (founder, 27
+  /// November 2026; unlock_secret.dart); anything else is refused.
+  Future<void> _setPinWeb(
+      VaultStoragePlatform web, String pin, bool replace) async {
+    if (VaultSecretKind.of(pin) != VaultSecretKind.pin) {
+      throw ArgumentError('A new web vault takes the 6-digit PIN');
+    }
+    if (!replace && web.hasPinMaterial) throw const PinAlreadySetException();
+    await web.vault.create(pin, kind: VaultSecretKind.pin);
+    await web.migrateLegacy();
   }
 
   Future<void> _refuseExistingPinHash(bool replace) async {
@@ -195,6 +229,7 @@ class AuthModel {
   }
 
   Future<bool> hasPinSet() async {
+    if (_web != null) return _web.hasPinMaterial;
     final hashedPin = await _read('pin_hash');
     if (hashedPin != null) return true;
 
@@ -203,6 +238,7 @@ class AuthModel {
   }
 
   Future<bool> pinMatches(String incomingPin) async {
+    if (_web != null) return await checkPin(incomingPin) == PinCheck.match;
     final hashedPin = await _read('pin_hash');
     if (hashedPin != null) {
       return PinHashHelper.verifyPin(incomingPin, hashedPin);
@@ -222,6 +258,7 @@ class AuthModel {
   /// the unlock hot path so the UI thread isn't blocked while the user
   /// waits for the home screen.
   Future<bool> pinMatchesAsync(String incomingPin) async {
+    if (_web != null) return await checkPin(incomingPin) == PinCheck.match;
     final hashedPin = await _read('pin_hash');
     if (hashedPin != null) {
       return PinHashHelper.verifyPinAsync(incomingPin, hashedPin);
@@ -249,6 +286,17 @@ class AuthModel {
   /// the process.
   Future<PinCheck> checkPin(String incomingPin,
       {String rescueSource = 'pin'}) async {
+    final web = _web;
+    if (web != null) {
+      // Web: the vault's AES-GCM tag is the check; a match opens the vault
+      // and migrates the old localStorage layout. No Keychain rescue.
+      return switch (await web.checkPin(incomingPin)) {
+        WebPinCheck.match => PinCheck.match,
+        WebPinCheck.mismatch => PinCheck.mismatch,
+        WebPinCheck.noPinMaterial => PinCheck.noPinMaterial,
+        WebPinCheck.unavailable => PinCheck.unavailable,
+      };
+    }
     final check = await _checkPinOnly(incomingPin);
     if (check == PinCheck.match) {
       await _rescue.restoreWithVerifiedPin(_wallets, incomingPin,
@@ -340,6 +388,14 @@ class AuthModel {
     if (await checkPin(oldPin) != PinCheck.match) {
       throw const IncorrectPinException();
     }
+    final web = _web;
+    if (web != null) {
+      // Web: one re-wrap of the vault key; no V1 copies and no raw PIN.
+      // The vault records the new secret's kind: a PIN replacing a
+      // password (a vault from 24 to 27 November 2026) marks it PIN-kind.
+      await web.vault.changePin(newPin, kind: VaultSecretKind.of(newPin));
+      return;
+    }
 
     final plaintexts = <String, String>{};
     var blocked = 0;
@@ -409,6 +465,8 @@ class AuthModel {
   ///   `{key}` decrypts with [pin].
   /// Anything that decrypts with neither is left in place.
   Future<void> recoverPendingPinChange(String pin) async {
+    // Web: a PIN change is a single vault record write, nothing to finish.
+    if (_web != null) return;
     final pending = <String, String>{};
     for (final key in await _pinEncryptedKeyCandidates()) {
       final value = await _presentValue(_store, '$key$_pendingSuffix');
@@ -784,10 +842,34 @@ class AuthModel {
       PasskeyPrfService.drainPendingWrites(),
       PasskeyService.drainPendingWrites(),
     ]);
+    // Web: each wallet's Breez SDK browser databases, while the wallet
+    // list that names them is still stored (folders on a phone stay as
+    // they were). The SDK is disconnected first.
+    if (kIsWeb) await _deleteWebSdkStorage();
     await _store.deleteAllLocalOnly();
 
     // Every app box, from the one list in hive_wipe.dart (best-effort,
     // box by box). Only the boxes that list says survive do.
     await wipeHiveBoxes();
+  }
+
+  /// Web: deletes every listed wallet's SDK databases (best-effort; the
+  /// ids never leave this function).
+  Future<void> _deleteWebSdkStorage() async {
+    final ids = <String>{};
+    try {
+      final box = await Hive.openBox('settings');
+      final wallets = box.get('wallets');
+      if (wallets is List) {
+        for (final w in wallets) {
+          if (w is Map && w['id'] is String) ids.add(w['id'] as String);
+        }
+      }
+    } catch (_) {}
+    var first = true;
+    for (final id in ids) {
+      await deleteWalletWebStorage(id, disconnectAny: first);
+      first = false;
+    }
   }
 }

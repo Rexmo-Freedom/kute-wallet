@@ -69,6 +69,25 @@
 // with skeleton rows holding their place while they load
 // (search_result_order.dart).
 //
+// WIDE (lib/platform/kute_layout.dart; founder, 24 November 2026: "Search
+// the app and make it super super good, with what we already have"). On a
+// phone, the sheet above, untouched. From MEDIUM up [showKuteSearch] opens
+// the same surface as a CENTRED PANEL ([_showSearchPanel]):
+// KuteLayout.columnMaxWidth wide on MEDIUM, up to [kSearchPanelMaxWidth]
+// on EXPANDED, the composer at its top as on the phone, the close X on
+// the handle's row (a panel has no drag). Like a command palette its top
+// stands still at a tenth of the window's height and it hugs its content
+// (at least [kSearchPanelMinHeight], at most the window less its top and
+// 48 under it), growing and shrinking downward on the sheet spring as
+// results land; past its tallest the results scroll inside, and a Sal
+// conversation takes the tallest. No pill travel (the morph is a
+// phone's sheet rising under the thumb). The composer takes the keyboard
+// focus as the panel opens, so typing searches at once; Escape closes it
+// (the dialog route's dismiss). On EXPANDED the results under All lay
+// Predictions and Investing side by side in two columns, Transactions
+// full width under them, and Moving now is one row of three across
+// ([SearchMoverGrid.columns]).
+//
 // Public entrypoint: `showKuteSearch(BuildContext)`. The surface itself is
 // `UnifiedSearchSurface`, which a host can also embed (the "+" sheet grows
 // into it) by pairing `beginKuteSearchSession` / `endKuteSearchSession`.
@@ -89,6 +108,14 @@ import 'package:kute/screens/shared/kute_share_actions.dart'
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'dart:async';
+import 'dart:math' as math;
+import 'package:kute/platform/kute_wide_frames.dart'
+    show
+        kutePanelBarrier,
+        kutePanelDecoration,
+        kutePanelTallest,
+        kutePanelTop,
+        kutePanelTransition;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -101,6 +128,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_search_provider.dart';
@@ -285,6 +313,10 @@ Future<void> showKuteSearch(
   // The social send off (config/feature_flags.dart): never in send mode,
   // the plain search instead.
   if (!socialSendEnabled) sendPick = null;
+  // A centred panel from MEDIUM up (see WIDE in the file header): no
+  // pill travel.
+  final panel = KuteLayout.isWide(context);
+  if (panel) morph = null;
   // One search sheet at a time: a second tap while it slides in must not
   // reseed (and so empty) the session of the sheet already opening.
   if (OpenOnce.isOpen(_kSearchSheetKey)) return;
@@ -350,11 +382,12 @@ Future<void> showKuteSearch(
     kuteSearchSheetOpen.value = true;
     await OpenOnce.run(
         _kSearchSheetKey,
-        () => showAppBottomSheet<void>(
+        () => (panel ? _showSearchPanel<void> : showAppBottomSheet<void>)(
               context: context,
               // The sheet's route, for the bar (kuteSearchSheetCovered).
               builder: (_) => _SearchSheetRouteProbe(
                 child: UnifiedSearchSurface(
+                  panel: panel,
                   initialCategory: effectiveCategory,
                   searchFirst: searchFirst || ledgerMarkets,
                   lockCategory:
@@ -400,6 +433,72 @@ Future<void> showKuteSearch(
 }
 
 const _kSearchSheetKey = 'kute_search';
+
+/// The panel's widest on EXPANDED (see WIDE in the file header).
+const double kSearchPanelMaxWidth = 760;
+
+/// The panel's centred states' height (nothing found, searching).
+const double _kPanelStateHeight = 240;
+
+/// The panel's shortest (see WIDE in the file header).
+const double kSearchPanelMinHeight = 360;
+
+
+/// The search as a centred panel from MEDIUM up (see WIDE in the file
+/// header): over the root navigator like the sheet, the sheet's barrier,
+/// dismissed by a tap outside or Escape; it fades and rises a little on
+/// the settle easing (at once under Reduce Motion). The surface draws its
+/// own panel ([UnifiedSearchSurface.panel]).
+Future<T?> _showSearchPanel<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+}) {
+  return showGeneralDialog<T>(
+    context: context,
+    useRootNavigator: true,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    // THE PANEL's dim, place and motion (kute_wide_frames.dart), shared
+    // with every sheet's panel on EXPANDED (kute_dialog.dart).
+    barrierColor: kutePanelBarrier,
+    transitionDuration: kuteMotion(context, KuteMotion.settleDuration),
+    pageBuilder: (dialogContext, _, __) {
+      final window = MediaQuery.sizeOf(dialogContext);
+      final keyboard = MediaQuery.viewInsetsOf(dialogContext).bottom;
+      final width = KuteLayout.isExpanded(dialogContext)
+          ? kSearchPanelMaxWidth
+          : KuteLayout.columnMaxWidth;
+      // The top stands still; the panel hugs its content under it.
+      final top = kutePanelTop(window);
+      final tallest = kutePanelTallest(window, keyboard: keyboard, top: top);
+      return SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(top: top),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: width,
+                minHeight: math.min(kSearchPanelMinHeight, tallest),
+                maxHeight: tallest,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: KuteLayout.paneGap),
+                child: builder(dialogContext),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (context, animation, _, child) {
+      final curved =
+          CurvedAnimation(parent: animation, curve: KuteMotion.settle);
+      return kutePanelTransition(curved, child);
+    },
+  );
+}
 
 /// The open search sheet's route, read by the bar; null while none is up
 /// (or before it has built).
@@ -550,6 +649,10 @@ class UnifiedSearchSurface extends ConsumerStatefulWidget {
   final String? searchHint;
   final bool embedded;
 
+  /// A centred panel from MEDIUM up (see WIDE in the file header): the
+  /// panel's own surface, no drag handle, the composer focused on open.
+  final bool panel;
+
   /// The bar's context this sheet opened with (kute_bar_context.dart).
   final KuteBarContext? barContext;
 
@@ -571,6 +674,7 @@ class UnifiedSearchSurface extends ConsumerStatefulWidget {
     this.walletId,
     this.searchHint,
     this.embedded = false,
+    this.panel = false,
     this.barContext,
     this.initialQuestion,
     this.composerKey,
@@ -945,20 +1049,33 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     var pos = 0;
     final labelGroups = category == SearchCategory.all;
     final resultChildren = <Widget>[];
+    // The panel on EXPANDED (see WIDE in the file header): under All,
+    // Predictions and Investing side by side, Transactions under them.
+    final sideBySide = widget.panel &&
+        labelGroups &&
+        predictionSection &&
+        perpetualsSection &&
+        KuteLayout.isExpanded(context);
+    final columns = <List<Widget>>[];
     for (final (gi, g) in groups.indexed) {
       final capped = labelGroups && g.rows.length > kSearchSectionCap;
       final shown = capped ? g.rows.take(kSearchSectionCap) : g.rows;
       final rows = [for (final build in shown) build(pos++)];
       final waiting = rows.isEmpty && g.loading;
+      final paired = sideBySide && gi < 2;
+      final blockChildren = paired ? <Widget>[] : resultChildren;
+      if (paired) columns.add(blockChildren);
       // 28 between groups; under All each group is a block (its title
       // over its rows, 14 apart, nothing drawn between them); under one
       // scope the rows alone, whole and unlabelled.
-      if (gi > 0) resultChildren.add(SizedBox(height: kSearchBlockGap.h));
+      if (gi > 0 && !paired) {
+        resultChildren.add(SizedBox(height: kSearchBlockGap.h));
+      }
       if (labelGroups) {
-        resultChildren.add(
+        blockChildren.add(
             SearchBlockHeader(key: ValueKey('header-${g.key}'), text: g.label));
       }
-      resultChildren.add(ArrivalSwitcher(
+      blockChildren.add(ArrivalSwitcher(
         key: ValueKey('group-${g.key}'),
         // Skeleton rows hold the group's place until its rows land, then
         // cross-fade into them while the height eases.
@@ -980,6 +1097,27 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                 ],
               ),
       ));
+      if (paired && gi == 1) {
+        resultChildren.insert(
+          0,
+          Row(
+            key: const ValueKey('search-results-side-by-side'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final (ci, column) in columns.indexed) ...[
+                if (ci > 0) SizedBox(width: kSearchBlockGap.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: column,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      }
     }
     // Snapshot for the settle timer: plain fields, no event from build.
     _visibleResults = pos;
@@ -1025,6 +1163,8 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
         bodyKey = 'empty';
       } else {
         body = ListView(
+          // The panel hugs its rows (see WIDE in the file header).
+          shrinkWrap: widget.panel,
           // Manual (not onDrag) — scrolling the results must NOT dismiss
           // the keyboard out from under the user mid-search.
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
@@ -1042,6 +1182,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       // the screen's preview card and its action rows, sized to them.
       body = _SearchHome(
         category: category,
+        panel: widget.panel,
         barContext: widget.barContext,
         sendVenues: sendVenues,
         onRecentQuery: (q) {
@@ -1098,6 +1239,10 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                 horizontal: KuteSearchComposer.gutter(context)),
             child: KuteSearchComposer(
               key: widget.composerKey,
+              // The panel: typing searches at once (a hardware keyboard),
+              // unless a question is already on its way to Sal.
+              autofocus: widget.panel &&
+                  (widget.initialQuestion?.trim() ?? '').isEmpty,
               controller: _controller,
               focusNode: _focusNode,
               onChanged: _onChanged,
@@ -1123,16 +1268,26 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
           ),
         ),
         if (topics != null) topics,
-        Expanded(
-          child: AnimatedSwitcher(
+        _bodySlot(
+          AnimatedSwitcher(
             duration: kuteMotion(context, const Duration(milliseconds: 150)),
             switchInCurve: Curves.easeOut,
             switchOutCurve: Curves.easeIn,
             layoutBuilder: (current, previous) => Stack(
-              fit: StackFit.expand,
+              // The panel: as tall as the state on screen.
+              fit: widget.panel ? StackFit.loose : StackFit.expand,
+              alignment: Alignment.topCenter,
               children: [...previous, if (current != null) current],
             ),
-            child: KeyedSubtree(key: ValueKey(bodyKey), child: body),
+            child: KeyedSubtree(
+                key: ValueKey(bodyKey),
+                // The panel's centred states (nothing found, searching,
+                // the skeleton) at a set height: a Center takes all the
+                // room it is given, and the panel hugs its content.
+                child: widget.panel &&
+                        const {'empty', 'draft', 'loading'}.contains(bodyKey)
+                    ? SizedBox(height: _kPanelStateHeight, child: body)
+                    : body),
           ),
         ),
         // Sal's disclaimer sits under its answers, once; the search
@@ -1143,6 +1298,13 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       ],
     );
   }
+
+  /// The body's slot in the column: all the room on the phone's sheet;
+  /// in the panel only what the body needs, up to the room there is (see
+  /// WIDE in the file header).
+  Widget _bodySlot(Widget child) => widget.panel
+      ? Flexible(fit: FlexFit.loose, child: child)
+      : Expanded(child: child);
 
   Widget _buildSheet(
     BuildContext context, {
@@ -1190,10 +1352,8 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       Navigator.of(context).pop();
     }
 
-    return scoped(AppBottomSheetContainer(
-      maxHeight: kSearchSheetFraction,
-      followKeyboard: true,
-      child: Column(
+    final content = Column(
+      mainAxisSize: widget.panel ? MainAxisSize.min : MainAxisSize.max,
         children: [
           if (chat)
             AppBottomSheetHeader(
@@ -1217,10 +1377,11 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Positioned(
-                    top: 12.h,
-                    child: AppDecorations.dragHandle(context),
-                  ),
+                  if (!widget.panel)
+                    Positioned(
+                      top: 12.h,
+                      child: AppDecorations.dragHandle(context),
+                    ),
                   Positioned(
                     right: 16.w,
                     top: 6.h,
@@ -1229,20 +1390,53 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                 ],
               ),
             ),
-          Expanded(
-            child: entrance(send == null
-                ? Column(children: children)
+          _bodySlot(
+            entrance(send == null
+                ? Column(
+                    mainAxisSize:
+                        widget.panel ? MainAxisSize.min : MainAxisSize.max,
+                    children: children)
                 // The heading's edge (20, the first steps' content edge):
                 // the title, the line, the rows and the X on one line.
                 : Padding(
                     padding: EdgeInsets.symmetric(
                         horizontal:
                             20.w - KuteSearchComposer.gutter(context)),
-                    child: Column(children: children),
+                    child: Column(
+                        mainAxisSize: widget.panel
+                            ? MainAxisSize.min
+                            : MainAxisSize.max,
+                        children: children),
                   )),
           ),
         ],
-      ),
+      );
+    if (widget.panel) {
+      // The panel: the sheet's own surface, rounded all round, its content
+      // the sheet's (the close X on the handle's row, no handle: a panel
+      // is not dragged).
+      // Its height eases on the sheet spring as its content changes; the
+      // top stands still, so it only grows and shrinks downward.
+      return scoped(Material(
+        type: MaterialType.transparency,
+        child: AnimatedSize(
+          duration: kuteMotion(context, KuteMotion.sheetInDuration),
+          curve: KuteMotion.sheetIn,
+          alignment: Alignment.topCenter,
+          child: Container(
+            key: const ValueKey('search-panel'),
+            clipBehavior: Clip.antiAlias,
+            decoration: kutePanelDecoration(context),
+            padding: EdgeInsets.only(bottom: 16.h),
+            child: content,
+          ),
+        ),
+      ));
+    }
+    return scoped(AppBottomSheetContainer(
+      maxHeight: kSearchSheetFraction,
+      followKeyboard: true,
+      child: content,
     ));
   }
 }
@@ -2010,7 +2204,11 @@ class _SearchHome extends ConsumerWidget {
       {required this.category,
       required this.onRecentQuery,
       this.barContext,
-      this.sendVenues});
+      this.sendVenues,
+      this.panel = false});
+
+  /// The centred panel (see WIDE in the file header).
+  final bool panel;
 
   final SearchCategory category;
 
@@ -2048,6 +2246,7 @@ class _SearchHome extends ConsumerWidget {
         key: const ValueKey('context-sheet-home'),
         padding: gutters,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        shrinkWrap: panel,
         children: [sheetHome(context)],
       );
     }
@@ -2057,6 +2256,7 @@ class _SearchHome extends ConsumerWidget {
       return ListView(
         padding: gutters,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        shrinkWrap: panel,
         children: [
           KuteStaggerIn(index: 0, child: _ContextPreviewRow(preview: preview)),
           gap,
@@ -2118,6 +2318,7 @@ class _SearchHome extends ConsumerWidget {
     return ListView(
       padding: gutters,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      shrinkWrap: panel,
       children: [
         // Under the composer, before anything else; the home (and so the
         // card) gives way to the results as soon as there is a query.
@@ -2189,6 +2390,8 @@ class _SearchHome extends ConsumerWidget {
                   )
                 : SearchMoverGrid(
                     key: const ValueKey('search-home-moving'),
+                    // The panel on EXPANDED: one row of three across.
+                    columns: panel && KuteLayout.isExpanded(context) ? 3 : 2,
                     markets: moving,
                     onTap: (m) => _openInvestingPage(context, ref, m),
                   ),
@@ -2399,11 +2602,14 @@ class _RecentRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final image = entry.image;
-    final Widget logo = switch (entry.kind) {
+    final Widget? logo = switch (entry.kind) {
       SearchRecentKind.query =>
         Icon(Icons.search_rounded, size: 22, color: c.textTertiary),
-      SearchRecentKind.investing =>
-        HlCoinIcon(coin: entry.id, iconUrl: image, size: kSearchRowLogo),
+      SearchRecentKind.investing => hlLogoOrNull(
+          () =>
+              HlCoinIcon(coin: entry.id, iconUrl: image, size: kSearchRowLogo),
+          coin: entry.id,
+          iconUrl: image),
       SearchRecentKind.prediction => searchEventLogo(context, image),
     };
     return SearchListRow(
@@ -2440,10 +2646,17 @@ const double kContextPreviewPickShare = 0.4;
 /// Investing market's logo through HlCoinIcon (the wire coin a
 /// builder-dex market trades under, its category and logo URL, the same
 /// fallbacks), a prediction's event image.
-Widget contextPreviewLogo(BuildContext context, KuteBarPreview preview,
+///
+/// Web: null when there is nothing to draw (no shipped logo, a prediction's
+/// picture); the name closes up.
+Widget? contextPreviewLogo(BuildContext context, KuteBarPreview preview,
     {double size = kSearchRowLogo}) {
   final coin = preview.coin;
   if (coin != null && coin.isNotEmpty) {
+    if (!hlLogoShown(coin, preview.wireCoin ?? coin, preview.coinIconUrl,
+        preview.coinCategory)) {
+      return null;
+    }
     return HlCoinIcon(
       coin: coin,
       wireCoin: preview.wireCoin ?? coin,
@@ -2513,8 +2726,10 @@ class _ContextPreviewRow extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: kSearchRowHeight),
       child: Row(
         children: [
-          contextPreviewLogo(context, preview),
-          SizedBox(width: 12.w),
+          if (contextPreviewLogo(context, preview) case final logo?) ...[
+            logo,
+            SizedBox(width: 12.w),
+          ],
           Expanded(
             child: LayoutBuilder(builder: (context, constraints) {
               final pickMax = constraints.maxWidth * kContextPreviewPickShare;
@@ -2640,7 +2855,10 @@ KuteActionCard _contextActionCard(
         clipBehavior: Clip.none,
         children: [
           Positioned(
-              left: 0, top: 8, child: contextPreviewLogo(context, p, size: 40)),
+              left: 0,
+              top: 8,
+              child: contextPreviewLogo(context, p, size: 40) ??
+                  const SizedBox.shrink()),
           Positioned(
             left: 26,
             top: 34,

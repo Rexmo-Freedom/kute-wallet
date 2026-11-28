@@ -10,7 +10,9 @@ import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/providers/wallet_scope_provider.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart'
     show prewarmLiveBtcFeed;
-import 'package:kute/screens/home/home.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/home/bitcoin_home_panes.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -119,9 +121,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       backgroundColor: context.colors.background,
       body: Column(children: [
         Expanded(
+          // On MEDIUM the home is a centred phone column; on EXPANDED two
+          // panes like the Dollars home, the hero on the right, the
+          // activity and the goals on the left (bitcoin_home_panes.dart),
+          // and another wallet's tab the same (WalletBitcoinBody.wide). A
+          // phone: as it was.
           child: wallet == null
-              ? const Home()
-              : ShellWalletScreen(key: ValueKey(wallet.id), wallet: wallet),
+              ? const BitcoinHomePanes()
+              : KuteLayout.isExpanded(context)
+                  ? ShellWalletScreen(key: ValueKey(wallet.id), wallet: wallet)
+                  : KuteFormColumn(
+                      child: ShellWalletScreen(
+                          key: ValueKey(wallet.id), wallet: wallet)),
         ),
       ]),
     );

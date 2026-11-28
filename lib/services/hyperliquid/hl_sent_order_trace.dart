@@ -22,6 +22,7 @@
 // for an order nobody has heard back about.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +39,49 @@ import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
         HyperliquidOrderUnconfirmedException,
         HyperliquidRejectedException;
 import 'package:kute/services/tracking_service.dart';
+
+/// Whether [filled] coins of an order are the whole of the [sent] size it
+/// went out with: to within half a lot step ([szDecimals]), never a part.
+/// The order slip's stream close and the trading notifier's unclear
+/// answer read the same rule.
+bool hlFillsCoverSize(double filled, double sent, int szDecimals) {
+  if (sent <= 0 || filled <= 0) return false;
+  final step = math.pow(10, -szDecimals).toDouble();
+  return filled >= sent - step / 2;
+}
+
+/// A market order sent under [cloid] whose answer was unclear, taken as
+/// filled from the account's own fills ([fills]: this cloid, on [market]'s
+/// wire coin, each counted once) when they total its whole [sentSize]
+/// ([hlFillsCoverSize]); null for none or a part (still unconfirmed).
+HlOrderResult? hlFilledByOwnFills({
+  required HlMarket market,
+  required String cloid,
+  required double sentSize,
+  required Iterable<HlFill> fills,
+}) {
+  final id = cloid.toLowerCase();
+  final seen = <String>{};
+  var size = 0.0;
+  var notional = 0.0;
+  int? oid;
+  for (final f in fills) {
+    if (f.coin != market.wireCoin || f.cloid?.toLowerCase() != id) continue;
+    final key = f.tradeId ?? '${f.oid}|${f.time}|${f.sz}|${f.px}';
+    if (!seen.add(key)) continue;
+    size += f.sz;
+    notional += f.sz * f.px;
+    oid ??= f.oid;
+  }
+  if (!hlFillsCoverSize(size, sentSize, market.szDecimals)) return null;
+  return HlOrderResult(
+    kind: HlOrderResultKind.filled,
+    oid: oid,
+    cloid: cloid,
+    filledSz: size,
+    avgPx: notional / size,
+  );
+}
 
 /// Whether [e], thrown by an order send, leaves it UNKNOWN if the venue
 /// took the order: the request timed out or the connection broke (the
@@ -135,6 +179,28 @@ Future<HlSentOrderTrace> hlReconcileSentOrder(
 final hlConfirmingOrdersProvider =
     StateProvider<Set<String>>((ref) => const <String>{});
 
+/// Where a confirming order went: the account (lower-case address) and
+/// the wire coin.
+typedef HlConfirmingMarket = ({String account, String wireCoin});
+
+/// The same lookups by market: each confirming cloid with the account and
+/// the wire coin of its order. A fresh ticket on a market whose earlier
+/// order on the same account is still being looked up never sends (it
+/// could be a duplicate of an order the venue took); once the lookup ends,
+/// it can. Another account's lookup never holds it.
+final hlConfirmingMarketsProvider =
+    StateProvider<Map<String, HlConfirmingMarket>>(
+        (ref) => const <String, HlConfirmingMarket>{});
+
+/// Whether an order on [wireCoin] of [account] is being looked up right
+/// now ([hlConfirmingMarketsProvider]). An unknown [account] (null) is
+/// held by a lookup on the coin on any account.
+bool hlMarketConfirming(Map<String, HlConfirmingMarket> confirming,
+        {required String? account, required String wireCoin}) =>
+    confirming.values.any((m) =>
+        m.wireCoin == wireCoin &&
+        (account == null || m.account == account.toLowerCase()));
+
 /// Sends an order with [send] and, when the send gets no verdict
 /// ([hlOrderOutcomeUnknown]: a timeout, a broken connection, a gateway
 /// error), looks it up by [cloid] before anything is said: found, the
@@ -144,6 +210,11 @@ final hlConfirmingOrdersProvider =
 /// [HyperliquidOrderUnconfirmedException]. Nothing is ever sent again.
 /// A verdict the venue gave is rethrown as it is, never looked up.
 /// [onConfirming] is told when the lookup starts (true) and ends (false).
+/// An action carrying several orders (a scale order's legs) passes every
+/// leg's id as [cloids]: it went out as one signed action, so any one of
+/// them found means the venue took it. A scale order also passes its leg
+/// count ([scaleLegs]): found, it is said "N of M" as its answer would
+/// ([hlScaleLegsFound]).
 Future<HlOrderResult> hlSendReconciled({
   required Future<HlOrderResult> Function() send,
   required String cloid,
@@ -154,6 +225,8 @@ Future<HlOrderResult> hlSendReconciled({
   void Function(bool confirming)? onConfirming,
   Duration window = kHlReconcileWindow,
   Duration every = kHlReconcileEvery,
+  List<String>? cloids,
+  int? scaleLegs,
 }) async {
   try {
     return await send();
@@ -168,7 +241,7 @@ Future<HlOrderResult> hlSendReconciled({
     } catch (_) {}
     final HlSentOrderTrace trace;
     try {
-      trace = await hlReconcileSentOrder(lookup, [cloid], market,
+      trace = await hlReconcileSentOrder(lookup, cloids ?? [cloid], market,
           window: window, every: every);
     } finally {
       try {
@@ -192,7 +265,14 @@ Future<HlOrderResult> hlSendReconciled({
         'ms': clock.elapsedMilliseconds,
       });
     } catch (_) {}
-    if (found != null) return found;
+    if (found != null) {
+      return scaleLegs == null
+          ? found
+          : hlScaleLegsFound(found,
+              matched: trace.matched,
+              cloids: cloids ?? [cloid],
+              legs: scaleLegs);
+    }
     if (trace.known) throw HyperliquidOrderNotPlacedException(cause: e);
     throw HyperliquidOrderUnconfirmedException(cause: e);
   }
@@ -218,14 +298,55 @@ String hlUnknownCause(Object e) {
 class HlSentOrderTrace {
   const HlSentOrderTrace.none()
       : known = true,
-        found = null;
-  const HlSentOrderTrace.found(HlOrderResult this.found) : known = true;
+        found = null,
+        matched = const <String>{};
+  const HlSentOrderTrace.found(HlOrderResult this.found,
+      {this.matched = const <String>{}})
+      : known = true;
   const HlSentOrderTrace.unknown()
       : known = false,
-        found = null;
+        found = null,
+        matched = const <String>{};
 
   final bool known;
   final HlOrderResult? found;
+
+  /// The cloids looked up that the account shows (filled or resting),
+  /// lower-cased ([hlTraceOf]): a scale order's legs are counted on them
+  /// ([hlScaleLegsFound]).
+  final Set<String> matched;
+}
+
+/// [found], a scale order of [legs] legs looked up by [cloids] (each
+/// send's leg ids in order, [hlScaleLegCloids]), said as the venue's own
+/// answer says it ([HyperliquidExchangeService.placeScaleOrder]): how many
+/// of the legs the account shows, filled or resting ([matched]), of how
+/// many sent. One leg found alone used to stand for the whole ladder, and
+/// the receipt never said "Only 3 of 5 orders were placed". The filled
+/// size and its price stay [found]'s: every leg's fills, totalled.
+HlOrderResult hlScaleLegsFound(HlOrderResult found,
+    {required Set<String> matched,
+    required List<String> cloids,
+    required int legs}) {
+  if (legs < 2) return found;
+  final placed = <int>{
+    for (var i = 0; i < cloids.length; i++)
+      if (matched.contains(cloids[i].toLowerCase())) i % legs,
+  };
+  // Found without the ids that matched: nothing to count the legs on.
+  if (placed.isEmpty) return found;
+  return HlOrderResult(
+    kind: found.kind,
+    oid: found.oid,
+    cloid: found.cloid,
+    filledSz: found.filledSz,
+    avgPx: found.avgPx,
+    error: found.error,
+    legsPlaced: placed.length,
+    legsTotal: legs,
+    takeProfitRejected: found.takeProfitRejected,
+    stopLossRejected: found.stopLossRejected,
+  );
 }
 
 /// Looks [cloids] up on [market]: the account's open orders and its fills.
@@ -254,6 +375,78 @@ final hlSentOrderTraceProvider = Provider<
   },
 );
 
+/// Reads the account for a modify with no answer ([hlTraceModifyOf]): its
+/// open orders and fills. Overridden in tests.
+final hlModifyTraceProvider = Provider<
+    Future<HlSentOrderTrace> Function(
+        HlOpenOrder before, String newCloid, double newPx, HlMarket market)>(
+  (ref) => (before, newCloid, newPx, market) async {
+    try {
+      final address = await ref
+          .read(hyperliquidAddressProvider.future)
+          .timeout(const Duration(seconds: 8));
+      if (address == null || address.isEmpty) {
+        return const HlSentOrderTrace.unknown();
+      }
+      final model = HyperliquidModel();
+      final reads = await Future.wait<Object>([
+        model.getOpenOrders(address,
+            dexes: [if (market.dex.isNotEmpty) market.dex]),
+        model.getUserFills(address),
+      ]).timeout(const Duration(seconds: 10));
+      return hlTraceModifyOf(
+          before: before,
+          newCloid: newCloid,
+          newPx: newPx,
+          open: reads[0] as List<HlOpenOrder>,
+          fills: reads[1] as List<HlFill>);
+    } catch (_) {
+      return const HlSentOrderTrace.unknown();
+    }
+  },
+);
+
+/// What became of a modify ([HyperliquidTradingNotifier.modifyOrder]) whose
+/// answer never came: [before] is the order as it rested, sent to [newPx]
+/// (the wire trigger price for a trigger, else the wire limit price) under
+/// [newCloid]. The exchange docs do not say whether the modified order
+/// keeps its oid or which cloid it then carries, so both are read:
+///
+///   * the new cloid resting or filled, or the old oid resting at the new
+///     price: the move went through (found);
+///   * the old oid resting at its old price: the order is as it was
+///     (nowhere, so after the whole window "not moved");
+///   * neither (the old oid gone, nothing under the new cloid, or the old
+///     order filled): nobody can say (unknown), never "not moved", which
+///     would invite a second move.
+HlSentOrderTrace hlTraceModifyOf({
+  required HlOpenOrder before,
+  required String newCloid,
+  required double newPx,
+  required List<HlOpenOrder> open,
+  required List<HlFill> fills,
+}) {
+  final moved = hlTraceOf([newCloid], open: open, fills: fills);
+  if (moved.found != null) return moved;
+  bool samePx(double a, double b) =>
+      (a - b).abs() <= math.max(a.abs(), b.abs()) * 1e-9;
+  for (final o in open) {
+    if (o.oid != before.oid) continue;
+    final px = before.isTrigger ? (o.triggerPx ?? o.limitPx) : o.limitPx;
+    final was = before.isTrigger
+        ? (before.triggerPx ?? before.limitPx)
+        : before.limitPx;
+    if (samePx(px, newPx) && !samePx(was, newPx)) {
+      return HlSentOrderTrace.found(HlOrderResult(
+          kind: HlOrderResultKind.resting, oid: o.oid, cloid: o.cloid));
+    }
+    if (samePx(px, was)) return const HlSentOrderTrace.none();
+    // Resting at a third price: moved by someone else meanwhile.
+    return const HlSentOrderTrace.unknown();
+  }
+  return const HlSentOrderTrace.unknown();
+}
+
 /// [cloids]' order in the account's [open] orders and [fills]: filled
 /// (what filled, at its average price) before resting, else nowhere.
 HlSentOrderTrace hlTraceOf(List<String> cloids,
@@ -262,6 +455,11 @@ HlSentOrderTrace hlTraceOf(List<String> cloids,
   bool mine(String? cloid) =>
       cloid != null && ids.contains(cloid.toLowerCase());
   final filled = fills.where((f) => mine(f.cloid)).toList();
+  final resting = open.where((o) => mine(o.cloid)).toList();
+  final matched = {
+    for (final f in filled) f.cloid!.toLowerCase(),
+    for (final o in resting) o.cloid!.toLowerCase(),
+  };
   if (filled.isNotEmpty) {
     final size = filled.fold<double>(0, (a, f) => a + f.sz);
     final notional = filled.fold<double>(0, (a, f) => a + f.sz * f.px);
@@ -271,14 +469,15 @@ HlSentOrderTrace hlTraceOf(List<String> cloids,
       cloid: filled.first.cloid,
       filledSz: size,
       avgPx: size > 0 ? notional / size : 0,
-    ));
+    ), matched: matched);
   }
-  final resting = open.where((o) => mine(o.cloid)).toList();
   if (resting.isNotEmpty) {
-    return HlSentOrderTrace.found(HlOrderResult(
-        kind: HlOrderResultKind.resting,
-        oid: resting.first.oid,
-        cloid: resting.first.cloid));
+    return HlSentOrderTrace.found(
+        HlOrderResult(
+            kind: HlOrderResultKind.resting,
+            oid: resting.first.oid,
+            cloid: resting.first.cloid),
+        matched: matched);
   }
   return const HlSentOrderTrace.none();
 }

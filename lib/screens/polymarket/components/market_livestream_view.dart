@@ -17,6 +17,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/services/polymarket/livestream_source.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/open_external.dart';
 
 class MarketLivestreamView extends StatefulWidget {
   final LivestreamSource source;
@@ -37,13 +39,16 @@ class MarketLivestreamView extends StatefulWidget {
 }
 
 class _MarketLivestreamViewState extends State<MarketLivestreamView> {
-  late final WebViewController _controller;
+  /// Null where there is no web view (web, Windows): the strip alone
+  /// shows, with a button that opens the stream in a new tab.
+  WebViewController? _controller;
   bool _loading = true;
   double? _loadedWidth;
 
   @override
   void initState() {
     super.initState();
+    if (!PlatformCaps.hasWebView) return;
     _controller = buildLivestreamWebViewController(onPageFinished: () {
       if (mounted) setState(() => _loading = false);
     });
@@ -58,23 +63,43 @@ class _MarketLivestreamViewState extends State<MarketLivestreamView> {
   @override
   void dispose() {
     // Tear the player down so audio never outlives the view.
-    _controller.loadRequest(Uri.parse('about:blank')).catchError((_) {});
+    _controller?.loadRequest(Uri.parse('about:blank')).catchError((_) {});
     super.dispose();
   }
 
   /// Loads the embed once the box width is known (the Twitch page is laid
   /// out at 400 CSS pixels when the box is narrower).
   void _ensureLoaded(double width) {
+    final controller = _controller;
+    if (controller == null) return;
     if (_loadedWidth != null && (_loadedWidth! - width).abs() < 1) return;
     _loadedWidth = width;
     _loading = true;
-    loadLivestream(_controller, widget.source, boxWidth: width)
+    loadLivestream(controller, widget.source, boxWidth: width)
         .catchError((_) {});
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final controller = _controller;
+    if (controller == null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16.r),
+        child: LivestreamStrip(
+          source: widget.source,
+          background: c.surface,
+          trailing: _StripButton(
+            icon: Icons.open_in_new_rounded,
+            label: 'Watch',
+            onTap: () {
+              HapticFeedback.selectionClick();
+              openExternally(widget.source.watchUri);
+            },
+          ),
+        ),
+      );
+    }
     return LayoutBuilder(builder: (context, constraints) {
       final width = constraints.maxWidth;
       final height = widget.source.playerHeightFor(width);
@@ -89,7 +114,7 @@ class _MarketLivestreamViewState extends State<MarketLivestreamView> {
               SizedBox(
                 width: width,
                 height: height,
-                child: WebViewWidget(controller: _controller),
+                child: WebViewWidget(controller: controller),
               ),
               LivestreamStrip(
                 source: widget.source,

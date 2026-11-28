@@ -16,7 +16,6 @@
 // Presentation only: no provider, no route table and no money call.
 
 import 'dart:async' show unawaited;
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -35,6 +34,7 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/money_steps_view.dart' show MoneyStepsView;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Decodes the 3D Sal a send flow shows after Send, as the flow opens
 /// (founder, 9 November 2026: "the last send screen should have our Sal
@@ -176,7 +176,7 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
         ? 0.0
         : viewInsets > 0
             ? 12.h
-            : Platform.isAndroid
+            : PlatformOs.isAndroid
                 ? 28.h + MediaQuery.of(context).padding.bottom
                 : 44.h;
     final header = widget.header;

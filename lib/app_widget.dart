@@ -5,6 +5,8 @@ import 'package:kute/screens/shared/kute_bar_context.dart' show kuteBarScroll;
 import 'package:kute/providers/active_shell_tab_provider.dart'
     show ActiveNavTab, activeShellTabProvider;
 import 'package:kute/providers/auth_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:kute/services/secure/web_vault/web_vault.dart';
 import 'package:kute/providers/current_route_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
@@ -13,6 +15,9 @@ import 'package:kute/providers/venue_sweeper_provider.dart'
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceCheckProvider;
 import 'package:kute/models/settings_model.dart' show Settings;
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/web_edge_colors.dart';
+import 'package:kute/platform/web_safe_area.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_backup_provider.dart'
     show needsWalletBackup;
@@ -28,6 +33,8 @@ import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/passkey_service.dart' show PasskeyService;
 import 'package:kute/services/share_link_claims.dart';
 import 'package:kute/services/share_links_store.dart';
+import 'package:kute/services/share_targets.dart';
+import 'package:kute/screens/share/share_target_opener.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -185,6 +192,15 @@ class _AppWidgetState extends ConsumerState<AppWidget>
     // down, onboarding done) open a parked `/c/{id}` claim and pay the
     // links this wallet's recipients claimed. A claim that arrives while
     // unlocked (AppsFlyer UDL parks it) opens on the store's own signal.
+    // Web seed vault: the decrypted vault key lives only while the session
+    // is unlocked. A lock, an auto-lock, the PIN sheet's lockout and a
+    // restart (a new container starts locked) all drop it.
+    if (kIsWeb) {
+      WebVault.lock();
+      ref.listenManual<bool>(sessionUnlockedProvider, (prev, next) {
+        if (!next) WebVault.lock();
+      });
+    }
     ref.listenManual<bool>(sessionUnlockedProvider, (prev, next) {
       if (next && prev != true) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -199,12 +215,30 @@ class _AppWidgetState extends ConsumerState<AppWidget>
       // the cold-start and PIN routes; the in-place lock overlay keeps
       // the session and covers the screen instead.
       sessionLocked: () => ref.read(sessionAuthProvider) == null,
+      hasWallet: () => ref.read(settingsProvider).wallets.isNotEmpty,
+      // The shared market's read-only page for a visitor with no wallet
+      // (share_guest_screen.dart): the web only.
+      guestShareView: () => kIsWeb,
+      // The wallet list is still being read from disk at a cold start: a
+      // shared link's route waits for it (app_router.dart).
+      walletsLoading: () {
+        final loaded = ref.read(initialSettingsProvider);
+        if (loaded.hasValue || loaded.hasError) return null;
+        return ref.read(initialSettingsProvider.future).then<void>((_) {});
+      },
       extraObservers: [
         syncRouteObserver,
         PosthogObserver(),
         _BreadcrumbObserver(),
       ],
     );
+    // A shared market link (services/share_targets.dart): its market opens
+    // over the tab shell once a wallet is unlocked and the router is in the
+    // shell (after the PIN, after onboarding, or right away).
+    _router.routerDelegate.addListener(_openParkedShareTarget);
+    ref.listenManual<bool>(sessionUnlockedProvider, (prev, next) {
+      if (next) _openParkedShareTarget();
+    });
     WidgetsBinding.instance.addObserver(this);
 
     // Phase 4: stamp the user-settings person properties on boot. Read
@@ -486,7 +520,7 @@ class _AppWidgetState extends ConsumerState<AppWidget>
           // if a ceremony this process already primed the identity (no
           // prompt); a no-op otherwise. The unlock path covers the
           // relock branch above.
-          unawaited(PasskeyService.retryPendingLabels());
+          unawaited(PasskeyService.retryPendingLabelsAllHomes());
           // Share links claimed while the app was away: ask to pay them.
           _shareLinksWhenBack('resume');
         });
@@ -509,7 +543,26 @@ class _AppWidgetState extends ConsumerState<AppWidget>
     ));
   }
 
+  void _openParkedShareTarget() {
+    if (!mounted || !ShareTargets.hasParked) return;
+    if (!ref.read(sessionUnlockedProvider)) return;
+    if (ref.read(settingsProvider).wallets.isEmpty) return;
+    final String path;
+    try {
+      path = _router.routerDelegate.currentConfiguration.uri.path;
+    } catch (_) {
+      return;
+    }
+    if (!AppRouter.isShellPath(path)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ShareTargetOpener.openParked(AppRouter.rootNavigatorKey.currentContext);
+      }
+    });
+  }
+
   void _onShareLinksStoreChanged() {
+    _openParkedShareTarget();
     if (!mounted || ShareLinksStore.parkedClaimId == null) return;
     if (!ref.read(sessionUnlockedProvider)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -533,8 +586,18 @@ class _AppWidgetState extends ConsumerState<AppWidget>
   void dispose() {
     _capabilities?.removeListener(_onCapabilitiesChanged);
     ShareLinksStore.revision.removeListener(_onShareLinksStoreChanged);
+    _router.routerDelegate.removeListener(_openParkedShareTarget);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// The window in logical pixels, followed as it is resized (the View's
+  /// own MediaQuery; the view's metrics before one exists).
+  static Size _windowSize(BuildContext context) {
+    final size = MediaQuery.maybeSizeOf(context);
+    if (size != null) return size;
+    final view = View.of(context);
+    return view.physicalSize / view.devicePixelRatio;
   }
 
   @override
@@ -597,7 +660,10 @@ class _AppWidgetState extends ConsumerState<AppWidget>
       // a future replay-on toggle never records seed/signer state.
       child: PostHogWidget(
         child: ScreenUtilInit(
-          designSize: const Size(430, 932),
+          // A phone scales the 430 x 932 design to its screen; a tablet or
+          // a desktop window draws it at its own size (kute_layout.dart,
+          // SCALING).
+          designSize: KuteLayout.designSizeFor(_windowSize(context)),
           minTextAdapt: true,
           splitScreenMode: true,
           builder: (context, child) {
@@ -619,12 +685,20 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                 // the `app_language` super property. Deduped inside.
                 TrackingService.setAppLanguage(
                     Localizations.localeOf(context).languageCode);
-                return Directionality(
+                return WebEdgeColors(
+                  // Web: Safari's bars in the app's edge colours
+                  // (web_edge_colors.dart); nothing on the phones.
+                  child: Directionality(
                   textDirection: TextDirection.ltr,
                   child: AnnotatedRegion<SystemUiOverlayStyle>(
                     value: overlayStyle,
                     child: MediaQuery(
-                      data: MediaQuery.of(context).copyWith(
+                      // Web: the page's safe-area insets as padding, which
+                      // Flutter web leaves at zero (web_safe_area.dart).
+                      data: (kIsWeb
+                              ? withWebSafeArea(MediaQuery.of(context))
+                              : MediaQuery.of(context))
+                          .copyWith(
                         textScaler: const TextScaler.linear(1.0),
                       ),
                       child: Stack(
@@ -660,6 +734,7 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                       ),
                     ),
                   ),
+                ),
                 );
               },
             );

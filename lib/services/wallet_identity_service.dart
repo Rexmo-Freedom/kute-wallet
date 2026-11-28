@@ -121,18 +121,19 @@ class WalletIdentityService {
 
   /// Hex SHA-256 of the auth body fields a v2 signature binds, newline
   /// separated, absent fields as empty strings. Must be built from the
-  /// exact values posted.
+  /// exact values posted. The backend's digest has four fields
+  /// (internal/proxy/auth_challenge.go canonicalBodyDigest): the address,
+  /// the referral code, and two install-attribution fields the app no
+  /// longer sends (AppsFlyer left the app), always empty.
   static String canonicalAuthBodyDigest({
     required String paykuteAddress,
     String? referredByCode,
-    String? appsflyerId,
-    String? afPlatform,
   }) =>
       sha256Hex([
         paykuteAddress,
         referredByCode ?? '',
-        appsflyerId ?? '',
-        afPlatform ?? '',
+        '',
+        '',
       ].join('\n'));
 
   /// How far the device clock may run ahead of the server's before a

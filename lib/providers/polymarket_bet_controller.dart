@@ -36,6 +36,8 @@ import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
+import 'package:kute/providers/polymarket_resting_fills_provider.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -44,6 +46,7 @@ import 'package:kute/services/polymarket/predictions_funding_window.dart'
     show PolymarketMarketWindow;
 import 'package:kute/services/polymarket/hot_order_guard.dart';
 import 'package:kute/services/polymarket/order_connection.dart';
+import 'package:kute/services/polymarket/limit_order_rules.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/market_terms_store.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
@@ -157,7 +160,13 @@ class PolymarketBetController {
     }
     final terms = intent.feeTerms ?? PolymarketFeeTerms.worstCase;
     final price = intent.isLimit ? _gtcPrice(intent) : intent.expectedPrice;
-    return terms.allInCost(intent.amount, price.clamp(0.01, 0.99).toDouble());
+    // A market buy's fee is sized inside 1c-99c, as it always was; a
+    // limit at its own price (a 0.1c market rests under 1c).
+    return terms.allInCost(
+        intent.amount,
+        intent.isLimit
+            ? price.clamp(0.0001, 0.9999).toDouble()
+            : price.clamp(0.01, 0.99).toDouble());
   }
 
   /// The cash a Max stake is sized against: what was spendable at the tap,
@@ -207,7 +216,35 @@ class PolymarketBetController {
     if (notifier.signingWalletId != walletId) {
       throw ReauthRequired(const {DriftField.wallet});
     }
-    if (intent.isLimit) return intent.copyWith(feeTerms: terms);
+    if (intent.isLimit) {
+      // The market's increment and minimum, read now, before the approval:
+      // a limit off the tick, out of range or under the minimum is
+      // refused here with what to change, never by the encoder or the
+      // venue after Face ID and the funding step.
+      final clock = Stopwatch()..start();
+      final OrderBook book;
+      try {
+        // The REST book: it carries the market's minimum order size,
+        // which the feed's snapshot does not (the Advanced page reads the
+        // same, polymarketLimitTermsProvider).
+        book = await restBook(intent.tokenId,
+            timeout: const Duration(seconds: 5));
+      } catch (e) {
+        PolymarketPlacementDiagnostics.stepFailed(
+            'order_book', e, clock.elapsed);
+        rethrow;
+      }
+      if (notifier.signingWalletId != walletId) {
+        throw ReauthRequired(const {DriftField.wallet});
+      }
+      polymarketCheckLimitBuy(
+        amountUsd: intent.amount,
+        price: _gtcPrice(intent),
+        tickSize: book.minTickSize,
+        minShares: double.tryParse(book.minOrderSize ?? ''),
+      );
+      return intent.copyWith(feeTerms: terms);
+    }
     {
       final clock = Stopwatch()..start();
       final OrderBook book;
@@ -547,9 +584,34 @@ class PolymarketBetController {
       e is PolymarketOrderNotAcceptedException &&
       isPolymarketPriceRefusal(e.reason);
 
+  /// A resting order this app placed, told to the fills tracker while it
+  /// is alive (the Predictions screen is up). Nothing when it filled whole.
+  void _noteResting(Map<String, dynamic> placed, String tokenId,
+          {required String? account,
+          required bool isBuy,
+          required double price,
+          required double shares,
+          required double matched,
+          required String outcome}) =>
+      polymarketNoteRestingOrder(
+        tracking: ref.exists(polymarketRestingFillsProvider),
+        tracker: () => ref.read(polymarketRestingFillsProvider.notifier),
+        placed: placed,
+        account: account,
+        tokenId: tokenId,
+        isBuy: isBuy,
+        price: price,
+        shares: shares,
+        matched: matched,
+        outcome: outcome,
+      );
+
   /// The resting price of a limit bet.
+  /// Inside the venue's widest range (a 0.01¢ market): the price itself
+  /// is checked against the market's tick before approval
+  /// ([prepareIntent]), never moved to fit it.
   static double _gtcPrice(PendingBetIntent intent) =>
-      intent.limitPrice.clamp(0.01, 0.99).toDouble();
+      intent.limitPrice.clamp(0.0001, 0.9999).toDouble();
 
   /// Approve the prepared book price plus the ticket's selected slippage.
   /// The displayed last trade is not an executable ask or an approval cap.
@@ -849,15 +911,25 @@ class PolymarketBetController {
       PendingBetIntent intent, AuthGrant grant,
       {bool successHaptic = true, String? entrySource}) async {
     final notifier = ref.read(polymarketTradingProvider.notifier);
+    // The account the order is placed from (a wallet switch meanwhile
+    // drops its fills tracking, never hands it to the next account).
+    final placedOn =
+        ref.read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress;
     // Set once the venue took the order: nothing after it ends as failed.
     Map<String, dynamic>? taken;
     try {
       final price = _gtcPrice(intent);
-      // Shares from the user's USD stake at the chosen limit price.
-      final shares = ((intent.amount / price) * 100).floorToDouble() / 100;
+      // Shares from the user's USD stake at the chosen limit price, in
+      // integers: \$1.40 at 28¢ is 5.00 shares, never 4.99
+      // (limit_order_rules.dart).
+      final shares = polymarketLimitBuyShares(intent.amount, price);
       if (shares <= 0) {
         throw Exception('Amount too small for this limit price.');
       }
+      // A limit that crosses the book fills at once as a taker: the
+      // collateral check covers its fee ceiling too.
+      final feeReserve = (intent.feeTerms ?? PolymarketFeeTerms.worstCase)
+          .feeCeilingForNotional(shares * price, price);
       final placed = await notifier.placeOrder(
         tokenId: intent.tokenId,
         side: OrderSide.buy,
@@ -865,6 +937,7 @@ class PolymarketBetController {
         negRisk: intent.negRisk,
         price: price,
         orderType: OrderType.gtc,
+        feeReserveUsd: feeReserve,
         marketTitle: intent.marketQuestion,
         marketImage: intent.marketImage,
         marketOutcome: intent.outcomeName,
@@ -903,6 +976,18 @@ class PolymarketBetController {
         _showArriving(intent,
             shares: settlement.soldShares, cost: settlement.proceeds);
       }
+      // What still rests is known to the fills tracker at once, so a fill
+      // before the next orders read is still said, counted from the shares
+      // the receipt states (never told twice), on the account it was
+      // placed from.
+      _noteResting(placed, intent.tokenId,
+          account: placedOn,
+          isBuy: true,
+          price: price,
+          shares: shares,
+          matched: max(settlement.soldShares,
+              ref.read(pendingPolymarketBetProvider)?.filledShares ?? 0),
+          outcome: intent.outcomeName);
       notifier.refreshAfterSale();
       SoundService.playSuccess();
       // Apple Pay style two-beat success haptic — single choke point for

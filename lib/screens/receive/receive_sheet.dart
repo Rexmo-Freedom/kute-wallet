@@ -13,6 +13,14 @@
 // full-screen receive (`/receive` the QR itself).
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/home/home_wallet_switcher.dart'
+    show SecurityActionCard;
+import 'package:kute/screens/share/share_wallet_gate.dart'
+    show ShareQuickWallets;
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show KuteDialogRoute;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -47,15 +55,41 @@ abstract final class ReceiveSheets {
   static WidgetBuilder? debugUsdBody;
 }
 
-Widget _bitcoinBody(BuildContext context) =>
-    ReceiveSheets.debugBitcoinBody?.call(context) ?? const ConfirmReceive();
+Widget _bitcoinBody(BuildContext context) => ReceiveBackupGate(
+    child: ReceiveSheets.debugBitcoinBody?.call(context) ??
+        const ConfirmReceive());
 
-Widget _bitcoinOptionsBody(BuildContext context) =>
-    ReceiveSheets.debugBitcoinOptionsBody?.call(context) ??
-    const BitcoinReceiveOptions();
+Widget _bitcoinOptionsBody(BuildContext context) => ReceiveBackupGate(
+    child: ReceiveSheets.debugBitcoinOptionsBody?.call(context) ??
+        const BitcoinReceiveOptions());
 
-Widget _usdBody(BuildContext context) =>
-    ReceiveSheets.debugUsdBody?.call(context) ?? const UsdReceiveScreen();
+Widget _usdBody(BuildContext context) => ReceiveBackupGate(
+    child: ReceiveSheets.debugUsdBody?.call(context) ??
+        const UsdReceiveScreen());
+
+/// No receive for a 12-word wallet made from a share link before its words
+/// are backed up (founder decision 4; share_wallet_gate.dart): the sheet
+/// shows the backup card instead of any address, invoice or deposit route.
+/// Every other wallet passes through untouched.
+class ReceiveBackupGate extends ConsumerWidget {
+  const ReceiveBackupGate({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(settingsProvider.select((s) => s.activeWallet?.backedUp));
+    if (!ShareQuickWallets.receiveBlocked(ref)) return child;
+    final id = ref.read(settingsProvider).activeWallet?.id;
+    return AppBottomSheetContainer(
+      key: const ValueKey('receive-backup-gate'),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: SecurityActionCard(walletId: id),
+      ),
+    );
+  }
+}
 
 /// The Bitcoin tab's Receive: "Receive", Bitcoin and Another crypto, two
 /// squares side by side (bitcoin_receive_options.dart), in a sheet over the
@@ -99,7 +133,8 @@ Future<void> showOtherCoinsReceiveSheet(BuildContext context) =>
     showAppBottomSheet<void>(
       context: context,
       routeSettings: const RouteSettings(name: kOtherCoinsReceiveRouteName),
-      builder: (_) => const UsdReceiveScreen(destinationAsset: 'BTC'),
+      builder: (_) => const ReceiveBackupGate(
+          child: UsdReceiveScreen(destinationAsset: 'BTC')),
     );
 
 /// A route's page that presents its receive as the same sheet
@@ -111,7 +146,16 @@ class ReceiveSheetPage extends Page<void> {
   final bool usd;
 
   @override
-  Route<void> createRoute(BuildContext context) => ModalBottomSheetRoute<void>(
+  Route<void> createRoute(BuildContext context) {
+    // EXPANDED: the same receive as a centred dialog card over the page it
+    // came from (kute_dialog.dart; wide_design_2.md, C).
+    if (kuteWindowIsExpanded(context)) {
+      return KuteDialogRoute<void>(
+        settings: this,
+        builder: _content,
+      );
+    }
+    return ModalBottomSheetRoute<void>(
         settings: this,
         isScrollControlled: true,
         useSafeArea: true,
@@ -119,16 +163,23 @@ class ReceiveSheetPage extends Page<void> {
         barrierLabel: MaterialLocalizations.of(context).scrimLabel,
         // The app's sheet motion (lib/theme/kute_motion.dart).
         sheetAnimationStyle: KuteMotion.sheetStyle(context),
+        // A centred form from MEDIUM up (kute_wide_frames.dart).
+        constraints: kuteSheetConstraints(context),
         // The bar explains the screen (founder, 31 October 2026): "What
         // is this?", tapping sends the receive question to Sal.
-        builder: (ctx) => KuteBarContextScope(
-          barContext: KuteBarContext(
-            label: ctx.l10n.barWhatIsThis,
-            sublabel: ctx.l10n.barReceiveExplainSub,
-            clip: 'curious',
-            question: ctx.l10n.barReceiveQuestion,
-            source: 'receive',
-          ),
+        builder: _content,
+      );
+  }
+
+  Widget _content(BuildContext ctx) => KuteBarContextScope(
+        barContext: KuteBarContext(
+          label: ctx.l10n.barWhatIsThis,
+          sublabel: ctx.l10n.barReceiveExplainSub,
+          clip: 'curious',
+          question: ctx.l10n.barReceiveQuestion,
+          source: 'receive',
+        ),
+        child: KuteSheetMedia(
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => FocusManager.instance.primaryFocus?.unfocus(),

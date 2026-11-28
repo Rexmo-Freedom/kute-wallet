@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:kute/models/add_wallet_model.dart';
 import 'package:kute/services/bluetooth/ble_scan_coordinator.dart';
@@ -20,6 +19,7 @@ import 'package:ledger_bitcoin/src/psbt/constants.dart';
 import 'package:ledger_bitcoin/src/psbt/map_extension.dart';
 // ignore: implementation_imports
 import 'package:ledger_bitcoin/src/utils/buffer_reader.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Supported Ledger connection types.
 enum LedgerConnectionType { bluetooth, usb }
@@ -160,8 +160,9 @@ class LedgerService extends StateNotifier<LedgerConnectionState> {
   Future<void> _connectionTail = Future.value();
   BleScanLease? _scanLease;
 
-  static bool get isUsbAvailable => Platform.isAndroid;
-  static bool get isBluetoothAvailable => Platform.isAndroid || Platform.isIOS;
+  static bool get isUsbAvailable => PlatformCaps.hasLedgerUsb;
+  static bool get isBluetoothAvailable =>
+      PlatformCaps.hasBluetoothHardwareWallet;
 
   /// Start scanning for Ledger devices.
   ///
@@ -298,7 +299,7 @@ class LedgerService extends StateNotifier<LedgerConnectionState> {
       // UniversalBle selects location permissions on older Android versions.
       await UniversalBle.requestPermissions();
     } catch (_) {
-      throw Exception(Platform.isIOS
+      throw Exception(PlatformOs.isIOS
           ? 'Bluetooth permission denied. Please go to Settings > Kute. and enable Bluetooth.'
           : 'Bluetooth permissions are required. Please enable them in Settings.');
     }
@@ -309,13 +310,13 @@ class LedgerService extends StateNotifier<LedgerConnectionState> {
       final systemDevices = await UniversalBle.getSystemDevices(
         // Android's filtered implementation synchronously waits for service
         // discovery. Use its immediate inventory and filter candidates here.
-        withServices: Platform.isAndroid
+        withServices: PlatformOs.isAndroid
             ? const []
             : LedgerDeviceDiscovery.serviceUuids,
       );
       if (!_isCurrentScan(generation) || _scanLease?.isCurrent != true) return;
       for (final bleDevice in systemDevices) {
-        if (Platform.isAndroid && !LedgerDeviceDiscovery.isCandidate(
+        if (PlatformOs.isAndroid && !LedgerDeviceDiscovery.isCandidate(
             name: bleDevice.name, services: bleDevice.services)) {
           continue;
         }

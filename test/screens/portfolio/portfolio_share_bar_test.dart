@@ -420,7 +420,12 @@ void main() {
     await _settle(tester);
     expect(sent.single, startsWith('My profits on Kute '));
     expect(events.where((e) => e.$1 == 'brag_shared').map((e) => e.$2), [
-      {'kind': 'portfolio', 'card': 'pnl', 'range': '3M'}
+      {
+        'kind': 'portfolio',
+        'link_kind': 'web',
+        'card': 'pnl',
+        'range': '3M'
+      }
     ]);
     await _unmount(tester);
   });
@@ -550,7 +555,12 @@ void main() {
     });
     await _settle(tester);
     expect(events.where((e) => e.$1 == 'brag_shared').map((e) => e.$2), [
-      {'kind': 'portfolio', 'card': 'portfolio', 'holdings_count': 5}
+      {
+        'kind': 'portfolio',
+        'link_kind': 'web',
+        'card': 'portfolio',
+        'holdings_count': 5
+      }
     ]);
     await _unmount(tester);
   });

@@ -11,6 +11,8 @@
 // warning, in the inline error style.
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:kute/platform/web_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -68,6 +70,18 @@ class BrantaPayeeLogo extends StatelessWidget {
           fit: BoxFit.cover,
           gaplessPlayback: true,
           errorBuilder: (_, __, ___) => Center(child: fallback),
+        ),
+      );
+    } else if (kIsWeb) {
+      // Web: the logo host sends no CORS headers; the browser's <img>.
+      logo = ClipOval(
+        child: WebNetworkImage(
+          url: u,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          placeholder: Center(child: fallback),
+          error: Center(child: fallback),
         ),
       );
     } else {

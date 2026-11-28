@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/recovery/restore_secrets_screen.dart'
@@ -65,6 +64,24 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
   bool _advanced = false;
   late final String _path;
 
+  /// Six digits, on every platform: the web takes the PIN in every
+  /// browser too (unlock_secret.dart, 27 November 2026).
+  bool get _ready => pin.length == 6;
+
+  void _next() {
+    if (!_ready) return;
+    HapticFeedback.mediumImpact();
+    ref.read(pinProvider.notifier).state = pin;
+    _advanced = true;
+    context.push('/confirm_pin').then((_) {
+      // Back from confirm with the PIN still pending: the entry
+      // is open again. A saved PIN cleared pinProvider.
+      if (mounted && ref.read(pinProvider).isNotEmpty) {
+        _advanced = false;
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +110,7 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final ready = _ready;
 
     // Just the title and the dots (user decision, September 2026): no step
     // counter, no subtitle, no reminder chip on the first PIN screen.
@@ -100,10 +118,12 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
       leading: const KuteBackButton(fallbackRoute: '/start'),
       title: context.l10n.createAPin,
       // Happy once the six digits are in, before Next is tapped.
-      salMood: pin.length == 6 ? 'happy' : salMoodFor(pin.length),
+      salMood: ready ? 'happy' : salMoodFor(pin.length),
       dots: PinProgressIndicator(currentLength: pin.length),
+      // A laptop's keyboard types on the pad too (web only).
       keypad: CustomKeypad(
         chromed: true,
+        typeFromKeyboard: true,
         onDigitPressed: (digit) {
           if (pin.length < 6) {
             HapticFeedback.lightImpact();
@@ -118,36 +138,23 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
         },
       ),
       footer: AnimatedOpacity(
-        opacity: pin.length == 6 ? 1.0 : 0.0,
+        opacity: ready ? 1.0 : 0.0,
         duration:
             reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
         curve: Curves.easeOut,
         child: IgnorePointer(
-          ignoring: pin.length != 6,
+          ignoring: !ready,
           // THE BAR IS THE BUTTON (kute_bar_context.dart): Next is the
           // floating Sal bar's primary action, on with six digits.
           child: KuteBarContextScope(
             barContext: KuteBarContext.primary(
             label: context.l10n.next,
-            enabled: pin.length == 6,
+            enabled: ready,
             source: 'set_pin',
-            onPrimary: () {
-              if (pin.length == 6) {
-                HapticFeedback.mediumImpact();
-                ref.read(pinProvider.notifier).state = pin;
-                _advanced = true;
-                context.push('/confirm_pin').then((_) {
-                  // Back from confirm with the PIN still pending: the entry
-                  // is open again. A saved PIN cleared pinProvider.
-                  if (mounted && ref.read(pinProvider).isNotEmpty) {
-                    _advanced = false;
-                  }
-                });
-              }
-            },
+            onPrimary: _next,
             disabledLabel: context.l10n.barNeedPin,
             ),
-            child: SizedBox(height: kuteBarScrollClearance.h),
+            child: KutePinScaffold.barRoom(context, form: false),
           ),
         ),
       ),

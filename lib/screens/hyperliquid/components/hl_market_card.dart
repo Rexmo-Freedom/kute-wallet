@@ -130,6 +130,63 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
     final c = context.colors;
     final m = widget.market;
 
+    // What the market is called: the asset's own name, and a Unit-bridged
+    // token reads as the asset it holds (UBTC: Bitcoin), the way
+    // Hyperliquid's own app names it, and a token that holds a stock
+    // reads as that stock (NVDAX: Nvidia). The ticker when no name is
+    // known.
+    final name =
+        hlFriendlyName(m.underlyingTicker) ?? m.unitAssetName ?? m.coin;
+    // Two venues can list a perp under one symbol (ANTH on two builder
+    // dexes): the logo then carries the venue's monogram, so the two rows
+    // never read the same.
+    final shared = HlMarketDirectory.sharesSymbol(m);
+
+    return HlListRow(
+      inGroup: widget.inGroup,
+      onTap: _openDetail,
+      // The REAL coin/token logo (category glyph or letter badge on a
+      // miss), cut round for this row.
+      // Web: none when the build shipped no logo for it (hlLogoOrNull),
+      // and the venue's corner monogram goes with it.
+      leading: hlLogoOrNull(
+        () => HlVenueBadged(
+          monogram: shared ? HlDexNames.monogramOf(m) : null,
+          ring: c.surface,
+          child: HlCoinIcon(
+            coin: m.coin,
+            wireCoin: m.wireCoin,
+            category: m.category,
+            iconUrl: m.iconUrl,
+            size: kHlMarketRowIcon,
+            round: true,
+          ),
+        ),
+        coin: m.coin,
+        wireCoin: m.wireCoin,
+        iconUrl: m.iconUrl,
+        category: m.category,
+      ),
+      name: name,
+      // A price tick rebuilds the figures alone, never the row, its logo
+      // or its ink (a list shows a hundred rows and more on a laptop).
+      figures: _HlLiveFigures(market: m),
+      trailing: widget.trailing,
+    );
+  }
+}
+
+/// A card's live price over its 24h change ([HlListFigures]): the one part
+/// of the row that listens to the coin's live mid.
+class _HlLiveFigures extends ConsumerWidget {
+  const _HlLiveFigures({required this.market});
+
+  final HlMarket market;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final m = market;
     final liveMid = ref.watch(hyperliquidLiveMidProvider(m.coin));
     final price = liveMid ?? (m.midPx > 0 ? m.midPx : m.markPx);
     // The change of the live price on the card (the snapshot's 24h % can
@@ -143,39 +200,8 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
         : change > 0
             ? greenColor
             : redColor;
-
-    // What the market is called: the asset's own name, and a Unit-bridged
-    // token reads as the asset it holds (UBTC: Bitcoin), the way
-    // Hyperliquid's own app names it, and a token that holds a stock
-    // reads as that stock (NVDAX: Nvidia). The ticker when no name is
-    // known.
-    final name =
-        hlFriendlyName(m.underlyingTicker) ?? m.unitAssetName ?? m.coin;
-    // Two venues can list a perp under one symbol (ANTH on two builder
-    // dexes): the logo then carries the venue's monogram, so the two rows
-    // never read the same.
-    final shared = HlMarketDirectory.sharesSymbol(m);
     final thin = m.isLowLiquidity;
-
-    return HlListRow(
-      inGroup: widget.inGroup,
-      onTap: _openDetail,
-      // The REAL coin/token logo (category glyph or letter badge on a
-      // miss), cut round for this row.
-      leading: HlVenueBadged(
-        monogram: shared ? HlDexNames.monogramOf(m) : null,
-        ring: c.surface,
-        child: ClipOval(
-          child: HlCoinIcon(
-            coin: m.coin,
-            wireCoin: m.wireCoin,
-            category: m.category,
-            iconUrl: m.iconUrl,
-            size: kHlMarketRowIcon,
-          ),
-        ),
-      ),
-      name: name,
+    return HlListFigures(
       figure: formatHlListPrice(price, decimalCap: m.pxDecimalCap),
       // No change to show on a thin market: the price stands alone,
       // centred, not over a lone dash.
@@ -183,7 +209,6 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
           ? (change == null ? '—' : hlArrowPct(change))
           : null,
       changeColor: changeColor,
-      trailing: widget.trailing,
     );
   }
 }
@@ -200,9 +225,10 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
 class HlListRow extends StatelessWidget {
   const HlListRow({
     super.key,
-    required this.leading,
+    this.leading,
     required this.name,
-    required this.figure,
+    this.figure = '',
+    this.figures,
     this.change,
     this.changeColor,
     this.onTap,
@@ -217,9 +243,13 @@ class HlListRow extends StatelessWidget {
   /// At the row's end, after the figure ([HlMarketCard.trailing]).
   final Widget? trailing;
 
-  final Widget leading;
+  final Widget? leading;
   final String name;
   final String figure;
+
+  /// In place of [figure] and [change]: a widget that draws them
+  /// ([HlListFigures]), so a live price rebuilds only that part.
+  final Widget? figures;
   final String? change;
   final Color? changeColor;
   final VoidCallback? onTap;
@@ -234,7 +264,6 @@ class HlListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleStyle = AppTextStyles.settingsTitle(context);
-    final change = this.change;
     // In a group the list draws the card; the row keeps its ink.
     final grouped = inGroup;
     final radius = grouped ? null : BorderRadius.circular(AppRadius.lg);
@@ -254,8 +283,11 @@ class HlListRow extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  leading,
-                  SizedBox(width: 12.w),
+                  // Web: no logo shipped, no icon; the name closes up.
+                  if (leading != null) ...[
+                    leading!,
+                    SizedBox(width: 12.w),
+                  ],
                   Expanded(
                     child: Text(
                       name,
@@ -266,38 +298,14 @@ class HlListRow extends StatelessWidget {
                     ),
                   ),
                   SizedBox(width: 12.w),
-                  // A fixed minimum width, right-aligned, so the prices
-                  // line up down the list; a longer price widens it,
-                  // never wraps.
-                  ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: 84.w),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Always the primary text colour: the digits roll
-                        // on a tick, the colour belongs to the change.
-                        RollingNumberText(
-                          key: figureKey,
-                          text: figure,
-                          style: titleStyle.copyWith(
-                            fontFeatures: const [
-                              FontFeature.tabularFigures()
-                            ],
-                          ),
-                        ),
-                        if (change != null) ...[
-                          SizedBox(height: 2.h),
-                          _ChangeText(
-                            key: changeKey,
-                            text: change,
-                            color: changeColor ??
-                                context.colors.textSecondary,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                  figures ??
+                      HlListFigures(
+                        figure: figure,
+                        change: change,
+                        changeColor: changeColor,
+                        figureKey: figureKey,
+                        changeKey: changeKey,
+                      ),
                   if (trailing != null) ...[
                     SizedBox(width: 12.w),
                     trailing!,
@@ -307,6 +315,61 @@ class HlListRow extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// An Investing row's figures ([HlListRow]): the [figure] in the title
+/// style over the [change] in [changeColor] (null: the figure alone),
+/// right-aligned at a fixed minimum width so the prices line up down the
+/// list.
+class HlListFigures extends StatelessWidget {
+  const HlListFigures({
+    super.key,
+    required this.figure,
+    this.change,
+    this.changeColor,
+    this.figureKey,
+    this.changeKey,
+  });
+
+  final String figure;
+  final String? change;
+  final Color? changeColor;
+  final Key? figureKey;
+  final Key? changeKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleStyle = AppTextStyles.settingsTitle(context);
+    final change = this.change;
+    // A fixed minimum width, right-aligned, so the prices line up down
+    // the list; a longer price widens it, never wraps.
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: 84.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Always the primary text colour: the digits roll on a tick,
+          // the colour belongs to the change.
+          RollingNumberText(
+            key: figureKey,
+            text: figure,
+            style: titleStyle.copyWith(
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          if (change != null) ...[
+            SizedBox(height: 2.h),
+            _ChangeText(
+              key: changeKey,
+              text: change,
+              color: changeColor ?? context.colors.textSecondary,
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -9,6 +9,129 @@ class AppLocalizationsRo extends AppLocalizations {
   AppLocalizationsRo([String locale = 'ro']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Această poziție folosește efect de levier, așa că aici o poți doar reduce sau închide.';
+
+  @override
+  String get hlExpoNothingToReduce =>
+      'Aici nu există nicio poziție pe care acest ordin să o poată reduce.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Încă nu există bani pentru tranzacționare. Adaugă bani înainte de a plasa acest ordin.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nu am putut verifica poziția ta pe această piață. Încearcă din nou peste câteva momente.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Setați stop loss-ul sub prețul actual, altfel închide poziția imediat.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Setați stop loss-ul peste prețul actual, altfel închide poziția imediat.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Setați take profit-ul peste prețul actual, altfel închide poziția imediat.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Setați take profit-ul sub prețul actual, altfel închide poziția imediat.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Setați prețul limită egal cu prețul de declanșare sau sub el.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Setați prețul limită egal cu prețul de declanșare sau peste el.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Acest stop este dincolo de prețul de lichidare: poziția ar fi lichidată înainte să se declanșeze.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Acest preț este dincolo de prețul pieței: se execută acum, cu comisionul taker mai mare.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Închiderea completă anulează și ordinele stop și take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Ordine de protecție anulate';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Ordine de protecție încă deschise';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Ordinele stop și take profit nu au putut fi anulate. Anulați-le în Ordine ca să nu închidă o poziție nouă.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Noul stop loss este plasat, dar cel vechi nu a putut fi anulat. Anulați-l în Ordine.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Această poziție are deja un stop loss la $price. La înlocuire, cel vechi se anulează doar după ce noul e plasat.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Această poziție are deja stop loss-uri: $count. La înlocuire, cele vechi se anulează doar după ce noul e plasat.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Înlocuiește';
+
+  @override
+  String get hlProtectAddStop => 'Adaugă încă unul';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Anulați toate ordinele?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Astfel anulați toate ordinele deschise ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Astfel anulați toate ordinele deschise ($count), inclusiv $stops care protejează o poziție.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Ordinele dvs. din Predictions sunt anulate și ele.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Rămas $left din $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Executat $percent%';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Ultimul dvs. trailing stop pe această piață nu este încă confirmat. Verificați ordinele deschise. Nu a fost trimis un al doilea ordin.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop la $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Anulați acest ordin?';
+
+  @override
   String get totalBalance => 'Sold total';
 
   @override
@@ -7042,6 +7165,68 @@ class AppLocalizationsRo extends AppLocalizations {
   String get betUntilCanceled => 'Până la anulare';
 
   @override
+  String get advancedFillsNow => 'Se execută acum';
+
+  @override
+  String get advancedRests => 'Așteaptă în registru';
+
+  @override
+  String get betLimitOrderFilled => 'Ordinul limită a fost executat';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Ai cumpărat $shares acțiuni $outcome la $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Alege un preț în pași de $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Alege un preț între $low și $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Cel mai mic ordin aici este de $count acțiuni.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count acțiuni în ordine deschise';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Doar $count acțiuni sunt libere de vândut. Restul sunt în ordinele tale deschise.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Anulezi toate ordinele?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Se elimină $count ordine deschise:',
+      one: 'Se elimină 1 ordin deschis:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Păstrează ordinele';
+
+  @override
+  String get betOrderTypeRow => 'Tip de ordin';
+
+  @override
+  String get betReservedRow => 'Rezervat';
+
+  @override
   String get betProceedsToPredictions => 'În Predicții';
 
   @override
@@ -11881,6 +12066,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Explorează investițiile';
 
   @override
+  String get dollarsStartInvesting => 'Începe să investești';
+
+  @override
   String get activityFilterTrades => 'Tranzacții';
 
   @override
@@ -12190,9 +12378,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendRecipientSearchHintNoPhone => 'Nume sau orice adresă cripto';
-
-  @override
-  String get shareGetKuteLine => 'Intră în joc pe getkute.com';
 
   @override
   String get sendMoveToYourDollars => 'Mută în Dolarii tăi';
@@ -14623,4 +14808,90 @@ class AppLocalizationsRo extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profitul nu a fost plasat.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-lossul nu a fost plasat.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Take-profitul și stop-lossul nu au fost plasate.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Doar $placed din $total ordine au fost plasate.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Ordin executat parțial';
+
+  @override
+  String get hlAdvStillOpen => 'Încă deschis';
+
+  @override
+  String get hlAdvRestStillOpen => 'Restul ordinului este încă deschis.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Un ordin TWAP are nevoie de cel puțin $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Ordinul tău TWAP rulează $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Ordinul eșalonat ia între $min și $max ordine.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Prețul de început și cel de sfârșit trebuie să difere.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Ambele prețuri trebuie să fie sub prețul curent.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Ambele prețuri trebuie să fie peste prețul curent.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Acest stop-loss este dincolo de prețul estimat de lichidare, așa că poziția ar putea fi lichidată mai întâi.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Ordinul a fost executat, dar trailing stopul nu a fost plasat pentru că nu a fost aprobat.';
+
+  @override
+  String get getAppBannerTitle => 'Descarcă aplicația Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Disponibilă pentru iPhone și Android';
+
+  @override
+  String get chartPriceScale => 'Scară de preț';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Această pagină este deschisă în altă aplicație. Pentru Face ID și ca să îți păstrezi portofelul, deschide-o în Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Această pagină este deschisă în altă aplicație. Pentru a folosi o cheie de acces și a-ți păstra portofelul, deschide-o în Chrome.';
+
+  @override
+  String get shareOpenInAppBody => 'Ai aplicația Kute? Deschide-l acolo.';
+
+  @override
+  String get shareOpenInApp => 'Deschide în aplicație';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Închiderea cu un Ledger nu anulează ordinele stop și take profit ale poziției: fiecare anulare are nevoie de Ledger-ul dvs. Anulați-le în Ordine ca să nu închidă o poziție nouă.';
 }

@@ -1,5 +1,4 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:kute/providers/polymarket_site_order.dart';
 import 'package:kute/services/polymarket/live_game/feed_score_order.dart';
 import 'package:kute/services/polymarket/livestream_source.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
@@ -8,6 +7,7 @@ import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/services/polymarket/search_aliases.dart';
 import 'package:kute/services/polymarket/shown_price.dart';
+import 'package:kute/services/polymarket/web_relay.dart';
 import 'package:kute/services/polymarket/crypto_round.dart'
     show polyCryptoRoundOf, polyCryptoRoundSlug, polyRoundStartAt;
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
@@ -20,7 +20,7 @@ import 'package:kute/services/polymarket/polymarket_price_source.dart'
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:isolate';
+import 'package:kute/platform/off_thread.dart';
 import 'package:kute/helpers/polymarket_artwork.dart';
 import 'package:kute/helpers/prediction_results.dart'
     show closedPredictionWon, predictionClosedBySale, predictionPriceSettled;
@@ -997,7 +997,7 @@ Future<List<Position>> _openPositionsOf(String wallet, String body,
     {bool inline = false}) async {
   final parsed = inline
       ? _parseOpenPositions(body)
-      : await Isolate.run(() => _parseOpenPositions(body));
+      : await runOffThread(() => _parseOpenPositions(body));
   PolyPositionFirstEntry.note(wallet, parsed.entries);
   return parsed.positions;
 }
@@ -1489,7 +1489,7 @@ class PolymarketModel {
   static Future<_KeysetPage?> _decodeKeysetPage(
       String body, String resource) async {
     if (body.length < 64 * 1024) return _parseKeysetPage(body, resource);
-    return Isolate.run(() => _parseKeysetPage(body, resource));
+    return runOffThread(() => _parseKeysetPage(body, resource));
   }
 
   /// [_decodeKeysetPage] for an events page, also read into
@@ -1503,7 +1503,7 @@ class PolymarketModel {
           (body: body, activeOnly: activeOnly, protocol: null));
     }
     final protocol = PolyMarketProtocol.workerState();
-    return Isolate.run(() => _parseKeysetEvents(
+    return runOffThread(() => _parseKeysetEvents(
         (body: body, activeOnly: activeOnly, protocol: protocol)));
   }
 
@@ -1601,7 +1601,7 @@ class PolymarketModel {
       if (resp.statusCode != 200) return [];
       final body = resp.body;
       final parsed =
-          await Isolate.run(() => _parseClosedPositionsAndNegRisk(body));
+          await runOffThread(() => _parseClosedPositionsAndNegRisk(body));
       closedNegRiskConditionIds = parsed.negRisk;
       closedSoldPositions = parsed.sold;
       return parsed.closed;
@@ -1872,7 +1872,7 @@ class PolymarketModel {
       throw StateError('Polymarket activity read failed (${resp.statusCode})');
     }
     final body = resp.body;
-    return Isolate.run(() => _parseUserActivity(body));
+    return runOffThread(() => _parseUserActivity(body));
   }
 
   Future<Profile?> getProfile(String eoaAddress) async {
@@ -2040,7 +2040,7 @@ class PolymarketModel {
       final body = response.body;
       final parsed = body.length < 64 * 1024
           ? _parsePriceHistoryPage(body)
-          : await Isolate.run(() => _parsePriceHistoryPage(body));
+          : await runOffThread(() => _parsePriceHistoryPage(body));
       points.addAll(parsed.points);
       cursor = parsed.nextCursor;
       if (cursor == null) break;
@@ -2691,8 +2691,7 @@ class PolymarketModel {
   /// the site does not answer.
   static Future<Map<String, dynamic>> readSiteView(String path,
       {Map<String, String>? query}) async {
-    final uri = Uri.parse('$kPolySiteGateway$path')
-        .replace(queryParameters: query);
+    final uri = polySiteViewUri(path, query: query);
     final resp = await http.get(uri).timeout(const Duration(seconds: 10));
     if (resp.statusCode != 200) {
       throw http.ClientException('site view failed (${resp.statusCode})');
@@ -2807,7 +2806,7 @@ class PolymarketModel {
   // Only the bounded PUBLIC response is copied to the worker. Parsing and
   // sorting never block keyboard/scroll frames on older devices.
   static Future<PolySearchPage> _parseSearchOffThread(Uint8List bytes) =>
-      Isolate.run(() => _parseSearchResponse(bytes));
+      runOffThread(() => _parseSearchResponse(bytes));
 
   /// The events of one `public-search` page as the app lists them: most
   /// traded first (the event's total volume), Gamma's relevance order for
@@ -3024,7 +3023,7 @@ class PolymarketModel {
     final text = resp.body;
     final body = text.length < 64 * 1024
         ? jsonDecode(text)
-        : await Isolate.run(() => jsonDecode(text));
+        : await runOffThread(() => jsonDecode(text));
     if (body is! Map<String, dynamic> || body['slug'] == null) {
       throw Exception('malformed event payload for slug=$slug');
     }
@@ -3213,8 +3212,7 @@ class PolymarketModel {
     String iso(DateTime t) =>
         '${t.toUtc().toIso8601String().split('.').first}Z';
     try {
-      final uri = Uri.parse('https://polymarket.com/api/crypto/crypto-price')
-          .replace(queryParameters: {
+      final uri = polyCryptoPriceUri({
         'symbol': asset.toUpperCase(),
         'eventStartTime': iso(windowStart),
         'variant': variant,

@@ -13,11 +13,16 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_detail_panes.dart';
+import 'package:kute/screens/shared/kute_desk_market.dart'
+    show KuteDeskUnderPanel;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
@@ -65,13 +70,15 @@ final comboEstimateSeriesProvider = FutureProvider.autoDispose
   for (final leg in position.legs) {
     final ids = tokens[leg.marketId];
     if (ids == null || leg.outcomeIndex >= ids.length) return const [];
-    final points = await PolyPriceHistoryCache.load(ids[leg.outcomeIndex], '1w');
+    final points =
+        await PolyPriceHistoryCache.load(ids[leg.outcomeIndex], '1w');
     if (points == null || points.isEmpty) return const [];
     series.add(points);
   }
   return [
     for (final p in comboEstimateSeries(series))
-      PolymarketPricePoint(timestamp: p.timestamp, price: p.price * position.shares),
+      PolymarketPricePoint(
+          timestamp: p.timestamp, price: p.price * position.shares),
   ];
 });
 
@@ -83,6 +90,8 @@ class ComboDetailSheet extends ConsumerWidget {
     TrackingService.screenView('combo_detail');
     // ignore: discarded_futures
     Navigator.of(context, rootNavigator: true).push(KuteSheetPageRoute(
+      // EXPANDED: across the window, two panes (kute_detail_panes.dart).
+      wide: KuteWideMode.full,
       builder: (_) => ComboDetailSheet(conditionId: conditionId),
     ));
   }
@@ -92,21 +101,48 @@ class ComboDetailSheet extends ConsumerWidget {
     final c = context.colors;
     final l10n = context.l10n;
     final state = ref.watch(polymarketCombosProvider).valueOrNull;
-    final p = state?.positions
-        .where((x) => x.conditionId == conditionId)
-        .firstOrNull;
+    final p =
+        state?.positions.where((x) => x.conditionId == conditionId).firstOrNull;
+    // EXPANDED: the page across the window, the chart on the left, the
+    // summary rows and the legs on the right (kute_detail_panes.dart); the back
+    // button and the title on the page's left gutter. Elsewhere as it was.
+    final wide = kuteIsExpanded(context);
+    final side = kuteWidePadding(context);
+    final back =
+        KuteBackButton(onPressed: () => Navigator.of(context).maybePop());
+    final legsHeader = [
+      if (p != null) ...[
+        Text(l10n.comboLegs,
+            style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w800)),
+        SizedBox(height: 4.h),
+        Text(l10n.comboLegsSettled(p.legsResolved, p.legsTotal),
+            style: TextStyle(color: c.textTertiary, fontSize: 13.sp)),
+      ],
+    ];
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(
         backgroundColor: c.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
-        leading: KuteBackButton(onPressed: () => Navigator.of(context).maybePop()),
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? side.left + 40 : null,
+        leading: wide
+            ? Padding(
+                padding: EdgeInsets.only(left: side.left - 2),
+                child: Align(alignment: Alignment.centerLeft, child: back),
+              )
+            : back,
         title: Text(
           p == null ? l10n.combosTitle : l10n.comboLegsLabel(p.legsTotal),
           style: TextStyle(
-              color: c.textPrimary, fontSize: 18.sp, fontWeight: FontWeight.w600),
+              color: c.textPrimary,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600),
         ),
       ),
       body: p == null
@@ -116,27 +152,42 @@ class ComboDetailSheet extends ConsumerWidget {
               child: Column(
                 children: [
                   Expanded(
-                    child: ListView(
-                      padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 16.h),
-                      children: [
-                        _Summary(position: p),
-                        SizedBox(height: 18.h),
-                        _EstimateChart(position: p),
-                        SizedBox(height: 20.h),
-                        Text(l10n.comboLegs,
-                            style: TextStyle(
-                                color: c.textPrimary,
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.w800)),
-                        SizedBox(height: 4.h),
-                        Text(
-                            l10n.comboLegsSettled(
-                                p.legsResolved, p.legsTotal),
-                            style: TextStyle(
-                                color: c.textTertiary, fontSize: 13.sp)),
-                        for (final leg in p.legs) _LegRow(leg: leg),
-                      ],
-                    ),
+                    child: wide
+                        ? ListView(
+                            padding: side.copyWith(top: 8.h, bottom: 16.h),
+                            children: [
+                              KuteDetailPanes(
+                                hero: _EstimateChart(position: p, tall: true),
+                                // Under the Close combo side panel the
+                                // pane fades away.
+                                details: KuteDeskUnderPanel(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _Summary(position: p, wide: true),
+                                      SizedBox(height: 20.h),
+                                      ...legsHeader,
+                                      for (final leg in p.legs)
+                                        _LegRow(leg: leg),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView(
+                            padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 16.h),
+                            children: [
+                              _Summary(position: p),
+                              SizedBox(height: 18.h),
+                              _EstimateChart(position: p),
+                              SizedBox(height: 20.h),
+                              ...legsHeader,
+                              for (final leg in p.legs) _LegRow(leg: leg),
+                            ],
+                          ),
                   ),
                   Padding(
                     padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 12.h),
@@ -150,8 +201,12 @@ class ComboDetailSheet extends ConsumerWidget {
 }
 
 class _Summary extends StatelessWidget {
-  const _Summary({required this.position});
+  const _Summary({required this.position, this.wide = false});
   final ComboPosition position;
+
+  /// EXPANDED's right pane: a figure's note wraps under it rather than
+  /// squeezing its label (kute_detail_panes.dart).
+  final bool wide;
 
   @override
   Widget build(BuildContext context) {
@@ -172,18 +227,26 @@ class _Summary extends StatelessWidget {
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w600)),
               ),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(value,
-                    style: TextStyle(
-                      color: color ?? c.textPrimary,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    )),
-                if (note != null)
-                  Text(note,
-                      style: TextStyle(color: c.textTertiary, fontSize: 11.sp)),
-              ]),
+              Flexible(
+                flex: wide ? 1 : 0,
+                fit: wide ? FlexFit.tight : FlexFit.loose,
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(value,
+                          style: TextStyle(
+                            color: color ?? c.textPrimary,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w800,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          )),
+                      if (note != null)
+                        Text(note,
+                            textAlign: wide ? TextAlign.end : null,
+                            style: TextStyle(
+                                color: c.textTertiary, fontSize: 11.sp)),
+                    ]),
+              ),
             ],
           ),
         );
@@ -223,21 +286,29 @@ class _LegRow extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 12.h),
       child: Row(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10.r),
-          child: SizedBox(
-            width: 38.sp,
-            height: 38.sp,
-            child: leg.imageUrl == null
-                ? Icon(Icons.show_chart, color: c.textTertiary)
-                : PolyCrestImage(
-                    url: leg.imageUrl!,
-                    size: 38.sp,
-                    radius: 10,
-                    fallback: Icon(Icons.show_chart, color: c.textTertiary)),
+        // Web: only a picture the backend routes draw; else none, and no
+        // gap (PolyPictureLead).
+        if (!kIsWeb)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10.r),
+            child: SizedBox(
+              width: 38.sp,
+              height: 38.sp,
+              child: leg.imageUrl == null
+                  ? Icon(Icons.show_chart, color: c.textTertiary)
+                  : PolyCrestImage(
+                      url: leg.imageUrl!,
+                      size: 38.sp,
+                      radius: 10,
+                      fallback:
+                          Icon(Icons.show_chart, color: c.textTertiary)),
+            ),
           ),
-        ),
-        SizedBox(width: 10.w),
+        if (!kIsWeb)
+          SizedBox(width: 10.w)
+        else
+          PolyPictureLead(
+              url: leg.imageUrl, size: 38.sp, radius: 10, gap: 10.w),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,8 +351,11 @@ class _LegRow extends StatelessWidget {
 }
 
 class _EstimateChart extends ConsumerWidget {
-  const _EstimateChart({required this.position});
+  const _EstimateChart({required this.position, this.tall = false});
   final ComboPosition position;
+
+  /// EXPANDED: the chart fills more of its pane (kute_detail_panes.dart).
+  final bool tall;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -298,7 +372,12 @@ class _EstimateChart extends ConsumerWidget {
                 fontWeight: FontWeight.w700)),
         SizedBox(height: 8.h),
         SizedBox(
-          height: 170.h,
+          // EXPANDED: the market page's hero rule (kute_desk_market.dart),
+          // as tall as the window allows over the fold, at least 420.
+          height: tall
+              ? kuteDeskChartHeight(MediaQuery.sizeOf(context).height,
+                  around: 200)
+              : 170.h,
           child: series.when(
             data: (points) => points.length < 2
                 ? Center(
@@ -365,9 +444,8 @@ class _EstimatePainter extends CustomPainter {
     hi += pad;
     final t0 = points.first.timestamp.millisecondsSinceEpoch.toDouble();
     final t1 = points.last.timestamp.millisecondsSinceEpoch.toDouble();
-    double x(DateTime t) => t1 == t0
-        ? 0
-        : (t.millisecondsSinceEpoch - t0) / (t1 - t0) * size.width;
+    double x(DateTime t) =>
+        t1 == t0 ? 0 : (t.millisecondsSinceEpoch - t0) / (t1 - t0) * size.width;
     double y(double v) => size.height - (v - lo) / (hi - lo) * size.height;
 
     final path = Path();
@@ -390,8 +468,8 @@ class _EstimatePainter extends CustomPainter {
       ..color = label
       ..strokeWidth = 1;
     for (var dx = 0.0; dx < size.width; dx += 8) {
-      canvas.drawLine(Offset(dx, by), Offset(math.min(dx + 4, size.width), by),
-          dash);
+      canvas.drawLine(
+          Offset(dx, by), Offset(math.min(dx + 4, size.width), by), dash);
     }
     final tp = TextPainter(
       text: TextSpan(
@@ -437,11 +515,16 @@ class _CloseComboSheet extends ConsumerStatefulWidget {
   const _CloseComboSheet({required this.position});
   final ComboPosition position;
 
-  static Future<void> show(BuildContext context, ComboPosition p) =>
-      showAppBottomSheet<void>(
-        context: context,
-        builder: (_) => _CloseComboSheet(position: p),
-      );
+  static Future<void> show(BuildContext context, ComboPosition p) {
+    // On a laptop the side panel at the window's right edge, over the
+    // page's right pane (kute_wide_frames.dart, KuteSideFlow; founder, 25
+    // November 2026: "these ones also be side bars").
+    if (kuteIsExpanded(context)) KuteSideFlow.arm();
+    return showAppBottomSheet<void>(
+      context: context,
+      builder: (_) => _CloseComboSheet(position: p),
+    );
+  }
 
   @override
   ConsumerState<_CloseComboSheet> createState() => _CloseComboSheetState();
@@ -479,9 +562,7 @@ class _CloseComboSheetState extends ConsumerState<_CloseComboSheet> {
     }
     final again = _auto < 5;
     ComboAnalytics.quoteExpired(
-        direction: 'sell',
-        legs: widget.position.legsTotal,
-        willRequote: again);
+        direction: 'sell', legs: widget.position.legsTotal, willRequote: again);
     if (again) {
       _auto++;
       _requestQuote();
@@ -615,8 +696,9 @@ class _CloseComboSheetState extends ConsumerState<_CloseComboSheet> {
     final c = context.colors;
     final l10n = context.l10n;
     final q = _quote;
-    final seconds =
-        q == null ? 0 : (q.remaining(DateTime.now()).inMilliseconds / 1000).ceil();
+    final seconds = q == null
+        ? 0
+        : (q.remaining(DateTime.now()).inMilliseconds / 1000).ceil();
     return AppBottomSheetContainer(
       child: Padding(
         padding: EdgeInsets.fromLTRB(

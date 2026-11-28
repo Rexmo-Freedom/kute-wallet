@@ -12,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart' show NoTransitionPage;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteBarPane;
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
     show KuteSalPill;
@@ -26,8 +28,8 @@ final _navKey = GlobalKey<NavigatorState>();
 /// The app's layering in miniature: a root navigator under the bar, the
 /// scroll listener around it, the route observer on it.
 Future<ProviderContainer> _pump(WidgetTester tester,
-    {bool reduce = false}) async {
-  tester.view.physicalSize = const Size(390, 844);
+    {bool reduce = false, Size size = const Size(390, 844)}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final container = ProviderContainer(overrides: [
@@ -90,8 +92,10 @@ Future<void> _push(WidgetTester tester, Widget page, {String? name}) async {
 
 /// Whether the bar is up: shown and taking taps.
 bool _up(WidgetTester tester) {
-  final slide = tester.widget<AnimatedSlide>(
-      find.byKey(const ValueKey('kute-shell-bar-slide')));
+  final finder = find.byKey(const ValueKey('kute-shell-bar-slide'));
+  // Never shown yet: no bar at all.
+  if (finder.evaluate().isEmpty) return false;
+  final slide = tester.widget<AnimatedSlide>(finder);
   return slide.offset == Offset.zero;
 }
 
@@ -108,6 +112,88 @@ void main() {
     KuteBarRouteObserver.reset();
   });
 
+  testWidgets(
+      'the web\'s wide and medium layouts: no default pill on a pushed page, '
+      'a page\'s own primary still shows',
+      (tester) async {
+    KuteLayout.debugWeb = true;
+    KuteBarPane.debugWeb = true;
+    addTearDown(() {
+      KuteLayout.debugWeb = false;
+      KuteBarPane.debugWeb = false;
+    });
+    for (final size in const [Size(1440, 900), Size(760, 900)]) {
+      await _pump(tester, size: size);
+      await _push(tester, _page(), name: 'add_wallet');
+      expect(_up(tester), isFalse);
+      expect(find.byType(KuteSalPill).hitTestable(), findsNothing);
+      expect(find.text('Search or Manage with AI').hitTestable(),
+          findsNothing);
+      await _push(
+          tester,
+          _page(
+              barContext: KuteBarContext.primary(
+                  label: 'Continue', onPrimary: () {})),
+          name: 'form');
+      expect(_up(tester), isTrue);
+      _nav(tester).pop();
+      await tester.pumpAndSettle();
+      _nav(tester).popUntil((r) => r.isFirst);
+      await tester.pumpAndSettle();
+      KuteBarRouteObserver.reset();
+    }
+  });
+
+  testWidgets(
+      'regression (84d61d50): the default pill does not come back over the '
+      'home after a market page is opened and closed on the wide web layout',
+      (tester) async {
+    KuteLayout.debugWeb = true;
+    KuteBarPane.debugWeb = true;
+    kuteShellMounted.value = true;
+    addTearDown(() {
+      KuteLayout.debugWeb = false;
+      KuteBarPane.debugWeb = false;
+      kuteShellMounted.value = false;
+    });
+    await _pump(tester, size: const Size(1440, 900));
+    // The home tab: no default pill (the search is the top bar's).
+    expect(_up(tester), isFalse);
+    // A market page: its own trade row still shows.
+    await _push(
+        tester,
+        _page(
+            barContext: KuteBarContext.trade(
+                share: const KuteBarShare(barContext: _market),
+                trades: [
+          KuteBarTrade(
+              id: 'invest',
+              label: 'Invest',
+              fill: const Color(0xFF22AA66),
+              onTap: () {}),
+        ])),
+        name: 'market');
+    expect(_up(tester), isTrue);
+    expect(find.text('Invest'), findsOneWidget);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse, reason: 'back on the home: still no pill');
+    expect(find.text('Search or Manage with AI').hitTestable(), findsNothing);
+    // A plain page (the Portfolio, Add account): none, then none again.
+    await _push(tester, _page(), name: 'portfolio');
+    expect(_up(tester), isFalse);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse);
+    // Down to a phone's width the pill is back; wide again, gone again.
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    expect(_up(tester), isTrue);
+    tester.view.physicalSize = const Size(1440, 900);
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse);
+  });
+
   testWidgets('away over the tabs; up with the default over a pushed page',
       (tester) async {
     await _pump(tester);
@@ -122,8 +208,9 @@ void main() {
     expect(_up(tester), isFalse);
   });
 
-  testWidgets('a bottom sheet counts; a dialog and a lock screen do not',
-      (tester) async {
+  testWidgets(
+      'a bottom sheet counts, but one with no action of its own has no bar '
+      'over it; a dialog and a lock screen do not count', (tester) async {
     await _pump(tester);
     final homeContext = _navKey.currentContext!;
     // ignore: unawaited_futures
@@ -132,10 +219,27 @@ void main() {
         builder: (_) => const SizedBox(height: 300, child: Text('Sheet')));
     await tester.pumpAndSettle();
     expect(find.text('Sheet'), findsOneWidget);
-    expect(_up(tester), isTrue);
+    expect(KuteBarRouteObserver.over.value, 1);
+    // Founder, 27 November 2026: the pill sat over the Financial hub.
+    expect(_up(tester), isFalse);
+    expect(find.byType(KuteSalPill).hitTestable(), findsNothing);
     _nav(tester).pop();
     await tester.pumpAndSettle();
     expect(_up(tester), isFalse);
+
+    // A sheet whose action is the bar keeps it.
+    // ignore: unawaited_futures
+    showKuteModalSheet<void>(
+        context: homeContext,
+        builder: (_) => KuteBarContextScope(
+            barContext:
+                KuteBarContext.primary(label: 'Place', onPrimary: () {}),
+            child: const SizedBox(height: 300, child: Text('Slip'))));
+    await tester.pumpAndSettle();
+    expect(_up(tester), isTrue);
+    expect(find.text('Place').hitTestable(), findsOneWidget);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
 
     // ignore: unawaited_futures
     showDialog<void>(
@@ -272,8 +376,9 @@ void main() {
     _nav(tester).pop();
     await tester.pumpAndSettle();
 
-    // Past the short fraction: the bar floats over it, and the sheet's
-    // scroll content leaves it room.
+    // Past the short fraction: no bar either (founder, 27 November 2026:
+    // a sheet with no action of its own has none over it), and the
+    // sheet's scroll content keeps no room for one.
     double? room;
     // ignore: unawaited_futures
     showKuteModalSheet<void>(
@@ -290,15 +395,15 @@ void main() {
             ));
     await tester.pumpAndSettle();
     expect(find.text('Tall'), findsOneWidget);
-    expect(_up(tester), isTrue);
-    expect(room, greaterThan(0));
+    expect(_up(tester), isFalse);
+    expect(room, 0);
     _nav(tester).pop();
     await tester.pumpAndSettle();
   });
 
   testWidgets(
-      'a page\'s context reads while its route is current; a sheet over it '
-      'gets the default', (tester) async {
+      'a page\'s context reads while its route is current; a sheet with no '
+      'action over it has no bar, and the page\'s comes back', (tester) async {
     await _pump(tester);
     await _push(tester, _page(barContext: _market), name: 'market');
     expect(find.text('Share with your friends'), findsOneWidget);
@@ -308,8 +413,8 @@ void main() {
         context: _navKey.currentContext!,
         builder: (_) => const SizedBox(height: 300, child: Text('Slip')));
     await tester.pumpAndSettle();
-    expect(find.text('Search or Manage with AI'), findsOneWidget);
-    expect(find.text('Share with your friends'), findsNothing);
+    expect(_up(tester), isFalse);
+    expect(find.text('Share with your friends').hitTestable(), findsNothing);
 
     _nav(tester).pop();
     await tester.pumpAndSettle();

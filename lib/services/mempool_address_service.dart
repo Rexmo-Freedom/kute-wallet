@@ -244,8 +244,49 @@ class MempoolAddressService {
   static DateTime? _primaryDownAt;
   static const _primaryRetryAfter = Duration(minutes: 1);
 
+  /// Web only: when every host last failed, and how many reads in a row
+  /// failed that way. A browser that cannot reach either host (CORS, an
+  /// ad blocker, a network that refuses them) otherwise fired the same
+  /// failing reads on every sync tick, forever. Reads inside the back-off
+  /// window fail at once without a request; the window doubles from
+  /// [_webBackoffBase] up to [_webBackoffMax] and a success clears it.
+  static DateTime? _webAllDownAt;
+  static int _webFailures = 0;
+  static const _webBackoffBase = Duration(seconds: 15);
+  static const _webBackoffMax = Duration(minutes: 10);
+
+  static Duration _webBackoff() {
+    final shift = min(_webFailures - 1, 10);
+    final ms = _webBackoffBase.inMilliseconds * (1 << shift);
+    return Duration(milliseconds: min(ms, _webBackoffMax.inMilliseconds));
+  }
+
+  static void _clearWebBackoff() {
+    _webAllDownAt = null;
+    _webFailures = 0;
+  }
+
+  @visibleForTesting
+  static void resetWebBackoffForTest() => _clearWebBackoff();
+
   /// Both hosts expose the same Esplora read API.
   static Future<T> _read<T>(String path, T Function(String) parse) async {
+    if (kIsWeb) {
+      final downAt = _webAllDownAt;
+      if (downAt != null && DateTime.now().difference(downAt) < _webBackoff()) {
+        throw StateError('Bitcoin explorer unavailable');
+      }
+    }
+    final result = await _readHosts(path, parse);
+    if (kIsWeb) _clearWebBackoff();
+    return result;
+  }
+
+  static Future<T> _readHosts<T>(String path, T Function(String) parse) async {
+    // A host that answered (even a 404 for an unknown transaction) is up;
+    // only reads no host answered (unreachable, blocked, throttled or
+    // failing) start the web back-off.
+    var anyAnswered = false;
     for (var i = 0; i < _hosts.length; i++) {
       final base = _hosts[i];
       final downAt = _primaryDownAt;
@@ -260,6 +301,17 @@ class MempoolAddressService {
             .timeout(i == 0 ? _primaryTimeout : requestTimeout);
         // A non-2xx is the host's answer, not a broken connection: keep the
         // client and just try the next host.
+        final status = response.statusCode;
+        // A rate limit (429) or a server error is no answer either: a
+        // public explorer that throttles the browser gets backed off too.
+        if (status != 0 && status != 429 && status < 500) {
+          anyAnswered = true;
+        } else if (kIsWeb && i == 0) {
+          // In a browser a blocked or unreachable host surfaces as status
+          // 0, not a thrown timeout: skip it (or a throttling one) for a
+          // minute as well.
+          _primaryDownAt = DateTime.now();
+        }
         if (!response.isSuccess) continue;
         final result = parse(response.data!);
         final host = Uri.parse(base).host;
@@ -273,6 +325,16 @@ class MempoolAddressService {
         // and the connection that carried them is thrown away.
         _dropClient(base);
         if (i == 0) _primaryDownAt = DateTime.now();
+      }
+    }
+    if (kIsWeb && !anyAnswered) {
+      // Reads already in flight when the window opened (one sync tick
+      // fires several) count as one failure, not one each.
+      final now = DateTime.now();
+      final last = _webAllDownAt;
+      if (last == null || now.difference(last) >= _webBackoff()) {
+        _webFailures++;
+        _webAllDownAt = now;
       }
     }
     throw StateError('Bitcoin explorer unavailable');

@@ -27,6 +27,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show KuteDialogCard;
 
 import 'package:kute/screens/shared/receive_surface.dart'
     show kReceiveSheetMaxHeight;
@@ -139,7 +141,19 @@ class SendSheetPage<T> extends Page<T> {
 /// the breadcrumb ring only record page routes, and `pay_send` is
 /// named), while the screen it opened from stays visible behind it.
 class SendSheetRoute<T> extends PageRoute<T> {
-  SendSheetRoute({required this.builder, super.settings});
+  SendSheetRoute({required this.builder, super.settings}) {
+    // Opened from the top bar's Send (or from a step of a flow it
+    // started): a side panel on EXPANDED (kute_wide_frames.dart,
+    // KuteSideFlow).
+    side = KuteSideFlow.decide(this);
+    stacked = side && KuteSideFlow.anyOpen;
+  }
+
+  /// A side panel on EXPANDED ([KuteDialogCard]).
+  late final bool side;
+
+  /// A side panel over a side panel: no second dim.
+  late final bool stacked;
 
   final WidgetBuilder builder;
   final SendSheetController sheetController = SendSheetController();
@@ -154,7 +168,9 @@ class SendSheetRoute<T> extends PageRoute<T> {
   bool get maintainState => true;
 
   @override
-  Color? get barrierColor => Colors.black54;
+  Color? get barrierColor => side
+      ? (stacked ? Colors.transparent : kuteSidePanelBarrier)
+      : Colors.black54;
 
   /// Scrim taps are the sheet's own decision ([SendSheetController
   /// .dismissible]), never the barrier's.
@@ -186,6 +202,8 @@ class SendSheetRoute<T> extends PageRoute<T> {
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation,
       Animation<double> secondaryAnimation, Widget child) {
+    // A side panel slides in from the right by itself (KuteDialogCard).
+    if (side && kuteWindowIsExpanded(context)) return child;
     return SlideTransition(
       position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
           .animate(CurvedAnimation(
@@ -264,8 +282,7 @@ class _SendSheetFrameState extends State<_SendSheetFrame>
       _controller.expand();
       return;
     }
-    if (_controller.dismissible &&
-        (_drag > sheetHeight * 0.25 || v > 700)) {
+    if (_controller.dismissible && (_drag > sheetHeight * 0.25 || v > 700)) {
       _dismiss();
       return;
     }
@@ -310,8 +327,34 @@ class _SendSheetFrameState extends State<_SendSheetFrame>
     final controller = _controller;
     if (keyboard > 0 && !controller.expanded) {
       // The keyboard would cover a half-height sheet: it stays full.
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => controller.expand());
+      WidgetsBinding.instance.addPostFrameCallback((_) => controller.expand());
+    }
+    // EXPANDED (a laptop): the send is a centred dialog card at a page's
+    // height over the dimmed screen it came from, its primary inside it
+    // (kute_dialog.dart; wide_design_2.md, C). The flow decides as on a
+    // phone whether a click outside or Escape may close it.
+    if (kuteWindowIsExpanded(context)) {
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              key: const ValueKey('send-sheet-scrim'),
+              behavior: HitTestBehavior.opaque,
+              onTap: _onScrimTap,
+            ),
+          ),
+          Positioned.fill(
+            child: KuteDialogCard(
+              key: const ValueKey('send-sheet'),
+              route: widget.route,
+              fill: true,
+              color: context.colors.background,
+              onDismiss: controller.dismissible ? _dismiss : null,
+              child: widget.child,
+            ),
+          ),
+        ],
+      );
     }
     final screen = mq.size.height;
     final full = (screen - mq.viewPadding.top - 8).clamp(0.0, screen);
@@ -336,59 +379,62 @@ class _SendSheetFrameState extends State<_SendSheetFrame>
         ),
         Align(
           alignment: Alignment.bottomCenter,
-          child: Transform.translate(
-            offset: Offset(0, _drag),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(end: target),
-              duration: duration,
-              curve: Curves.easeOutCubic,
-              // The surface runs down behind the keyboard; the flow's
-              // frame pads its content by the inset, so its action sits
-              // above the keys. The sheet grows at least as fast as the
-              // keyboard rises (the platform animates the inset on the
-              // keyboard's own curve), so a half-height sheet is never
-              // squeezed by it and nothing jumps.
-              builder: (context, base, child) {
-                final height = base < medium + keyboard
-                    ? (medium + keyboard).clamp(0.0, full)
-                    : base;
-                return GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onVerticalDragUpdate: _onDragUpdate,
-                  onVerticalDragEnd: (d) => _onDragEnd(d, height),
-                  child: Container(
-                    key: const ValueKey('send-sheet'),
-                    height: height,
-                    width: double.infinity,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: AppDecorations.bottomSheet(context)
-                        .copyWith(color: c.background),
-                    child: child,
-                  ),
-                );
-              },
-              child: Column(
-                children: [
-                  // The handle where every sheet draws it, 12 under the
-                  // top edge (AppBottomSheetHeader), so a first step's
-                  // title header lines up with the other sheets'
-                  // (receive_surface.dart, SheetTitleHeader).
-                  Padding(
-                    padding: EdgeInsets.only(top: 12.h),
-                    child: AppDecorations.dragHandle(context),
-                  ),
-                  Expanded(
-                    // The sheet sits below the status bar: the flow's
-                    // app bar needs no top inset. Bottom insets (home
-                    // indicator, keyboard) pass through, so the flow's
-                    // frame keeps its action above the keyboard.
-                    child: MediaQuery.removePadding(
-                      context: context,
-                      removeTop: true,
-                      child: widget.child,
+          // A centred form from MEDIUM up (kute_wide_frames.dart).
+          child: KuteSheetWidth(
+            child: Transform.translate(
+              offset: Offset(0, _drag),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(end: target),
+                duration: duration,
+                curve: Curves.easeOutCubic,
+                // The surface runs down behind the keyboard; the flow's
+                // frame pads its content by the inset, so its action sits
+                // above the keys. The sheet grows at least as fast as the
+                // keyboard rises (the platform animates the inset on the
+                // keyboard's own curve), so a half-height sheet is never
+                // squeezed by it and nothing jumps.
+                builder: (context, base, child) {
+                  final height = base < medium + keyboard
+                      ? (medium + keyboard).clamp(0.0, full)
+                      : base;
+                  return GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onVerticalDragUpdate: _onDragUpdate,
+                    onVerticalDragEnd: (d) => _onDragEnd(d, height),
+                    child: Container(
+                      key: const ValueKey('send-sheet'),
+                      height: height,
+                      width: double.infinity,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: AppDecorations.bottomSheet(context)
+                          .copyWith(color: c.background),
+                      child: child,
                     ),
-                  ),
-                ],
+                  );
+                },
+                child: Column(
+                  children: [
+                    // The handle where every sheet draws it, 12 under the
+                    // top edge (AppBottomSheetHeader), so a first step's
+                    // title header lines up with the other sheets'
+                    // (receive_surface.dart, SheetTitleHeader).
+                    Padding(
+                      padding: EdgeInsets.only(top: 12.h),
+                      child: AppDecorations.dragHandle(context),
+                    ),
+                    Expanded(
+                      // The sheet sits below the status bar: the flow's
+                      // app bar needs no top inset. Bottom insets (home
+                      // indicator, keyboard) pass through, so the flow's
+                      // frame keeps its action above the keyboard.
+                      child: MediaQuery.removePadding(
+                        context: context,
+                        removeTop: true,
+                        child: widget.child,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

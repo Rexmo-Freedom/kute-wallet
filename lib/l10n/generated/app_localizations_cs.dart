@@ -9,6 +9,129 @@ class AppLocalizationsCs extends AppLocalizations {
   AppLocalizationsCs([String locale = 'cs']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Tato pozice používá páku, proto ji zde můžete jen snížit nebo uzavřít.';
+
+  @override
+  String get hlExpoNothingToReduce =>
+      'Není tu žádná pozice, kterou by tento pokyn mohl zmenšit.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Zatím tu nejsou žádné peníze k obchodování. Před zadáním tohoto pokynu přidejte peníze.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nepodařilo se ověřit vaši pozici na tomto trhu. Zkuste to za chvíli znovu.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Nastavte stop loss pod aktuální cenu, jinak pozici hned uzavře.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Nastavte stop loss nad aktuální cenu, jinak pozici hned uzavře.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Nastavte take profit nad aktuální cenu, jinak pozici hned uzavře.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Nastavte take profit pod aktuální cenu, jinak pozici hned uzavře.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Nastavte limitní cenu na spouštěcí cenu nebo pod ni.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Nastavte limitní cenu na spouštěcí cenu nebo nad ni.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Tento stop je za likvidační cenou: pozice by byla zlikvidována dřív, než se spustí.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Tato cena je za tržní cenou: provede se hned, s vyšším poplatkem takera.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Uzavření celé pozice zruší i její příkazy stop a take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Zrušené ochranné příkazy';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Stále otevřené ochranné příkazy';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Její příkazy stop a take profit se nepodařilo zrušit. Zrušte je v Příkazech, aby neuzavřely novou pozici.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Nový stop loss je zadaný, ale starý se nepodařilo zrušit. Zrušte ho v Příkazech.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Tato pozice už má stop loss na $price. Při nahrazení se starý zruší až po zadání nového.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Tato pozice už má stop lossy: $count. Při nahrazení se staré zruší až po zadání nového.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Nahradit';
+
+  @override
+  String get hlProtectAddStop => 'Přidat další';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Zrušit všechny příkazy?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Tím zrušíte všechny otevřené příkazy ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Tím zrušíte všechny otevřené příkazy ($count), z toho chránících pozici: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Zruší se i vaše příkazy v Predictions.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Zbývá $left z $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Provedeno $percent %';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Váš poslední trailing stop na tomto trhu ještě není potvrzen. Zkontrolujte otevřené příkazy. Druhý příkaz odeslán nebyl.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop na $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Zrušit tento příkaz?';
+
+  @override
   String get totalBalance => 'Celkový zůstatek';
 
   @override
@@ -7002,6 +7125,68 @@ class AppLocalizationsCs extends AppLocalizations {
   String get betUntilCanceled => 'Do zrušení';
 
   @override
+  String get advancedFillsNow => 'Vyplní se hned';
+
+  @override
+  String get advancedRests => 'Čeká v knize';
+
+  @override
+  String get betLimitOrderFilled => 'Limitní příkaz vyplněn';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Koupeno $shares podílů $outcome za $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Zvolte cenu v krocích po $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Zvolte cenu od $low do $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Nejmenší příkaz je zde $count podílů.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count podílů v otevřených příkazech';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'K prodeji je volných jen $count podílů. Zbytek je ve vašich otevřených příkazech.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Zrušit všechny příkazy?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tímto odstraníte $count otevřených příkazů:',
+      one: 'Tímto odstraníte 1 otevřený příkaz:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Ponechat příkazy';
+
+  @override
+  String get betOrderTypeRow => 'Typ příkazu';
+
+  @override
+  String get betReservedRow => 'Rezervováno';
+
+  @override
   String get betProceedsToPredictions => 'Do Predikcí';
 
   @override
@@ -11821,6 +12006,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Procházet Investování';
 
   @override
+  String get dollarsStartInvesting => 'Začít investovat';
+
+  @override
   String get activityFilterTrades => 'Obchody';
 
   @override
@@ -12128,9 +12316,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get sendRecipientSearchHintNoPhone => 'Jméno či krypto adresa';
-
-  @override
-  String get shareGetKuteLine => 'Přidej se k akci na getkute.com';
 
   @override
   String get sendMoveToYourDollars => 'Přesunout na tvé Dolary';
@@ -14543,4 +14728,86 @@ class AppLocalizationsCs extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profit nebyl zadán.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss nebyl zadán.';
+
+  @override
+  String get hlAdvTpSlNotPlaced => 'Take-profit a stop-loss nebyly zadány.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Zadáno bylo jen $placed z $total objednávek.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Objednávka částečně vyplněna';
+
+  @override
+  String get hlAdvStillOpen => 'Stále otevřeno';
+
+  @override
+  String get hlAdvRestStillOpen => 'Zbytek objednávky je stále otevřený.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Objednávka TWAP musí mít alespoň $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Vaše objednávka TWAP běží $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Škálování bere $min až $max objednávek.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Počáteční a koncová cena se musí lišit.';
+
+  @override
+  String get hlAdvScaleBelowPrice => 'Obě ceny musí být pod aktuální cenou.';
+
+  @override
+  String get hlAdvScaleAbovePrice => 'Obě ceny musí být nad aktuální cenou.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Tento stop-loss je za odhadovanou likvidační cenou, takže pozice může být zlikvidována dřív.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Objednávka se vyplnila, ale trailing stop nebyl zadán, protože nebyl schválen.';
+
+  @override
+  String get getAppBannerTitle => 'Stáhni si aplikaci Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'K dispozici pro iPhone a Android';
+
+  @override
+  String get chartPriceScale => 'Cenová stupnice';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Tato stránka je otevřená v jiné aplikaci. Pro Face ID a uchování peněženky ji otevřete v Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Tato stránka je otevřená v jiné aplikaci. Chcete-li použít přístupový klíč a uchovat peněženku, otevřete ji v Chromu.';
+
+  @override
+  String get shareOpenInAppBody => 'Máte aplikaci Kute? Otevřete to tam.';
+
+  @override
+  String get shareOpenInApp => 'Otevřít v aplikaci';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Uzavření s Ledgerem nezruší příkazy stop a take profit dané pozice: každé zrušení vyžaduje váš Ledger. Zrušte je v Příkazech, aby neuzavřely novou pozici.';
 }

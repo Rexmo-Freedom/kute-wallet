@@ -1,3 +1,5 @@
+import 'package:kute/screens/home/components/get_app_notice.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -44,6 +46,8 @@ import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/home/components/seed_unavailable_banner.dart';
+import 'package:kute/screens/home/bitcoin_home_panes.dart'
+    show BitcoinHomeDesktop;
 import 'package:kute/screens/home/components/wallet_cards.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
 import 'package:kute/screens/activity/activity_history_screen.dart';
@@ -70,7 +74,13 @@ import 'package:intl/intl.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 
 class Home extends ConsumerStatefulWidget {
-  const Home({super.key});
+  const Home({super.key, this.panes = false});
+
+  /// The EXPANDED Bitcoin home only (bitcoin_home_panes.dart): no hero
+  /// (its balance and actions are the desktop top bar's), the activity on
+  /// the left and the goals beside it ([BitcoinHomeDesktop]). False (a
+  /// phone, MEDIUM): the home exactly as it is.
+  final bool panes;
 
   @override
   ConsumerState<Home> createState() => _HomeState();
@@ -414,6 +424,27 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
   /// provider's ref, so leaving Home mid-pull is safe.
   Future<void> _handleRefresh() => ref.read(refreshEverythingProvider).home();
 
+  /// EXPANDED ([Home.panes], bitcoin_home_panes.dart): the balance and
+  /// its actions are the desktop top bar's, so the page is the activity
+  /// (its pull the home's) with the home's banners at its top, and the
+  /// goals beside it.
+  Widget _panes({required bool needsBackup}) => BitcoinHomeDesktop(
+        onRefresh: _handleRefresh,
+        banners: [
+          const SeedUnavailableBanner(),
+          if (needsBackup)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: SecurityActionCard(),
+            )
+          else
+            // Web only: the "get the app" notice, where the backup
+            // reminder stands; that one wins (get_app_notice.dart).
+            const GetAppNotice(
+                surface: 'bitcoin', padding: EdgeInsets.only(bottom: 12)),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -473,6 +504,54 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     final bool isWatchOnly = activeWallet.isWatchOnly;
     final bool isHardware = activeWallet.isHardware;
 
+    // The hero: the banners, the balance and its action row, the top of
+    // the home's one scroll (on EXPANDED the top bar and the page carry
+    // them, [_panes]).
+    final hero = <Widget>[
+      const SliverToBoxAdapter(child: SeedUnavailableBanner()),
+
+      if (needsBackup)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+            child: const SecurityActionCard(),
+          ),
+        )
+      else
+        // Web only: the "get the app" notice, where the backup reminder
+        // stands; that one wins (get_app_notice.dart).
+        SliverToBoxAdapter(
+          child: GetAppNotice(
+            surface: 'bitcoin',
+            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+          ),
+        ),
+
+      SliverToBoxAdapter(
+        child: _EntranceTransition(
+          animation: _staggered(0),
+          child: _WalletDeckWrapper(
+            isHardware: isHardware,
+            isWatchOnly: isWatchOnly,
+            isEuropean: isEuropeanUser,
+          ),
+        ),
+      ),
+
+      // Shared action row — Deposit / Receive / Send /
+      // Move / Pay Link, scoped to whichever card is
+      // currently selected (BTC, USDC, or a cold wallet).
+      // Lives outside the cards so the cards stay pure
+      // identity surfaces and the action row is the
+      // single shared affordance across all of them.
+      const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
+          child: _HomeActions(),
+        ),
+      ),
+    ];
+
     return Scaffold(
       extendBody: true,
       body: Container(
@@ -499,79 +578,47 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
                   HomeDock(onHeightChanged: onHeightChanged),
               body: SafeArea(
                 bottom: false,
-                child: NotificationListener<ScrollMetricsNotification>(
-                  onNotification: _onScrollMetrics,
-                  child: RefreshIndicator(
-                    onRefresh: _handleRefresh,
-                    color: c.accent,
-                    backgroundColor: c.surface,
-                    edgeOffset: 68.h,
-                    child: CustomScrollView(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(
-                          parent: BouncingScrollPhysics()),
-                      slivers: [
-                        // Clears the integrated top nav bar. Sized to the nav's
-                        // ~54.h content band + ~10.h breathing room (the scroll
-                        // view already sits below the safe-area inset).
-                        SliverToBoxAdapter(child: SizedBox(height: 64.h)),
+                child: widget.panes
+                    ? _panes(needsBackup: needsBackup)
+                    : NotificationListener<ScrollMetricsNotification>(
+                        onNotification: _onScrollMetrics,
+                        child: RefreshIndicator(
+                          onRefresh: _handleRefresh,
+                          color: c.accent,
+                          backgroundColor: c.surface,
+                          edgeOffset: 68.h,
+                          child: CustomScrollView(
+                            controller: _scrollController,
+                            physics: const AlwaysScrollableScrollPhysics(
+                                parent: BouncingScrollPhysics()),
+                            slivers: [
+                              // Clears the integrated top nav bar. Sized to the nav's
+                              // ~54.h content band + ~10.h breathing room (the scroll
+                              // view already sits below the safe-area inset).
+                              SliverToBoxAdapter(child: SizedBox(height: 64.h)),
 
-                        // Predictions are NOT surfaced on the home screen
-                        // — they live entirely in the dedicated Predictions
-                        // tab so the home stays focused on the wallet
-                        // (the primary surface for the vast majority of
-                        // sessions).
+                              // Predictions are NOT surfaced on the home screen
+                              // — they live entirely in the dedicated Predictions
+                              // tab so the home stays focused on the wallet
+                              // (the primary surface for the vast majority of
+                              // sessions).
 
-                        const SliverToBoxAdapter(
-                            child: SeedUnavailableBanner()),
+                              ...hero,
 
-                        if (needsBackup)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding:
-                                  EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
-                              child: const SecurityActionCard(),
-                            ),
-                          ),
+                              const _ActivitySection(),
 
-                        SliverToBoxAdapter(
-                          child: _EntranceTransition(
-                            animation: _staggered(0),
-                            child: _WalletDeckWrapper(
-                              isHardware: isHardware,
-                              isWatchOnly: isWatchOnly,
-                              isEuropean: isEuropeanUser,
-                            ),
+                              // Clears the floating dock: KuteDockHost reports
+                              // dock + 12.h as the bottom padding, plus 12.h.
+                              SliverToBoxAdapter(
+                                  child: Builder(
+                                      builder: (context) => SizedBox(
+                                          height: MediaQuery.paddingOf(context)
+                                                  .bottom +
+                                              12.h))),
+                            ],
                           ),
                         ),
-
-                        // Shared action row — Deposit / Receive / Send /
-                        // Move / Pay Link, scoped to whichever card is
-                        // currently selected (BTC, USDC, or a cold wallet).
-                        // Lives outside the cards so the cards stay pure
-                        // identity surfaces and the action row is the
-                        // single shared affordance across all of them.
-                        const SliverToBoxAdapter(
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
-                            child: _HomeActions(),
-                          ),
-                        ),
-
-                        const _ActivitySection(),
-
-                        // Clears the floating dock: KuteDockHost reports
-                        // dock + 12.h as the bottom padding, plus 12.h.
-                        SliverToBoxAdapter(
-                            child: Builder(
-                                builder: (context) => SizedBox(
-                                    height:
-                                        MediaQuery.paddingOf(context).bottom +
-                                            12.h))),
-                      ],
-                    ),
-                  ),
-                ),
+                      ),
               ),
             ),
 
@@ -1148,9 +1195,8 @@ class _BitcoinAccountFrontState extends ConsumerState<_BitcoinAccountFront>
     // known-empty new wallet got the number on screen. Deferred to after
     // paint; no amount is sent.
     if (LatencyTracker.isRunning(LatencyKeys.balanceLoaded)) {
-      final source = !breezWaking
-          ? 'sdk'
-          : (hasCachedBalance ? 'cache' : 'new_wallet');
+      final source =
+          !breezWaking ? 'sdk' : (hasCachedBalance ? 'cache' : 'new_wallet');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         LatencyTracker.stop(LatencyKeys.balanceLoaded,
             params: {'source': source});
@@ -1378,12 +1424,10 @@ class _HomeActions extends ConsumerWidget {
             ? null
             : () => showKuteSearch(context,
                 source: source,
-                initialCategory: isUsdc
-                    ? SearchCategory.predictions
-                    : SearchCategory.all,
+                initialCategory:
+                    isUsdc ? SearchCategory.predictions : SearchCategory.all,
                 searchFirst: true,
-                searchHint:
-                    isUsdc ? context.l10n.searchPredictionsHint : null),
+                searchHint: isUsdc ? context.l10n.searchPredictionsHint : null),
       );
     }
     if (activeWallet == null) return const SizedBox.shrink();
@@ -1394,8 +1438,8 @@ class _HomeActions extends ConsumerWidget {
     if (!isUsdc) {
       return KuteCompactActions(
           source: source,
-          actions:
-              bitcoinHomeDockActions(context, ref, activeWallet, source: source));
+          actions: bitcoinHomeDockActions(context, ref, activeWallet,
+              source: source));
     }
     // The Predictions (USDC) card: Deposit · Portfolio · Withdraw.
     return KuteCompactActions(source: source, actions: [
@@ -1411,8 +1455,9 @@ class _HomeActions extends ConsumerWidget {
           strongIcon: true,
           onTap: () => Navigator.of(context, rootNavigator: true).push(
               MaterialPageRoute(
-                  builder: (_) =>
-                      const OpenInvestmentsScreen(source: 'home')))),
+                  // A centred column from MEDIUM up.
+                  builder: (_) => const KuteFormColumn(
+                      child: OpenInvestmentsScreen(source: 'home'))))),
       KuteDockAction(
           icon: Icons.north_east_rounded,
           label: context.l10n.withdraw,

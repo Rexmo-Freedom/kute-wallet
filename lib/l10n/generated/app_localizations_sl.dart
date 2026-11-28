@@ -9,6 +9,128 @@ class AppLocalizationsSl extends AppLocalizations {
   AppLocalizationsSl([String locale = 'sl']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Ta pozicija uporablja finančni vzvod, zato jo lahko tukaj le zmanjšate ali zaprete.';
+
+  @override
+  String get hlExpoNothingToReduce =>
+      'Tukaj ni pozicije, ki bi jo to naročilo lahko zmanjšalo.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Za trgovanje še ni denarja. Pred oddajo tega naročila dodajte denar.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Vaše pozicije na tem trgu ni bilo mogoče preveriti. Poskusite znova čez trenutek.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Stop loss nastavite pod trenutno ceno, sicer pozicijo takoj zapre.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Stop loss nastavite nad trenutno ceno, sicer pozicijo takoj zapre.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Take profit nastavite nad trenutno ceno, sicer pozicijo takoj zapre.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Take profit nastavite pod trenutno ceno, sicer pozicijo takoj zapre.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Limitno ceno nastavite na sprožilno ceno ali pod njo.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Limitno ceno nastavite na sprožilno ceno ali nad njo.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Ta stop je onkraj likvidacijske cene: pozicija bi bila likvidirana, preden se sproži.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Ta cena je onkraj tržne cene: izvede se takoj, z višjo provizijo takerja.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Zaprtje celotne pozicije prekliče tudi njena naročila stop in take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Preklicana zaščitna naročila';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow => 'Še odprta zaščitna naročila';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Njenih naročil stop in take profit ni bilo mogoče preklicati. Prekličite jih v Naročilih, da ne zaprejo nove pozicije.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Novi stop loss je oddan, starega pa ni bilo mogoče preklicati. Prekličite ga v Naročilih.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Ta pozicija že ima stop loss pri $price. Ob zamenjavi se stari prekliče šele, ko je novi oddan.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Ta pozicija že ima toliko stop lossov: $count. Ob zamenjavi se stari prekličejo šele, ko je novi oddan.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Zamenjaj';
+
+  @override
+  String get hlProtectAddStop => 'Dodaj še enega';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Prekličem vsa naročila?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'S tem prekličete vsa odprta naročila ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'S tem prekličete vsa odprta naročila ($count), od tega zaščitnih: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Preklicana bodo tudi vaša naročila v Predictions.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Ostane $left od $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Izvršeno $percent %';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Vaš zadnji trailing stop na tem trgu še ni potrjen. Preverite odprta naročila. Drugo naročilo ni bilo poslano.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop pri $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Prekličem to naročilo?';
+
+  @override
   String get totalBalance => 'Skupno stanje';
 
   @override
@@ -7024,6 +7146,68 @@ class AppLocalizationsSl extends AppLocalizations {
   String get betUntilCanceled => 'Do preklica';
 
   @override
+  String get advancedFillsNow => 'Izvrši se takoj';
+
+  @override
+  String get advancedRests => 'Čaka v knjigi';
+
+  @override
+  String get betLimitOrderFilled => 'Limitni nalog izvršen';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Kupljenih $shares deležev $outcome po $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Izberite ceno v korakih po $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Izberite ceno od $low do $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Najmanjši nalog tukaj je $count deležev.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count deležev v odprtih nalogih';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Za prodajo je prostih le $count deležev. Ostalo je v vaših odprtih nalogih.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Prekličem vse naloge?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'S tem odstranite odprte naloge ($count):',
+      one: 'S tem odstranite 1 odprt nalog:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Obdrži naloge';
+
+  @override
+  String get betOrderTypeRow => 'Vrsta naloga';
+
+  @override
+  String get betReservedRow => 'Rezervirano';
+
+  @override
   String get betProceedsToPredictions => 'V Napovedi';
 
   @override
@@ -11864,6 +12048,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Prebrskaj naložbe';
 
   @override
+  String get dollarsStartInvesting => 'Začni z investiranjem';
+
+  @override
   String get activityFilterTrades => 'Posli';
 
   @override
@@ -12173,9 +12360,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get sendRecipientSearchHintNoPhone =>
       'Ime ali kateri koli kripto naslov';
-
-  @override
-  String get shareGetKuteLine => 'Pridruži se dogajanju na getkute.com';
 
   @override
   String get sendMoveToYourDollars => 'Prenesi na tvoje Dolarje';
@@ -14597,4 +14781,88 @@ class AppLocalizationsSl extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profit ni bil oddan.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss ni bil oddan.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Take-profit in stop-loss nista bila oddana.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Oddanih je bilo le $placed od $total naročil.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Naročilo delno izvršeno';
+
+  @override
+  String get hlAdvStillOpen => 'Še odprto';
+
+  @override
+  String get hlAdvRestStillOpen => 'Preostanek naročila je še odprt.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Naročilo TWAP mora biti vsaj $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Vaše naročilo TWAP teče $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Lestvica sprejme od $min do $max naročil.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Začetna in končna cena se morata razlikovati.';
+
+  @override
+  String get hlAdvScaleBelowPrice => 'Obe ceni morata biti pod trenutno ceno.';
+
+  @override
+  String get hlAdvScaleAbovePrice => 'Obe ceni morata biti nad trenutno ceno.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Ta stop-loss je za ocenjeno ceno likvidacije, zato bi bila pozicija lahko prej likvidirana.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Naročilo je bilo izvršeno, sledilni stop pa ni bil oddan, ker ni bil odobren.';
+
+  @override
+  String get getAppBannerTitle => 'Prenesite aplikacijo Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Na voljo za iPhone in Android';
+
+  @override
+  String get chartPriceScale => 'Cenovna lestvica';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Ta stran je odprta v drugi aplikaciji. Za Face ID in da obdržite denarnico, jo odprite v Safariju.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Ta stran je odprta v drugi aplikaciji. Za uporabo ključa za dostop in da obdržite denarnico, jo odprite v Chromu.';
+
+  @override
+  String get shareOpenInAppBody => 'Imate aplikacijo Kute? Odprite to tam.';
+
+  @override
+  String get shareOpenInApp => 'Odpri v aplikaciji';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Zapiranje z Ledgerjem ne prekliče naročil stop in take profit pozicije: vsak preklic potrebuje vaš Ledger. Prekličite jih v Naročilih, da ne zaprejo nove pozicije.';
 }

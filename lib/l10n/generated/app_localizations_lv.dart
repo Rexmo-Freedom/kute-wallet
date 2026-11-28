@@ -9,6 +9,129 @@ class AppLocalizationsLv extends AppLocalizations {
   AppLocalizationsLv([String locale = 'lv']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Šī pozīcija izmanto finanšu sviru, tāpēc šeit to var tikai samazināt vai slēgt.';
+
+  @override
+  String get hlExpoNothingToReduce =>
+      'Šeit nav pozīcijas, ko šis rīkojums varētu samazināt.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Tirdzniecībai vēl nav naudas. Pievienojiet naudu, pirms iesniedzat šo rīkojumu.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Neizdevās pārbaudīt jūsu pozīciju šajā tirgū. Mēģiniet vēlreiz pēc brīža.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Iestatiet stop loss zem pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Iestatiet stop loss virs pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Iestatiet take profit virs pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Iestatiet take profit zem pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Iestatiet limita cenu vienādu ar aktivizēšanas cenu vai zemāku.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Iestatiet limita cenu vienādu ar aktivizēšanas cenu vai augstāku.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Šis stop ir aiz likvidācijas cenas: pozīcija tiktu likvidēta, pirms tas nostrādātu.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Šī cena ir aiz tirgus cenas: rīkojums tiek izpildīts uzreiz, ar augstāko taker maksu.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Aizverot visu pozīciju, tiek atcelti arī tās stop un take profit rīkojumi ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Atcelti aizsargrīkojumi';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Joprojām atvērti aizsargrīkojumi';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Tās stop un take profit rīkojumus neizdevās atcelt. Atceliet tos sadaļā Rīkojumi, lai tie neaizvērtu jaunu pozīciju.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Jaunais stop loss ir iesniegts, bet veco neizdevās atcelt. Atceliet to sadaļā Rīkojumi.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Šai pozīcijai jau ir stop loss pie $price. Aizstājot vecais tiek atcelts tikai pēc jaunā iesniegšanas.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Šai pozīcijai jau ir stop loss rīkojumi: $count. Aizstājot vecie tiek atcelti tikai pēc jaunā iesniegšanas.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Aizstāt';
+
+  @override
+  String get hlProtectAddStop => 'Pievienot vēl vienu';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Atcelt visus rīkojumus?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Tādējādi tiek atcelti visi atvērtie rīkojumi ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Tādējādi tiek atcelti visi atvērtie rīkojumi ($count), tostarp pozīciju aizsargājošie: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Tiek atcelti arī jūsu Predictions rīkojumi.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Atlikuši $left no $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Izpildīti $percent%';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Jūsu pēdējais trailing stop šajā tirgū vēl nav apstiprināts. Pārbaudiet atvērtos rīkojumus. Otrs rīkojums netika nosūtīts.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop pie $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Atcelt šo rīkojumu?';
+
+  @override
   String get totalBalance => 'Kopējais atlikums';
 
   @override
@@ -6988,6 +7111,68 @@ class AppLocalizationsLv extends AppLocalizations {
   String get betUntilCanceled => 'Līdz atcelšanai';
 
   @override
+  String get advancedFillsNow => 'Izpildās tūlīt';
+
+  @override
+  String get advancedRests => 'Gaida grāmatā';
+
+  @override
+  String get betLimitOrderFilled => 'Limita rīkojums izpildīts';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Nopirktas $shares $outcome daļas par $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Izvēlieties cenu ar soli $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Izvēlieties cenu no $low līdz $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Mazākais rīkojums šeit ir $count daļas.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count daļas atvērtos rīkojumos';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Pārdošanai brīvas ir tikai $count daļas. Pārējās ir jūsu atvērtajos rīkojumos.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Atcelt visus rīkojumus?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tiks noņemti $count atvērti rīkojumi:',
+      one: 'Tiks noņemts 1 atvērts rīkojums:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Paturēt rīkojumus';
+
+  @override
+  String get betOrderTypeRow => 'Rīkojuma veids';
+
+  @override
+  String get betReservedRow => 'Rezervēts';
+
+  @override
   String get betProceedsToPredictions => 'Uz Prognozēm';
 
   @override
@@ -11792,6 +11977,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Pārlūkot investēšanu';
 
   @override
+  String get dollarsStartInvesting => 'Sākt investēt';
+
+  @override
   String get activityFilterTrades => 'Darījumi';
 
   @override
@@ -12096,9 +12284,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get sendRecipientSearchHintNoPhone => 'Vārds vai kripto adrese';
-
-  @override
-  String get shareGetKuteLine => 'Pievienojies darbībai: getkute.com';
 
   @override
   String get sendMoveToYourDollars => 'Pārvietot uz taviem Dolāriem';
@@ -14518,4 +14703,86 @@ class AppLocalizationsLv extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profit netika iesniegts.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss netika iesniegts.';
+
+  @override
+  String get hlAdvTpSlNotPlaced => 'Take-profit un stop-loss netika iesniegti.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Iesniegti tikai $placed no $total rīkojumiem.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Rīkojums daļēji izpildīts';
+
+  @override
+  String get hlAdvStillOpen => 'Vēl atvērts';
+
+  @override
+  String get hlAdvRestStillOpen => 'Pārējā rīkojuma daļa vēl ir atvērta.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP rīkojumam jābūt vismaz $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Jūsu TWAP rīkojums darbojas $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Pakāpeniskais rīkojums pieņem no $min līdz $max rīkojumiem.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Sākuma un beigu cenai jāatšķiras.';
+
+  @override
+  String get hlAdvScaleBelowPrice => 'Abām cenām jābūt zem pašreizējās cenas.';
+
+  @override
+  String get hlAdvScaleAbovePrice => 'Abām cenām jābūt virs pašreizējās cenas.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Šis stop-loss ir aiz aplēstās likvidācijas cenas, tāpēc pozīcija var tikt likvidēta agrāk.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Rīkojums izpildīts, bet sekojošais stop netika iesniegts, jo tas netika apstiprināts.';
+
+  @override
+  String get getAppBannerTitle => 'Lejupielādē Kute lietotni';
+
+  @override
+  String get getAppBannerSubtitle => 'Pieejama iPhone un Android ierīcēm';
+
+  @override
+  String get chartPriceScale => 'Cenu skala';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Šī lapa ir atvērta citā lietotnē. Lai izmantotu Face ID un saglabātu maku, atveriet to Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Šī lapa ir atvērta citā lietotnē. Lai izmantotu piekļuves atslēgu un saglabātu maku, atveriet to Chrome.';
+
+  @override
+  String get shareOpenInAppBody => 'Jums ir Kute lietotne? Atveriet to tur.';
+
+  @override
+  String get shareOpenInApp => 'Atvērt lietotnē';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Aizverot ar Ledger, pozīcijas stop un take profit rīkojumi netiek atcelti: katrai atcelšanai vajadzīgs jūsu Ledger. Atceliet tos sadaļā Rīkojumi, lai tie neaizvērtu jaunu pozīciju.';
 }

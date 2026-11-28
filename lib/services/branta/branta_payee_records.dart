@@ -30,6 +30,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:kute/platform/web_image.dart' show WebImageLoader;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
@@ -177,6 +178,12 @@ class BrantaPayeeRecords extends Notifier<Map<String, BrantaPayeeRecord>> {
     final fake = debugPrefetchLogo;
     if (fake != null) return fake(url);
     if (!IconCaches.prefetchEnabled) return;
+    // Web: the cache manager fetches, which the logo host's missing CORS
+    // headers refuse; the <img> warms the browser's own cache instead.
+    if (kIsWeb) {
+      await WebImageLoader.load(url);
+      return;
+    }
     await brantaLogoCacheManager.getSingleFile(url);
   }
 

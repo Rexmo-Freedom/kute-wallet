@@ -62,4 +62,27 @@ void main() {
       expect(find.text(r), findsOneWidget);
     }
   });
+
+  test('the page grid fills its columns evenly, row by row', () {
+    List<int> sizes(int n, int count) => [
+          for (final c in marketGridDealEven<int>(
+              List.generate(n, (i) => i), count,
+              groups: (_) => true))
+            c.length
+        ];
+    // Five indices in four columns: 2 · 2 · 1, never 2 · 1 · 1 · 1.
+    expect(sizes(5, 4), [2, 2, 1, 0]);
+    expect(sizes(9, 4), [3, 3, 3, 0]);
+    expect(sizes(10, 4), [3, 3, 2, 2]);
+    expect(sizes(8, 4), [2, 2, 2, 2]);
+    // Read along the top row first.
+    expect(
+        marketGridDealEven<int>([0, 1, 2, 3, 4], 4, groups: (_) => true)
+            .map((c) => c.isEmpty ? null : c.first),
+        [0, 1, 2, null]);
+    // Cards of their own: dealt by height, as before.
+    expect(
+        marketGridDealEven<int>([0, 1, 2], 2, groups: (i) => i != 0),
+        marketGridDeal<int>([0, 1, 2], 2, weight: (i) => i != 0 ? 1 : 3));
+  });
 }

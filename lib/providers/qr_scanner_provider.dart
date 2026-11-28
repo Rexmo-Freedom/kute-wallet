@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import 'package:kute/helpers/bbqr.dart';
 import 'package:kute/helpers/cbor_helper.dart';
-import 'package:bc_ur_dart/bc_ur_dart.dart';
+import 'package:cbor/cbor.dart';
+import 'package:kute/helpers/ur/ur.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';

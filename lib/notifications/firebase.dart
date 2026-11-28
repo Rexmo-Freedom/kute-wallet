@@ -5,13 +5,24 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:kute/services/secure_storage.dart';
 import 'package:kute/services/http/shared_http_client.dart';
+import 'package:kute/platform/platform_caps.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 
 class FirebaseService {
   static final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   static const _storage = secureStorage;
 
+  /// Push can be used here: the platform has `firebase_messaging`, and on
+  /// web a Firebase app exists (web boots without one until web options
+  /// are added to firebase_options.dart). Phones and macOS answer true.
+  static bool get pushAvailable =>
+      PlatformCaps.hasPushNotifications &&
+      (!kIsWeb || Firebase.apps.isNotEmpty);
+
   static Future<void> initialize() async {
+    if (!pushAvailable) return;
     await getAndRefreshFCMToken();
     _attachMessageListeners();
   }

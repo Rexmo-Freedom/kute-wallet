@@ -378,8 +378,9 @@ void main() {
 
   test('leverage, Pro orders, edits and the Builder always ask', () {
     final allowance = SmallActionAllowance();
+    // Leverage is blocked in the app: a 3x ask is bound (and sent) as 1x.
+    expect(_open(10, leverage: 3).limits[IntentLimit.leverage], 1);
     for (final intent in [
-      _open(10, leverage: 3),
       HlIntents.marginMode(
           walletId: _w, market: _perp, isCross: true, leverage: 2),
       HlIntents.isolatedMargin(

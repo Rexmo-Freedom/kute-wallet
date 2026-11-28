@@ -56,6 +56,15 @@ bool _barHidden(WidgetTester tester) {
   return top?.hidden ?? false;
 }
 
+/// While a chart sheet is up the floating bar is its Reset (founder, 27
+/// November 2026), never the page's own bar.
+bool _barIsReset(WidgetTester tester) {
+  final container =
+      ProviderScope.containerOf(tester.element(find.byType(Scaffold).first));
+  final top = kuteBarTop(container.read(kuteBarContextProvider));
+  return top != null && top.isPrimary && top.label == 'Reset';
+}
+
 Future<void> _settle(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 500));
@@ -83,6 +92,16 @@ void _seed(WidgetTester tester, List<String> keys) {
   hlEditContainer(tester)
       .read(hlChartPreferencesProvider(hlEditBtcKey).notifier)
       .setIndicators(keys);
+}
+
+/// Presses Reset: the floating bar's primary on a chart sheet
+/// (hlChartResetBar), by the scope that declares it.
+Future<void> _pressReset(WidgetTester tester, String key) async {
+  final scope = tester.widget<KuteBarContextScope>(find.byKey(ValueKey(key)));
+  expect(scope.barContext.isPrimary, isTrue);
+  expect(scope.barContext.enabled, isTrue);
+  scope.barContext.onPrimary!();
+  await tester.pump();
 }
 
 void main() {
@@ -341,9 +360,10 @@ void main() {
       expect(ema.height, greaterThanOrEqualTo(100));
       expect(find.text('Short-term trend, quick to turn'), findsOneWidget);
 
-      expect(_barHidden(tester), isTrue);
+      expect(_barIsReset(tester), isTrue);
       await _close(tester);
       expect(find.byKey(_sheet), findsNothing);
+      expect(_barIsReset(tester), isFalse);
       expect(_barHidden(tester), isFalse);
     });
 
@@ -425,7 +445,7 @@ void main() {
         'macd': [8, 21, 5],
       });
 
-      await tester.tap(find.byKey(const ValueKey('hl-chart-sheet-reset')));
+      await _pressReset(tester, 'hl-chart-sheet-reset');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
       expect(_on(tester), {'vol'});
@@ -474,7 +494,7 @@ void main() {
                   find.byKey(const ValueKey('hl-indicator-value-length')))
               .data,
           '17');
-      await tester.tap(find.byKey(const ValueKey('hl-indicator-settings-reset')));
+      await _pressReset(tester, 'hl-indicator-settings-reset');
       await tester.pump(const Duration(milliseconds: 50));
       expect(_prefs(tester).params, isEmpty);
       await tester
@@ -507,7 +527,7 @@ void main() {
       expect(find.byKey(_sheet), findsOneWidget);
       expect(_card('line'), findsOneWidget);
       expect(_ind('ema'), findsOneWidget);
-      expect(_barHidden(tester), isTrue);
+      expect(_barIsReset(tester), isTrue);
     });
 
     testWidgets(
@@ -603,7 +623,7 @@ void main() {
           isFalse);
       expect(_prefs(tester).toJson()['log'], true);
 
-      await tester.tap(find.byKey(const ValueKey('hl-chart-sheet-reset')));
+      await _pressReset(tester, 'hl-chart-sheet-reset');
       await _settle(tester);
       expect(_prefs(tester).logScale, isFalse);
       expect(_prefs(tester).toJson().containsKey('log'), isFalse);
@@ -650,7 +670,7 @@ void main() {
               .read(hlChartPreferencesProvider('hl:perp::ETH'))
               .indicators,
           isNot(contains(kHlLayerMyTradesOff)));
-      await tester.tap(find.byKey(const ValueKey('hl-chart-sheet-reset')));
+      await _pressReset(tester, 'hl-chart-sheet-reset');
       await _settle(tester);
       expect(chart().fills, [fill]);
       expect(_on(tester), {'vol'});

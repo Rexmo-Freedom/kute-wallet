@@ -23,6 +23,7 @@
 // * Cancel, rejection or disconnect keep the typed amount.
 // * A legacy Safe account is read-only (O4).
 
+import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'dart:math';
 
 import 'dart:async';
@@ -223,8 +224,9 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
     TrackingService.track('ledger_sell_sheet_advanced_opened');
     try {
       await Navigator.of(context, rootNavigator: true).push<void>(
-        MaterialPageRoute(
-          fullscreenDialog: true,
+        // The page; the shared panel on EXPANDED (kute_form_panel_route).
+        kuteFormPanelRoute(
+          context,
           builder: (_) => _LedgerSellAdvancedScreen(
             marketQuestion: _position.title,
             outcome: _position.outcome,

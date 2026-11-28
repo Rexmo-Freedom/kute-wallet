@@ -64,7 +64,6 @@
 // Painters here never read Theme — the widget resolves colours once per
 // build and hands them down.
 
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -74,6 +73,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// The plot's height: the standard, and the compact (a tight card).
 const double kKuteTrendPlotHeight = 200;
@@ -296,13 +296,18 @@ class KuteTrendChart extends StatefulWidget {
   final int selectedRange;
   final ValueChanged<int>? onRangeSelected;
 
+  /// The range row's widest, aligned to the plot's left edge; null (the
+  /// default): the row spans the chart's width. A wide pane keeps the
+  /// pills at their phone size with it (the Portfolio on EXPANDED).
+  final double? rangeMaxWidth;
+
   /// Whether the live dot breathes. Never under `flutter test` (the loop
   /// would keep every pumpAndSettle waiting); a test that wants the
   /// breath sets this true.
   @visibleForTesting
   static bool? debugBreathe;
 
-  static final bool _inTest = Platform.environment.containsKey('FLUTTER_TEST');
+  static final bool _inTest = PlatformOs.isFlutterTest;
 
   static bool get _breathes => debugBreathe ?? !_inTest;
 
@@ -323,6 +328,7 @@ class KuteTrendChart extends StatefulWidget {
     this.rangeLabels,
     this.selectedRange = 0,
     this.onRangeSelected,
+    this.rangeMaxWidth,
   }) : assert(times == null || times.length == values.length);
 
   @override
@@ -564,14 +570,26 @@ class _KuteTrendChartState extends State<KuteTrendChart>
         ),
         if (labels != null) ...[
           SizedBox(height: kKuteTrendRangeGap.h),
-          KuteChartRangeRow(
+          _rangeRow(KuteChartRangeRow(
             key: const ValueKey('trend-chart-ranges'),
             labels: labels,
             selectedIndex: widget.selectedRange,
             onSelected: widget.onRangeSelected ?? (_) {},
-          ),
+          )),
         ],
       ],
+    );
+  }
+
+  /// The range row, at most [KuteTrendChart.rangeMaxWidth] wide on the
+  /// plot's left edge.
+  Widget _rangeRow(Widget row) {
+    final max = widget.rangeMaxWidth;
+    if (max == null) return row;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: max), child: row),
     );
   }
 }

@@ -9,7 +9,11 @@ import 'package:kute/screens/hyperliquid/components/hl_browse_labels.dart';
 
 import 'package:kute/services/runtime_capabilities_service.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart'
+    show kuteBrowseColumnsMax, kuteWindowIsExpanded;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -34,6 +38,9 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
     show HlIconAvailability, HlIconPrefetch;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
+import 'package:kute/screens/hyperliquid/components/hl_wide_featured.dart';
+import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
+    show HlMarketDetailSheet;
 import 'package:kute/screens/hyperliquid/components/hl_watchlist_sheet.dart'
     show showHlWatchlistSheet;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
@@ -66,6 +73,11 @@ class HyperliquidScreen extends ConsumerStatefulWidget {
     this.autoShowWithdraw = false,
     this.embedded = false,
   });
+
+  /// Tests and renders: the wide web's featured card (HlWideFeatured) off
+  /// the web.
+  @visibleForTesting
+  static bool debugWideWeb = false;
 
   /// A pull-to-refresh's part of its own: the market lists read again.
   /// The account and everything else are the shared refresh
@@ -169,6 +181,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   bool _moversPerpsLanded = false;
   bool _moversDefault = false;
   int _moversLogos = -1;
+  bool _moversWide = false;
   bool _moversLoading = false;
   List<HlMarket> _movers = const [];
   List<HlMarket> _rest = const [];
@@ -180,7 +193,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
         ref.read(hyperliquidPerpMarketsProvider).valueOrNull != null;
     final defaultView = hlBrowseIsDefaultView(tab, sub);
     final logos = HlIconAvailability.revision.value;
+    final wide = _wideWebFeatured;
     if (!identical(markets, _moversListed) ||
+        wide != _moversWide ||
         tab != _moversTab ||
         perpsLanded != _moversPerpsLanded ||
         defaultView != _moversDefault ||
@@ -190,6 +205,16 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
       _moversPerpsLanded = perpsLanded;
       _moversDefault = defaultView;
       _moversLogos = logos;
+      _moversWide = wide;
+      if (tab == HlBrowseTab.watchlist && wide) {
+        // The wide web: the whole watchlist, in its order, through the
+        // featured card ([_wideFeaturedSet]), and as the rows under it
+        // from two markets (one is the card alone).
+        _moversLoading = false;
+        _movers = markets;
+        _rest = markets.length > 1 ? markets : const [];
+        return _movers;
+      }
       if (tab == HlBrowseTab.watchlist) {
         // Exactly what was picked: no ranking, no logo rule, nothing
         // left out (see [hlWatchlistSquareCount]).
@@ -255,8 +280,105 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   List<HlMarket> _listedFor(HlBrowseTab tab, HlBrowseSub sub,
       List<HlMarket> markets, List<HlMarket> universe) {
     _moversFor(tab, sub, markets, universe);
-    return hlBrowseRowsShown(hlBrowseIsDefaultView(tab, sub), _rest);
+    final defaultView = hlBrowseIsDefaultView(tab, sub);
+    // The Dollars page on EXPANDED: two full rows of its four columns
+    // (round two), the same count as each category of the board under it.
+    if (defaultView && _wideBoard) {
+      return _rest.take(_kBoardRows).toList(growable: false);
+    }
+    return hlBrowseRowsShown(defaultView, _rest);
   }
+
+  /// Embedded in the Dollars page on EXPANDED: the wide board
+  /// ([_boardSlivers]) and the page's one grid.
+  bool get _wideBoard => widget.embedded && KuteLayout.isExpanded(context);
+
+  /// The web at MEDIUM and EXPANDED, embedded: Trending's featured set as
+  /// one large card (HlWideFeatured) in place of the four squares. The
+  /// phones and the phone layout keep the squares.
+  bool get _wideWebFeatured =>
+      (kIsWeb || HyperliquidScreen.debugWideWeb) &&
+      widget.embedded &&
+      KuteLayout.isWide(context);
+
+  /// THE ONE PLACE that decides a wide web Investing page's featured card
+  /// (founder, 27 November 2026: one big card on Trending, then "watch
+  /// list should have the same effect" and of Perps "the big options
+  /// should also show here"): the ordered set [HlWideFeatured] steps
+  /// through, or null for no card (the phones and the phone layout,
+  /// which keep their squares). Trending: its strip's set; the Watchlist:
+  /// all of it, in its order; every other page (any category or
+  /// subcategory, a new one included): its first [kHlWideFeaturedMax]
+  /// markets in its own list's order, the list under it unchanged. Empty:
+  /// no card, the page's own empty state.
+  List<HlMarket>? _wideFeaturedSet(HlBrowseTab tab, HlBrowseSub sub,
+      List<HlMarket> markets, List<HlMarket> universe) {
+    if (!_wideWebFeatured) return null;
+    if (tab == HlBrowseTab.watchlist || hlBrowseIsDefaultView(tab, sub)) {
+      return _moversFor(tab, sub, markets, universe);
+    }
+    if (!identical(markets, _featuredOf)) {
+      _featuredOf = markets;
+      _featured = markets.take(kHlWideFeaturedMax).toList(growable: false);
+    }
+    return _featured;
+  }
+
+  /// [_wideFeaturedSet]'s memo for a category page: one list per list
+  /// instance, so the card is not handed a new set on every rebuild.
+  List<HlMarket>? _featuredOf;
+  List<HlMarket> _featured = const [];
+
+  /// A category page on the Dollars page on EXPANDED (any category or
+  /// subcategory but Trending's default view and the Watchlist, which
+  /// lead with their own squares): its name as a heading over it, and a
+  /// short list drawn as featured squares ([_featuredOrRows]).
+  bool _featuredPage(HlBrowseTab tab, HlBrowseSub sub) =>
+      _wideBoard &&
+      !hlBrowseIsDefaultView(tab, sub) &&
+      tab != HlBrowseTab.watchlist;
+
+  /// A category page's markets (founder, 24 November 2026, of five
+  /// indices as thin rows on an empty window: "See these screens are
+  /// missing something"): up to two rows of squares' worth
+  /// ([hlFeaturedFits]) as the featured squares Trending leads with, each
+  /// opening the market as its row does; a longer list as the page's
+  /// grid of rows, evenly filled ([marketGridDealEven]).
+  Widget _featuredOrRows(List<HlMarket> items) =>
+      SliverLayoutBuilder(builder: (context, constraints) {
+        final width = constraints.crossAxisExtent - 2 * 16.w;
+        if (hlFeaturedFits(items.length, width)) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: HlFeaturedSquares(
+                key: const ValueKey('hl-featured-squares'),
+                markets: items,
+                // What the row's tap opens (HlMarketCard), with its
+                // source.
+                onTap: (m) => HlMarketDetailSheet.show(context, market: m),
+              ),
+            ),
+          );
+        }
+        return SliverMainAxisGroup(
+          slivers: marketGroupSlivers<HlMarket>(
+            context,
+            items: items,
+            groups: (_) => true,
+            dividerIndent: hlGroupRowIndent(),
+            divider: hlGroupRowDivider,
+            alignedGrid: true,
+            build: (market, inGroup) => RepaintBoundary(
+              child: HlMarketCard(
+                key: ValueKey('hl-${market.kind.name}-${market.wireCoin}'),
+                market: market,
+                inGroup: inGroup,
+              ),
+            ),
+          ),
+        );
+      });
 
   /// The category whose subcategories the one browse row shows, in place
   /// of the categories ([PolyDrillRow]); null shows the categories.
@@ -428,6 +550,16 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     ref.read(hlAdvisorSlipIntentProvider.notifier).state = null;
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
+      // THE DESK (EXPANDED): the market's page with the ticket open in
+      // its side panel on that side, counted as the same ticket.
+      if (kuteWindowIsExpanded(context)) {
+        HlMarketDetailSheet.show(context,
+            market: intent.market,
+            source: 'advisor',
+            initialSide: intent.isLong,
+            slipSource: 'advisor');
+        return;
+      }
       HlOrderSlipSheet.show(
         context,
         ref,
@@ -513,6 +645,91 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     ];
   }
 
+  /// How many categories follow Trending on the wide board, and how many
+  /// of each one's rows it reads: two full rows of the page's columns
+  /// ([_kBoardGridRows]; market_groups.dart, marketGridAlignedColumns),
+  /// up to six columns, the grid showing the full rows its width takes.
+  /// Four categories, so a tall window is filled where the data exists
+  /// (founder, 24 November 2026: "occupy full screen?").
+  static const int _kBoardSections = 4;
+  static const int _kBoardGridRows = 2;
+  static const int _kBoardRows = _kBoardGridRows * kuteBrowseColumnsMax;
+
+  /// THE WIDE BOARD (24 November 2026). Embedded in the Dollars page on
+  /// EXPANDED, the default view (Trending: its squares and its curated
+  /// [kHlTrendingListRows] rows) leaves most of the pane empty. It is
+  /// followed by the next categories the row offers ([_availableTabs] in
+  /// its order, after the Watchlist and Trending: Tradfi, then Crypto),
+  /// each under its own name with its first rows (none already shown
+  /// above) and "See all ›", which picks that category as its pill
+  /// would. A phone and MEDIUM are untouched; any other category is its
+  /// full list already.
+  List<Widget> _boardSlivers(List<HlBrowseTab> availableTabs,
+      List<HlMarket> universe, List<HlMarket> shown) {
+    final seen = {for (final m in shown) '${m.kind.name}-${m.wireCoin}'};
+    final out = <Widget>[];
+    var sections = 0;
+    for (final next in availableTabs) {
+      if (sections == _kBoardSections) break;
+      if (next == HlBrowseTab.watchlist || next == HlBrowseTab.trending) {
+        continue;
+      }
+      final rows = <HlMarket>[
+        for (final m in _listFor(next, HlBrowseSub.all, universe))
+          if (!seen.contains('${m.kind.name}-${m.wireCoin}')) m,
+      ].take(_kBoardRows).toList();
+      if (rows.isEmpty) continue;
+      sections++;
+      for (final m in rows) {
+        seen.add('${m.kind.name}-${m.wireCoin}');
+      }
+      final label = next.localizedLabel(context.l10n);
+      out.addAll([
+        // The name and its "See all ›" on one row, on the grid's two
+        // outer edges (round two).
+        SliverToBoxAdapter(
+          child: Builder(
+            builder: (rowContext) => _HlBoardHeading(
+              label,
+              key: ValueKey('hl-board-heading-${next.key}'),
+              seeAll: _HlFoldRow(
+                key: ValueKey('hl-board-see-all-${next.key}'),
+                label: context.l10n.seeAll,
+                inline: true,
+                onTap: () {
+                  // The category's own list from its top.
+                  final position = Scrollable.maybeOf(rowContext)?.position;
+                  if (position != null && position.hasPixels) {
+                    position.jumpTo(position.minScrollExtent);
+                  }
+                  _onTab(next);
+                },
+              ),
+            ),
+          ),
+        ),
+        ...marketGroupSlivers<HlMarket>(
+          context,
+          items: rows,
+          groups: (_) => true,
+          dividerIndent: hlGroupRowIndent(),
+          divider: hlGroupRowDivider,
+          alignedGrid: true,
+          fullRows: _kBoardGridRows,
+          build: (market, inGroup) => RepaintBoundary(
+            child: HlMarketCard(
+              key: ValueKey(
+                  'hl-board-${next.key}-${market.kind.name}-${market.wireCoin}'),
+              market: market,
+              inGroup: inGroup,
+            ),
+          ),
+        ),
+      ]);
+    }
+    return out;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -569,6 +786,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     final drilled = _drilledInto == tab && subs.length > 1;
     final markets = _listFor(tab, sub, universe);
     _prefetchIcons(markets, universe);
+    final featured = _wideFeaturedSet(tab, sub, markets, universe);
 
     // The browser's own scroll view. Embedded in Investments it is the
     // body of that page's nested scroll: it takes the page's primary
@@ -687,15 +905,39 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: EdgeInsets.only(top: 8.h),
-                                  child: const HlMovingNowStripSkeleton(),
+                                  child: _wideWebFeatured &&
+                                          tab != HlBrowseTab.watchlist
+                                      ? const Padding(
+                                          padding: EdgeInsets.fromLTRB(
+                                              16, 0, 16, 4),
+                                          child: HlWideFeaturedSkeleton())
+                                      : const HlMovingNowStripSkeleton(),
                                 ),
                               )
-                            else if (_moversFor(tab, sub, markets, universe)
-                                .isNotEmpty)
+                            else if (featured?.isNotEmpty ??
+                                _moversFor(tab, sub, markets, universe)
+                                    .isNotEmpty)
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: EdgeInsets.only(top: 8.h),
-                                  child: tab == HlBrowseTab.watchlist
+                                  child: featured != null
+                                      // The wide web: every page's
+                                      // featured card ([_wideFeaturedSet]).
+                                      ? Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              16, 0, 16, 4),
+                                          child: HlWideFeatured(
+                                              key: ValueKey(
+                                                  'hl-wide-featured-${tab.name}-${sub.name}'),
+                                              markets: featured,
+                                              source: tab ==
+                                                      HlBrowseTab.watchlist
+                                                  ? 'watchlist'
+                                                  : hlBrowseIsDefaultView(
+                                                          tab, sub)
+                                                      ? kHlMovingNowSource
+                                                      : 'market_list'))
+                                      : tab == HlBrowseTab.watchlist
                                       // The Watchlist's own squares: every
                                       // market shown whatever its logo.
                                       ? HlMovingNowStrip(
@@ -711,18 +953,48 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                               tab, sub, markets, universe)),
                                 ),
                               ),
-                            SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+                            // The page grid's gutter under the squares on
+                            // the wide board (4 under the strip, then 12).
+                            // A category page's heading in its place.
+                            if (_featuredPage(tab, sub))
+                              SliverToBoxAdapter(
+                                child: _HlBoardHeading(
+                                  // What the navigation names: the
+                                  // category for its "All …".
+                                  selection.sub == HlBrowseSub.all
+                                      ? tab.localizedLabel(context.l10n)
+                                      : sub.localizedLabel(context.l10n),
+                                  key: const ValueKey('hl-page-heading'),
+                                  page: true,
+                                  seeAll: const SizedBox.shrink(),
+                                ),
+                              )
+                            else
+                            SliverToBoxAdapter(
+                                child: SizedBox(height: _wideBoard ? 12 : 8.h)),
                             // The whole list is in memory, in ONE grouped
                             // card like Home's Activity (founder, October
                             // 2026); the same self-subscribing
                             // [HlMarketCard] rows build lazily as they
                             // scroll in, so every price on screen is live.
+                            // A short category page: its markets as the
+                            // featured squares ([HlFeaturedSquares]).
+                            if (_featuredPage(tab, sub))
+                              _featuredOrRows(
+                                  _listedFor(tab, sub, markets, universe))
+                            else
                             ...marketGroupSlivers<HlMarket>(
                               context,
                               items: _listedFor(tab, sub, markets, universe),
                               groups: (_) => true,
                               dividerIndent: hlGroupRowIndent(),
                               divider: hlGroupRowDivider,
+                              // The Dollars page's one grid (round two).
+                              alignedGrid: _wideBoard,
+                              fullRows: _wideBoard &&
+                                      hlBrowseIsDefaultView(tab, sub)
+                                  ? _kBoardGridRows
+                                  : null,
                               build: (market, inGroup) => RepaintBoundary(
                                 child: HlMarketCard(
                                   key: ValueKey(
@@ -741,6 +1013,13 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                       source: 'watchlist_view'),
                                 ),
                               ),
+                            // Wide, the board under Trending (see
+                            // [_boardSlivers]).
+                            if (_wideBoard && hlBrowseIsDefaultView(tab, sub))
+                              ..._boardSlivers(availableTabs, universe, [
+                                ..._moversFor(tab, sub, markets, universe),
+                                ..._listedFor(tab, sub, markets, universe),
+                              ]),
                           ],
                         ],
                       ),
@@ -843,22 +1122,48 @@ class _WatchlistEditRow extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  Widget build(BuildContext context) => _HlFoldRow(
+        key: const ValueKey('hl-watchlist-edit'),
+        label: context.l10n.edit,
+        onTap: onTap,
+      );
+}
+
+/// The quiet fold row ("Edit ›", "See all ›"): 13 sp, w600, the secondary
+/// ink, the chevron in the tertiary, at the list's 16 gutter.
+class _HlFoldRow extends StatelessWidget {
+  const _HlFoldRow(
+      {super.key,
+      required this.label,
+      required this.onTap,
+      this.inline = false});
+
+  final String label;
+  final VoidCallback onTap;
+
+  /// On a heading's row ([_HlBoardHeading]): no gutter of its own, the
+  /// chevron on the row's right edge.
+  final bool inline;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final label = context.l10n.edit;
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+      padding:
+          inline ? EdgeInsets.zero : EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
       child: Semantics(
         button: true,
         label: label,
         excludeSemantics: true,
         child: InkWell(
-          key: const ValueKey('hl-watchlist-edit'),
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            padding: inline
+                ? const EdgeInsets.fromLTRB(8, 4, 0, 4)
+                : EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             child: Row(
+              mainAxisSize: inline ? MainAxisSize.min : MainAxisSize.max,
               children: [
                 Text(
                   label,
@@ -879,6 +1184,68 @@ class _WatchlistEditRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A category's name over its first rows on the wide board (see
+/// [_HyperliquidScreenState._boardSlivers]), its "See all ›" ([seeAll]) on
+/// the same row: the Dollars Overview's heading style (14 sp, w600, the
+/// secondary ink), the name on the grid's left edge and "See all" on its
+/// right (the list's 16 gutter), the space over it the space between two
+/// blocks of the page.
+class _HlBoardHeading extends StatelessWidget {
+  const _HlBoardHeading(this.label,
+      {super.key, required this.seeAll, this.page = false});
+
+  final String label;
+  final Widget seeAll;
+
+  /// A category page's own heading (see [_HyperliquidScreenState
+  /// ._featuredPage]): at the page's top, its words on the left
+  /// navigation's first line (a 40 row, as its first item).
+  final bool page;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: page
+            // The browse's first line: the page's 12 under the top bar.
+            ? EdgeInsets.fromLTRB(16.w, 12, 16.w, 4)
+            : EdgeInsets.fromLTRB(16.w, kHlBoardBlockGap, 16.w, 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (page) const SizedBox(height: 40),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: context.colors.textSecondary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ),
+            seeAll,
+          ],
+        ),
+      );
+}
+
+/// The space between two blocks of the wide board (the squares and the
+/// list under them, then each category under its heading).
+const double kHlBoardBlockGap = 28;
+
+/// A category page's heading on the Dollars page on EXPANDED, as
+/// Investing's own ([_HlBoardHeading] with `page`): Predictions' category
+/// pages wear the same (polymarket_screen.dart).
+class HlBrowsePageHeading extends StatelessWidget {
+  const HlBrowsePageHeading(this.label, {super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) =>
+      _HlBoardHeading(label, page: true, seeAll: const SizedBox.shrink());
 }
 
 // ───────────────────────── empty state ─────────────────────────

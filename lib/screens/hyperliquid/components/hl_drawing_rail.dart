@@ -18,17 +18,27 @@
 // [kHlToolGroups], its name in [hlToolName], its glyph in
 // hl_drawing_tools.dart. See "How to add a drawing tool" at the top of
 // models/chart_drawing.dart for the rest.
+//
+// Under the groups, past the rail's divider and above its "…" button,
+// the Price scale switch ([HlPriceScaleRailButton]): the chart's
+// horizontal price lines and their labels down the right, on by default,
+// for every market (HlChartLayout.priceScale, saved with the chart
+// type). Selected while on, as a tool in hand is.
 
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/chart_drawing.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The rail's groups, top to bottom.
@@ -188,6 +198,8 @@ Future<ChartDrawingTool?> _showPanel(
           key: ValueKey('hl-tool-flyout-${tool.name}'),
           value: tool,
           height: 46,
+          // The pointer over a row, as over the rail's buttons.
+          mouseCursor: SystemMouseCursors.click,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -286,6 +298,42 @@ class HlToolFlyoutSheet extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The rail's Price scale switch: the chart's horizontal price lines and
+/// their labels in the tag column (HlChartLayout.priceScale, one setting
+/// for every market). Selected (the white pill) while they are shown.
+/// [extra] rides the analytics event (the market's coin).
+class HlPriceScaleRailButton extends ConsumerWidget {
+  const HlPriceScaleRailButton({
+    super.key = const ValueKey('hl-chart-rail-price-scale'),
+    this.large = false,
+    this.extra = const {},
+  });
+
+  final bool large;
+  final Map<String, Object> extra;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(hlChartLayoutProvider.select((l) => l.priceScale));
+    return HlRailButton(
+      icon: Icons.view_headline_rounded,
+      label: context.l10n.chartPriceScale,
+      large: large,
+      selected: on,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        ref.read(hlChartLayoutProvider.notifier).setPriceScale(!on);
+        VenueAnalytics.settingChanged(
+          'chart_price_scale_toggled',
+          setting: 'price_scale',
+          value: !on,
+          extra: extra,
+        );
+      },
     );
   }
 }

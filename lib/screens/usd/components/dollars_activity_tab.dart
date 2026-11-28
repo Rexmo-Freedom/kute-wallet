@@ -145,6 +145,7 @@
 // `open_investments_position_tapped`.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -154,6 +155,19 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill;
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart'
+    show
+        kuteBrowseListInset,
+        kuteBrowsePagePadding,
+        kuteDeskNavFrom,
+        kuteDeskNavGap,
+        kuteDeskNavMinWidth,
+        kuteDeskNavWidthFor,
+        kuteWindowIsExpanded,
+        kuteWindowWidth;
+import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
+    show KuteTopBarActions;
 import 'package:kute/providers/hyperliquid_trading_provider.dart'
     show hyperliquidDisplayTradingProvider;
 import 'package:kute/providers/open_pnl_history_provider.dart'
@@ -174,6 +188,8 @@ import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlResultColor;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
+        PortfolioDeskCardsSkeleton,
+        PortfolioPositionDeskCards,
         PortfolioPositionSquares,
         PortfolioRowStatusScope,
         PortfolioSquaresSkeleton;
@@ -182,6 +198,7 @@ import 'package:kute/screens/portfolio/investments_portfolio.dart'
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show
         dollarsOpenPnl,
+        openPnlPercent,
         portfolioOpenPnl,
         portfolioOpenRanked,
         portfolioVenueLists;
@@ -190,7 +207,7 @@ import 'package:kute/screens/portfolio/portfolio_filters.dart'
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
-    show kuteChangeSign;
+    show kuteChangeSign, kuteSignedPercent;
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -201,7 +218,10 @@ import 'package:kute/screens/shared/standing_orders_section.dart'
     show StandingOrderRow, standingOrderStageLine;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show openInvestmentsPortfolio;
+    show
+        UsdAccountActionBar,
+        dollarsOverviewEmptyProvider,
+        openInvestmentsPortfolio;
 import 'package:kute/theme/app_theme.dart';
 
 /// The open positions drawn as squares, at most.
@@ -314,7 +334,9 @@ List<DollarsOverviewSlot> dollarsOverviewSlots(
   final slots = <DollarsOverviewSlot>[];
   final taken = <String>{};
   for (final o in all.reversed) {
-    if (!(o.venue == StandingOrderVenue.predictions ? predictions : investing)) {
+    if (!(o.venue == StandingOrderVenue.predictions
+        ? predictions
+        : investing)) {
       continue;
     }
     final id = dollarsStandingSlotId(o, listed);
@@ -387,8 +409,7 @@ Map<String, DateTime> dollarsHlCloses(List<HlFill> fills) {
 /// [now], of a filled order's card hold ([kDollarsFilledCardHold]) or slot
 /// hold ([kDollarsFilledHold]); null when none is running. Pure for the
 /// tests.
-DateTime? dollarsNextHoldEnd(List<StandingOrder> all,
-    {required DateTime now}) {
+DateTime? dollarsNextHoldEnd(List<StandingOrder> all, {required DateTime now}) {
   DateTime? next;
   for (final o in all) {
     if (o.state != StandingOrderState.filled) continue;
@@ -419,21 +440,106 @@ List<String> dollarsPinnedRanked(List<String> ranked, List<StandingOrder> all,
       }
     }
   }
-  return [...pinned, for (final id in ranked) if (!pinned.contains(id)) id];
+  return [
+    ...pinned,
+    for (final id in ranked)
+      if (!pinned.contains(id)) id
+  ];
+}
+
+/// THE OVERVIEW ON A LAPTOP (founder, 25 November 2026: "Open activity I
+/// still don't like", "this must be better cards"): two columns, what you
+/// look at on the left, what you hold on the right. The Open profits card
+/// is the hero, the content's left side from its first line down to the
+/// floating bar (at least [kDollarsOverviewHeroMinHeight] tall), its line
+/// filling the card; the open positions are the "Open positions" column
+/// Investing and Predictions show at the content's right (same width,
+/// same place, the same desk cards), so nothing jumps between the three.
+/// Where the hero would be narrower than [kDollarsOverviewHeroMinWidth]
+/// beside the column (a 900 to 921 window) the hero stands
+/// [kDollarsOverviewStackedHeroHeight] tall over the positions instead.
+const double kDollarsOverviewHeroMinWidth = 420;
+const double kDollarsOverviewHeroMinHeight = 360;
+const double kDollarsOverviewStackedHeroHeight = 380;
+
+/// Whether the Overview on a window [window] wide is the hero beside the
+/// positions column (see [kDollarsOverviewHeroMinWidth]): always with the
+/// left navigation, else when the hero keeps its least width. Pure for
+/// the tests.
+bool dollarsOverviewSplits(double window) {
+  if (window >= kuteDeskNavMinWidth) return true;
+  final hero = window -
+      // A browser's navigation from where EXPANDED starts.
+      (window >= kuteDeskNavFrom
+          ? kuteDeskNavWidthFor(window) + kuteDeskNavGap * 2 + 1
+          : 0) -
+      kuteBrowsePagePadding * 2 -
+      KuteLayout.paneWidth -
+      KuteLayout.paneGap -
+      kuteBrowseListInset * 2;
+  return hero >= kDollarsOverviewHeroMinWidth;
 }
 
 /// The Overview pill's page (see the file header). One scroll, the nested
 /// scroll's inner list, so the Dollars header collapses over it as over the
 /// venues' lists.
+///
+/// [inPane]: the Dollars page's right column on EXPANDED, under Investing
+/// and Predictions (usd_account_screen.dart): the same blocks as a plain
+/// column, no scroll of its own and no room for the dock under it (the
+/// pane holds both). It tells [onHeld] whether it holds anything (open
+/// positions, or their loading): with nothing, the page draws no column.
+///
+/// [wide]: the Overview pill on EXPANDED, the left pane (founder, 24 and
+/// 25 November 2026: "Overview is open positions"; round two's grid): the
+/// same cards on the pane's grid (market_groups.dart, marketSquaresPerRow),
+/// up to four in one row when four fit at a phone square's width, else two
+/// by two as on a phone, the Open profits card across the grid under them;
+/// nothing open, the phone's Sal centred in the pane close under the pills.
 class DollarsActivityTab extends ConsumerStatefulWidget {
-  const DollarsActivityTab({super.key});
+  const DollarsActivityTab(
+      {super.key,
+      this.inPane = false,
+      this.wide = false,
+      this.onHeld,
+      this.pnl = true,
+      this.startInvesting = true,
+      this.exclude = const {}});
+
+  /// Positions left out by id (`hl-BTC`, `hl-spot-HYPE`, `poly-<token>`):
+  /// a market page's column, whose own position card is above the list.
+  final Set<String> exclude;
+
+  /// The empty state's "Start investing" (the Dollars page's Overview).
+  /// A market page that lists the positions under its chart leaves it out.
+  final bool startInvesting;
+
+  final bool inPane;
+  final bool wide;
+
+  /// [inPane] only: whether the column carries the Open profits card
+  /// under the positions; not beside the Overview's hero, which is it.
+  final bool pnl;
+
+  /// [inPane] only: whether the column holds anything, after each change.
+  final ValueChanged<bool>? onHeld;
+
+  /// The Open profits line's height on the [wide] pane, design units.
+  static const double widePlotHeight = 180;
+
+  /// Nothing open on the [wide] pane: the room between the pills and
+  /// Sal, design units.
+  static const double wideEmptyTop = 40;
 
   @override
-  ConsumerState<DollarsActivityTab> createState() =>
-      _DollarsActivityTabState();
+  ConsumerState<DollarsActivityTab> createState() => _DollarsActivityTabState();
 }
 
 class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
+  /// What [DollarsActivityTab.onHeld] was last told.
+  bool? _toldHeld;
+  bool? _toldEmpty;
+
   /// Rebuilds the tab when the next hold ends ([dollarsNextHoldEnd]).
   Timer? _holdTimer;
   DateTime? _holdTimerAt;
@@ -456,13 +562,115 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
     super.dispose();
   }
 
+  /// The Overview on EXPANDED (see [dollarsOverviewSplits]).
+  Widget _wideOverview(BuildContext context,
+      {required List<Widget> squares,
+      required bool loading,
+      required Widget? empty}) {
+    final clearance = SizedBox(height: 24.h + kuteDockScrollClearance(context));
+    const physics =
+        AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics());
+    if (empty != null) {
+      // Nothing open: the phone's Sal centred in the pane, close under the
+      // pills (never floating in the middle of an empty pane), still
+      // pulling to refresh.
+      return CustomScrollView(
+        key: const ValueKey('dollars-activity-list'),
+        physics: physics,
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: DollarsActivityTab.wideEmptyTop),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints:
+                      const BoxConstraints(maxWidth: KuteLayout.paneWidth),
+                  child: empty,
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(child: clearance),
+        ],
+      );
+    }
+    // The hero's top on the positions column's first line (its 8 and
+    // the heading's 14) beside the left navigation; under the pills (900
+    // to 1099) the pills' row is above it already. Its foot above the
+    // floating bar.
+    final top = kuteWindowWidth(context) >= kuteDeskNavFrom
+        ? 8.h + 14.h
+        : 0.0;
+    final foot = kuteDockScrollClearance(context) + 8.h;
+    if (dollarsOverviewSplits(kuteWindowWidth(context))) {
+      return LayoutBuilder(
+        builder: (context, box) => CustomScrollView(
+          key: const ValueKey('dollars-activity-list'),
+          physics: physics,
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(16.w, top, 16.w, foot),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(
+                  key: const ValueKey('dollars-overview-hero'),
+                  height: math.max(kDollarsOverviewHeroMinHeight,
+                      box.maxHeight - top - foot),
+                  child: const DollarsPnlStrip(fill: true),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    // Too narrow for the two: the hero at a fixed height over the
+    // positions, one desk card per line.
+    return CustomScrollView(
+      key: const ValueKey('dollars-activity-list'),
+      physics: physics,
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(16.w, top, 16.w, 0),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(
+                  key: ValueKey('dollars-overview-hero'),
+                  height: kDollarsOverviewStackedHeroHeight,
+                  child: DollarsPnlStrip(fill: true),
+                ),
+                SizedBox(height: 10.h),
+                _Heading(context.l10n.accountOpenPositions,
+                    key: const ValueKey('dollars-activity-positions-heading')),
+                if (squares.isNotEmpty)
+                  PortfolioPositionDeskCards(
+                      key: const ValueKey('dollars-activity-squares'),
+                      rows: squares)
+                else
+                  const PortfolioDeskCardsSkeleton(
+                      key: ValueKey('dollars-activity-loading')),
+              ],
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(child: clearance),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ref = this.ref;
     final l10n = context.l10n;
     final venues = ref.watch(portfolioVenuesProvider);
-    final ranked =
-        venues.any ? portfolioOpenRanked(ref, venues) : const <String>[];
+    final ranked = venues.any
+        ? [
+            for (final id in portfolioOpenRanked(ref, venues))
+              if (!widget.exclude.contains(id)) id
+          ]
+        : const <String>[];
     final lists = venues.any
         ? portfolioVenueLists(context, ref, venues)
         : const <BalancesCategory, BalancesVenueList>{};
@@ -503,9 +711,8 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
                   s.valueOrNull?.pendingCloseCoins,
                   s.valueOrNull?.recentFills,
                 )));
-        sellingIds.addAll({
-          for (final coin in closing ?? const <String>{}) 'hl-$coin'
-        });
+        sellingIds.addAll(
+            {for (final coin in closing ?? const <String>{}) 'hl-$coin'});
         dollarsHlCloses(fills ?? const []).forEach((id, at) {
           final was = soldAt[id];
           if (was == null || at.isAfter(was)) soldAt[id] = at;
@@ -513,8 +720,8 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
       }
       handedOver.addAll(dollarsHandingOver(all,
           listed: listed, selling: sellingIds, soldAt: soldAt));
-      ended = dollarsEndedOrders(all, selling: sellingIds, soldAt: soldAt)
-          .toSet();
+      ended =
+          dollarsEndedOrders(all, selling: sellingIds, soldAt: soldAt).toSet();
     }
     // An Investing order the account already shows placed (a fill of its
     // own after its accept, standingHlPlacedBy) is placed here at once,
@@ -534,7 +741,9 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
         for (final o in all)
           if (standing.placedInAccount(o, fills)) o.id,
       };
-      if (placedNow.isNotEmpty) {
+      // Settled once: by the Overview pill's own page, which is always
+      // mounted, never again by the right pane's copy on EXPANDED.
+      if (placedNow.isNotEmpty && !widget.inPane) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) standing.settleInvestingFromFills(fills);
         });
@@ -575,65 +784,141 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
           ? status == null
               ? row
               : PortfolioRowStatusScope(
-                  status: status,
-                  onTap: reopen,
-                  child: row)
+                  status: status, onTap: reopen, child: row)
           : StandingOrderRow(
               key: ValueKey(slot.id),
               order: order,
               status: status,
               onTap: reopen));
     }
-    final loading =
-        squares.isEmpty && lists.values.any((list) => list.loading);
+    final loading = squares.isEmpty && lists.values.any((list) => list.loading);
     final held = squares.isNotEmpty || loading;
+    // The Overview page's own copy tells the bar (dollarsOverviewEmpty).
+    if (widget.startInvesting && !widget.inPane && _toldEmpty != !held) {
+      _toldEmpty = !held;
+      final empty = !held;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(dollarsOverviewEmptyProvider.notifier).state = empty;
+        }
+      });
+    }
+
+    final blocks = <Widget>[
+      if (held)
+        _Heading(l10n.accountOpenPositions,
+            key: const ValueKey('dollars-activity-positions-heading')),
+      if (squares.isNotEmpty)
+        // Two by two, an odd last one (one alone included) the
+        // full-width compact card: never a lone half square (the
+        // no-orphan rule).
+        // The Portfolio's own cards (holdings): the side first on
+        // the line, the chance bar under it, masked with balances
+        // hidden (see the file header).
+        PortfolioPositionSquares(
+            key: const ValueKey('dollars-activity-squares'),
+            holdings: true,
+            rows: squares)
+      else if (loading)
+        const PortfolioSquaresSkeleton(
+            key: ValueKey('dollars-activity-loading')),
+      const DollarsPnlStrip(),
+    ];
+    // Nothing open: Sal (see the file header).
+    final empty = held
+        ? null
+        : Padding(
+            key: const ValueKey('dollars-activity-empty'),
+            padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NoActivityState(
+                  padding: EdgeInsets.symmetric(horizontal: 24.w),
+                  title: l10n.portfolioNoOpenPositions,
+                  cycles: 3,
+                  salSize: 140,
+                  titleSize: 22,
+                  titleWeight: FontWeight.w600,
+                  subtitleSize: 15,
+                  subtitleColor: context.colors.textSecondary,
+                ),
+                // With nothing open the page leads to Investing (founder,
+                // 26 and 27 November 2026): on a phone the bar is "Start
+                // investing" (UsdAccountActionBar.barContext); on a
+                // laptop, whose bar is the search, the top bar's pill,
+                // centred, content width.
+                if (widget.startInvesting &&
+                    kuteWindowIsExpanded(context)) ...[
+                  SizedBox(height: 16.h),
+                  Center(
+                    child: KuteTopBarActions(
+                      key: const ValueKey('dollars-start-investing-wide'),
+                      actions: [
+                        UsdAccountActionBar.startInvestingAction(context)
+                      ],
+                      source: UsdAccountActionBar.startInvestingSource,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+
+    if (widget.wide) {
+      return _wideOverview(context,
+          squares: squares, loading: loading, empty: empty);
+    }
+
+    if (widget.inPane) {
+      // On EXPANDED (the only place the column is drawn) the desk cards,
+      // one per line (PortfolioPositionDeskCards).
+      final paneBlocks = <Widget>[
+        if (held)
+          _Heading(l10n.accountOpenPositions,
+              key: const ValueKey('dollars-activity-positions-heading')),
+        if (squares.isNotEmpty)
+          PortfolioPositionDeskCards(
+              key: const ValueKey('dollars-activity-squares'), rows: squares)
+        else if (loading)
+          const PortfolioDeskCardsSkeleton(
+              key: ValueKey('dollars-activity-loading')),
+        if (widget.pnl) const DollarsPnlStrip(),
+      ];
+      final onHeld = widget.onHeld;
+      if (onHeld != null && _toldHeld != held) {
+        _toldHeld = held;
+        // After the frame: the page rebuilds on it.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) onHeld(held);
+        });
+      }
+      return Column(
+        key: const ValueKey('dollars-activity-pane'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: paneBlocks,
+            ),
+          ),
+          if (empty != null) empty,
+        ],
+      );
+    }
 
     return CustomScrollView(
       key: const ValueKey('dollars-activity-list'),
       slivers: [
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 16.w),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              if (held)
-                _Heading(l10n.accountOpenPositions,
-                    key: const ValueKey('dollars-activity-positions-heading')),
-              if (squares.isNotEmpty)
-                // Two by two, an odd last one (one alone included) the
-                // full-width compact card: never a lone half square (the
-                // no-orphan rule).
-                // The Portfolio's own cards (holdings): the side first on
-                // the line, the chance bar under it, masked with balances
-                // hidden (see the file header).
-                PortfolioPositionSquares(
-                    key: const ValueKey('dollars-activity-squares'),
-                    holdings: true,
-                    rows: squares)
-              else if (loading)
-                const PortfolioSquaresSkeleton(
-                    key: ValueKey('dollars-activity-loading')),
-              const DollarsPnlStrip(),
-            ]),
-          ),
+          sliver: SliverList(delegate: SliverChildListDelegate(blocks)),
         ),
-        // Nothing open: Sal (see the file header).
-        if (!held)
-          SliverToBoxAdapter(
-            child: Padding(
-              key: const ValueKey('dollars-activity-empty'),
-              padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
-              child: NoActivityState(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                title: l10n.portfolioNoOpenPositions,
-                cycles: 3,
-                salSize: 140,
-                titleSize: 22,
-                titleWeight: FontWeight.w600,
-                subtitleSize: 15,
-                subtitleColor: context.colors.textSecondary,
-              ),
-            ),
-          ),
+        if (empty != null) SliverToBoxAdapter(child: empty),
         // The last block clear of the dock and the bar over it.
         SliverToBoxAdapter(
           child: SizedBox(height: 24.h + kuteDockScrollClearance(context)),
@@ -651,9 +936,12 @@ class _Heading extends StatelessWidget {
 
   final String label;
 
+  /// Inside the blocks' edge: the cards' own 12.
+  static const double inset = 12;
+
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(12.w, 14.h, 12.w, 8.h),
+        padding: EdgeInsets.fromLTRB(inset.w, 14.h, inset.w, 8.h),
         // Wraps rather than cut (founder: no cut text on the Overview).
         child: Text(
           label,
@@ -682,17 +970,38 @@ class _Heading extends StatelessWidget {
 /// The history on its way: the card's skeleton; nothing it can chart: the
 /// figure alone.
 class DollarsPnlStrip extends ConsumerWidget {
-  const DollarsPnlStrip({super.key});
+  const DollarsPnlStrip(
+      {super.key, this.plotHeight = kDollarsPnlPlotHeight, this.fill = false});
+
+  /// The Overview's hero on EXPANDED ([dollarsOverviewSplits]): the card
+  /// takes the height it is given, the figure with its % beside it, the
+  /// line filling the rest (its stroke and dot their own size); with the
+  /// figure not known yet, the card's skeleton at that height.
+  final bool fill;
+
+  /// The line's height, design units: the phone's [kDollarsPnlPlotHeight];
+  /// taller in the Overview's own pane on EXPANDED, which has the room.
+  final double plotHeight;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // The page's one open P&L, the figure under the balance too.
     final open = dollarsOpenPnl(ref);
-    if (open == null) return const SizedBox.shrink();
+    if (open == null) {
+      return fill
+          ? const _PnlStripSkeleton(
+              key: ValueKey('dollars-pnl-loading'), plotHeight: 0, fill: true)
+          : const SizedBox.shrink();
+    }
     final venues = ref.watch(portfolioVenuesProvider);
     final status = ref.watch(openPnlChartStatusProvider);
+    if (fill && status == OpenPnlChartStatus.loading) {
+      return const _PnlStripSkeleton(
+          key: ValueKey('dollars-pnl-loading'), plotHeight: 0, fill: true);
+    }
     if (status == OpenPnlChartStatus.loading) {
-      return const _PnlStripSkeleton(key: ValueKey('dollars-pnl-loading'));
+      return _PnlStripSkeleton(
+          key: const ValueKey('dollars-pnl-loading'), plotHeight: plotHeight);
     }
 
     final c = context.colors;
@@ -710,8 +1019,8 @@ class DollarsPnlStrip extends ConsumerWidget {
     List<double>? values;
     List<DateTime>? times;
     if (status == OpenPnlChartStatus.chart) {
-      final window =
-          ref.watch(openPnlWindowProvider(ref.watch(openPnlShownRangeProvider)));
+      final window = ref
+          .watch(openPnlWindowProvider(ref.watch(openPnlShownRangeProvider)));
       if (window != null && window.values.isNotEmpty) {
         final leftOut = ref.watch(openPnlHistoryProvider
                 .select((read) => read.valueOrNull?.leftOut)) ??
@@ -724,85 +1033,155 @@ class DollarsPnlStrip extends ConsumerWidget {
       }
     }
 
+    // The hero's % beside the figure, where the cost is known.
+    final percent = fill && visible && usd != 0 ? openPnlPercent(open) : null;
+    final figureText = RollingNumberText(
+      key: const ValueKey('dollars-pnl-figure'),
+      text: figure,
+      style: TextStyle(
+        color: color,
+        // The hero with no line to draw: the figure is the card.
+        fontSize: (fill ? (values == null ? 48 : 34) : 24).sp,
+        fontWeight: FontWeight.w700,
+        letterSpacing: fill ? -0.8 : -0.5,
+        height: 1.1,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+    Widget chart(double height) => IgnorePointer(
+          child: KuteTrendChart(
+            key: const ValueKey('dollars-pnl-chart'),
+            values: values!,
+            times: times,
+            // The figure's own colour, as on Positions.
+            lineColor:
+                !visible ? c.textPrimary : pnlResultColor(c, values.last),
+            zeroSplit: true,
+            baseline: 0,
+            live: false,
+            height: height,
+          ),
+        );
+    final label = Row(
+      children: [
+        Expanded(
+          child: Text(
+            l10n.portfolioStatOpenPnl,
+            key: const ValueKey('dollars-pnl-label'),
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: (fill ? 15 : 13).sp,
+              fontWeight: fill ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ),
+        Icon(Icons.chevron_right_rounded,
+            size: (fill ? 22 : 18).sp, color: c.textTertiary),
+      ],
+    );
+    final Widget figureRow = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        figureText,
+        if (percent != null) ...[
+          SizedBox(width: 10.w),
+          Text(
+            kuteSignedPercent(percent),
+            key: const ValueKey('dollars-pnl-percent'),
+            style: TextStyle(
+              color: color,
+              fontSize: (values == null ? 22 : 17).sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+              fontFeatures: const [
+                FontFeature.tabularFigures()
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+    final Widget body = fill
+        ? Padding(
+            padding: EdgeInsets.fromLTRB(24.w, 22.h, 24.w, 24.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                label,
+                SizedBox(height: 6.h),
+                if (values != null) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: figureRow,
+                    ),
+                  ),
+                  // The line in the room left, clear of the figure and of
+                  // the card's foot (its end dot inside the padding).
+                  SizedBox(height: 24.h),
+                  Expanded(
+                    child: LayoutBuilder(
+                        builder: (context, box) => chart(box.maxHeight)),
+                  ),
+                ] else
+                  // Nothing it can chart: the figure alone, the card's
+                  // centre.
+                  Expanded(
+                    child: Center(
+                      child: FittedBox(
+                          fit: BoxFit.scaleDown, child: figureRow),
+                    ),
+                  ),
+              ],
+            ),
+          )
+        : Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 12.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                label,
+                SizedBox(height: 4.h),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: figureText,
+                  ),
+                ),
+                if (values != null) ...[
+                  SizedBox(height: 10.h),
+                  // Still, no scrub: the card is one tap to Positions.
+                  chart(plotHeight.h),
+                ],
+              ],
+            ),
+          );
+
     return Padding(
-      padding: EdgeInsets.only(top: 12.h),
+      padding: EdgeInsets.only(top: fill ? 0 : 12.h),
       child: Semantics(
         button: true,
         label: '${l10n.portfolioStatOpenPnl} $figure',
         excludeSemantics: true,
-        child: KutePressable(
-          child: GestureDetector(
-            key: const ValueKey('dollars-pnl-strip'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              openInvestmentsPortfolio(context, PortfolioSection.balances);
-            },
-            child: DecoratedBox(
-              decoration: PremiumGroupContainer.decorationOf(context),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 12.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            l10n.portfolioStatOpenPnl,
-                            key: const ValueKey('dollars-pnl-label'),
-                            style: TextStyle(
-                              color: c.textSecondary,
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Icon(Icons.chevron_right_rounded,
-                            size: 18.sp, color: c.textTertiary),
-                      ],
-                    ),
-                    SizedBox(height: 4.h),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: RollingNumberText(
-                          key: const ValueKey('dollars-pnl-figure'),
-                          text: figure,
-                          style: TextStyle(
-                            color: color,
-                            fontSize: 24.sp,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                            height: 1.1,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (values != null) ...[
-                      SizedBox(height: 10.h),
-                      // Still, no scrub: the card is one tap to Positions.
-                      IgnorePointer(
-                        child: KuteTrendChart(
-                          key: const ValueKey('dollars-pnl-chart'),
-                          values: values,
-                          times: times,
-                          // The figure's own colour, as on Positions.
-                          lineColor: !visible
-                              ? c.textPrimary
-                              : pnlResultColor(c, values.last),
-                          zeroSplit: true,
-                          baseline: 0,
-                          live: false,
-                          height: kDollarsPnlPlotHeight.h,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: KutePressable(
+            child: GestureDetector(
+              key: const ValueKey('dollars-pnl-strip'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                openInvestmentsPortfolio(context, PortfolioSection.balances);
+              },
+              child: DecoratedBox(
+                decoration: PremiumGroupContainer.decorationOf(context),
+                child: body,
               ),
             ),
           ),
@@ -814,14 +1193,24 @@ class DollarsPnlStrip extends ConsumerWidget {
 
 /// The P&L card's shape while its read is on its way.
 class _PnlStripSkeleton extends StatelessWidget {
-  const _PnlStripSkeleton({super.key});
+  const _PnlStripSkeleton(
+      {super.key, required this.plotHeight, this.fill = false});
+
+  final double plotHeight;
+
+  /// The hero's: the height it is given.
+  final bool fill;
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => fill
+      ? KuteSkeleton(
+          child: SkeletonBar(double.infinity, double.infinity,
+              radius: PremiumGroupContainer.radius))
+      : Padding(
         padding: EdgeInsets.only(top: 12.h),
         child: KuteSkeleton(
-          child: SkeletonBar(double.infinity,
-              (14 + 18 + 4 + 28 + 10 + kDollarsPnlPlotHeight + 12).h,
+          child: SkeletonBar(
+              double.infinity, (14 + 18 + 4 + 28 + 10 + plotHeight + 12).h,
               radius: PremiumGroupContainer.radius),
         ),
       );

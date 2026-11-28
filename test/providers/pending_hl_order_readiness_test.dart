@@ -30,6 +30,7 @@ import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/tracking_service.dart';
 
 import '../helpers/fake_hyperliquid_move_rail.dart';
+import '../helpers/hl_flat_positions.dart';
 
 const _market = HlMarket(
   coin: 'BTC',
@@ -212,6 +213,7 @@ void main() {
       double pendingFundUsd = 20.03,
       HlSentOrderTrace Function(List<String> cloids)? trace}) {
     final c = ProviderContainer(overrides: [
+      hlFlatPositionsOverride,
       // The earlier sends looked up before any send again: nowhere, unless
       // the test says otherwise.
       hlSentOrderTraceProvider.overrideWithValue((cloids, market) async =>

@@ -5,6 +5,7 @@ import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/secure_screen.dart';
 import 'package:kute/helpers/seed_clipboard.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/helpers/stored_seed_reveal.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/providers/auth_provider.dart';
@@ -168,17 +169,17 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
         // one) so a multi-wallet user always sees the seed of the wallet they
         // opened — never a sibling wallet's. Cached label is only a fallback
         // for legacy wallets that predate stored per-wallet labels.
-        final label =
-            wallet.passkeyLabel ?? await PasskeyService.getCachedLabel();
         // VINTAGE ROUTING — absolute rule on a mnemonic-reveal surface:
         // a legacy (passkeyProvider == null) wallet reconstructs ONLY
         // via the 0.15.1 PRF pipeline (getLegacySeed). The new SDK's
         // signIn could resolve a different credential on the shared RP
-        // and display words that don't control the user's funds.
-        final breez.Seed seed = wallet.passkeyProvider == null
-            ? await PasskeyService.getLegacySeed(label: label)
-            : (await PasskeyService.getWallet(label: label, legacy: false))
-                .seed;
+        // and display words that don't control the user's funds. seedFor
+        // routes on the marker (legacy / Breez home / Kute's home) and
+        // throws on an unknown one.
+        final breez.Seed seed = await PasskeyService.seedFor(
+          passkeyLabel: wallet.passkeyLabel,
+          provider: wallet.passkeyProvider,
+        );
         mnemonicData = await _seedToMnemonic(seed);
       } else {
         final read = await readStoredSeedInteractive(context, ref, wallet.id,
@@ -322,6 +323,10 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
   Widget build(BuildContext context) {
     final wallets = ref.watch(settingsProvider.select((s) => s.wallets));
     final backupDone = _selectedWallet?.backedUp ?? false;
+    // EXPANDED (round three): the wallet, the warning, the notes and the
+    // actions in a column on the left gutter, the words four across the
+    // rest of the window (seed_word_tile.dart, KuteSeedWidePage).
+    final wide = kuteIsExpanded(context);
 
     return SecureScreen(
         surface: 'seed_words',
@@ -338,16 +343,21 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
                 letterSpacing: -0.3,
               ),
             ),
-            centerTitle: true,
+            centerTitle: !wide,
+            titleSpacing: wide ? 8 : null,
+            leadingWidth: wide ? kuteSeedLeadingWidth(context) : null,
             backgroundColor: Colors.transparent,
             elevation: 0,
             scrolledUnderElevation: 0,
             surfaceTintColor: Colors.transparent,
-            leading: const KuteBackButton(),
+            leading: wide
+                ? kuteSeedLeading(context, const KuteBackButton())
+                : const KuteBackButton(),
             actions: [
               if (_mnemonic != null && !(_selectedWallet?.isWatchOnly ?? false))
                 Padding(
-                  padding: EdgeInsets.only(right: 8.w),
+                  padding: EdgeInsets.only(
+                      right: wide ? kuteWidePadding(context).right - 8 : 8.w),
                   child: Center(
                     child: KuteCircleButton(
                       semanticsLabel: context.l10n.revealYourRecoveryPhrase,
@@ -369,51 +379,114 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
               Positioned.fill(
                   child: Container(
                       decoration: AppDecorations.screenGradient(context))),
-              SafeArea(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.w),
-                  child: !_pinVerified
-                      // Skeleton mimicking the seed-word grid about to render.
-                      ? SingleChildScrollView(
-                          physics: const NeverScrollableScrollPhysics(),
-                          child: Padding(
-                            padding: EdgeInsets.only(top: 24.h),
-                            child: const SkeletonWordGrid(
-                                crossAxisCount: 2, aspectRatio: 3),
-                          ),
-                        )
-                      : Column(
-                          children: [
-                            if (wallets.length > 1) ...[
-                              _buildWalletSelector(wallets),
-                              SizedBox(height: 16.h),
-                            ],
-                            if (!(_selectedWallet?.isWatchOnly ?? true)) ...[
-                              _buildWarning(),
-                              SizedBox(height: 16.h),
-                            ],
-                            if (_selectedWallet?.isSparkWallet ?? false) ...[
-                              const SparkRecoveryNote(),
-                              SizedBox(height: 16.h),
-                            ],
-                            Expanded(
-                              child: SingleChildScrollView(
-                                child: _buildMainContent(),
-                              ),
+              if (wide)
+                SafeArea(child: _buildWide(wallets, backupDone))
+              else
+                SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.w),
+                    child: !_pinVerified
+                        // Skeleton mimicking the seed-word grid about to render.
+                        ? SingleChildScrollView(
+                            physics: const NeverScrollableScrollPhysics(),
+                            child: Padding(
+                              padding: EdgeInsets.only(top: 24.h),
+                              child: const SkeletonWordGrid(
+                                  crossAxisCount: 2, aspectRatio: 3),
                             ),
-                            if (_selectedWallet != null &&
-                                !_selectedWallet!.isWatchOnly)
-                              Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16.h),
-                                child: _buildActions(backupDone),
+                          )
+                        : Column(
+                            children: [
+                              if (wallets.length > 1) ...[
+                                _buildWalletSelector(wallets),
+                                SizedBox(height: 16.h),
+                              ],
+                              if (!(_selectedWallet?.isWatchOnly ?? true)) ...[
+                                _buildWarning(),
+                                SizedBox(height: 16.h),
+                              ],
+                              if (_selectedWallet?.isSparkWallet ?? false) ...[
+                                const SparkRecoveryNote(),
+                                SizedBox(height: 16.h),
+                              ],
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  child: _buildMainContent(),
+                                ),
                               ),
-                          ],
-                        ),
+                              if (_selectedWallet != null &&
+                                  !_selectedWallet!.isWatchOnly)
+                                Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16.h),
+                                  child: _buildActions(backupDone),
+                                ),
+                            ],
+                          ),
+                  ),
                 ),
-              ),
             ],
           ),
         ));
+  }
+
+  /// EXPANDED: the wallet picker, the warning, the Spark note and the
+  /// actions (Reveal or Copy, then the bar's Backup wallet) on the left,
+  /// the words on the right.
+  Widget _buildWide(List<WalletConfig> wallets, bool backupDone) {
+    final wallet = _selectedWallet;
+    final showWords = _pinVerified &&
+        !_isLoading &&
+        wallet != null &&
+        !wallet.isWatchOnly &&
+        _mnemonic != null;
+    return KuteSeedWidePage(
+      top: 16,
+      physics: _pinVerified ? null : const NeverScrollableScrollPhysics(),
+      side: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_pinVerified) ...[
+            if (wallets.length > 1) ...[
+              _buildWalletSelector(wallets),
+              SizedBox(height: 16.h),
+            ],
+            if (!(wallet?.isWatchOnly ?? true)) ...[
+              _buildWarning(),
+              SizedBox(height: 16.h),
+            ],
+            if (wallet?.isSparkWallet ?? false) ...[
+              const SparkRecoveryNote(),
+              SizedBox(height: 16.h),
+            ],
+            if (showWords && !_revealed)
+              AppButton(
+                text: context.l10n.revealYourRecoveryPhrase,
+                icon: Icons.visibility_rounded,
+                variant: AppButtonVariant.secondary,
+                onPressed: _toggleRevealed,
+              ),
+            if (wallet != null && !wallet.isWatchOnly)
+              _buildActions(backupDone, wide: true),
+          ],
+        ],
+      ),
+      main: !_pinVerified || _isLoading
+          ? const SkeletonWordGrid(crossAxisCount: 4, aspectRatio: 4)
+          : showWords
+              ? SecureContent(
+                  child: KuteSeedWordGrid(
+                    count: _mnemonic!.split(' ').length,
+                    // Masked tiles carry no real word, so nothing leaks
+                    // before reveal.
+                    itemBuilder: (context, index) => SeedWordTile(
+                        index: index + 1,
+                        word: _revealed
+                            ? _mnemonic!.split(' ')[index]
+                            : '\u2022\u2022\u2022\u2022\u2022\u2022'),
+                  ),
+                )
+              : _buildMainContent(),
+    );
   }
 
   void _toggleRevealed() {
@@ -457,7 +530,7 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
 
   /// Copy sits beside the primary action instead of hiding in the app bar,
   /// and only once the words are on screen.
-  Widget _buildActions(bool backupDone) {
+  Widget _buildActions(bool backupDone, {bool wide = false}) {
     final wallet = _selectedWallet!;
     final canCopy = _revealed && _mnemonic != null;
     // THE BAR IS THE BUTTON (kute_bar_context.dart): Backup wallet is the
@@ -477,7 +550,10 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
                   source: 'seed_words',
                   disabledLabel: null,
                 ),
-                child: SizedBox(height: kuteBarScrollClearance.h),
+                // EXPANDED: the page's scroll keeps the bar's clearance.
+                child: wide
+                    ? const SizedBox.shrink()
+                    : SizedBox(height: kuteBarScrollClearance.h),
               );
     return Column(
       mainAxisSize: MainAxisSize.min,

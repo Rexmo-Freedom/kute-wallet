@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show showKuteDialog;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton, kKuteNavButtonSize, kuteNavTitleLift;
@@ -9,6 +11,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/platform/web_image.dart' show WebPanelCover;
 
 /// EVERY modal bottom sheet in the app opens through this (founder, 31
 /// October 2026): Flutter's [showModalBottomSheet] with the same
@@ -19,6 +22,15 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 /// its own chrome (a slip, a picker, a menu) calls this directly so its
 /// look is untouched and only its motion is shared. Nothing in lib/ calls
 /// [showModalBottomSheet] itself.
+///
+/// From MEDIUM up (kute_layout.dart) every sheet is a centred form of at
+/// most `KuteLayout.sheetMaxWidth`, still anchored at the bottom with its
+/// own handle, radius and colours, so the keyboard lift and the drag down
+/// work as on a phone; its content sees the sheet's width as the screen's
+/// ([KuteSheetMedia]). A phone: unchanged.
+///
+/// EXPANDED (round two, kute_dialog.dart): the search panel's shape,
+/// top-anchored and centred, with the sheet's primary drawn inside it.
 Future<T?> showKuteModalSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -32,9 +44,27 @@ Future<T?> showKuteModalSheet<T>({
   bool useRootNavigator = false,
   RouteSettings? routeSettings,
 }) {
+  // EXPANDED (a laptop): a panel shaped as the search panel, with the
+  // sheet's primary drawn inside it (kute_dialog.dart). Always over the
+  // root navigator there, so it covers the top bar too.
+  if (kuteWindowIsExpanded(context)) {
+    return showKuteDialog<T>(
+      context: context,
+      builder: builder,
+      color: backgroundColor == Colors.transparent ? null : backgroundColor,
+      dismissible: isDismissible,
+      settings: routeSettings,
+    );
+  }
   return showModalBottomSheet<T>(
     context: context,
-    builder: builder,
+    // The web: the page's `<img>` pictures under the sheet step aside
+    // (WebPanels, platform/web_image.dart); off the web the wrapper is
+    // its child.
+    builder: kuteWindowIsWide(context)
+        ? (ctx) => WebPanelCover(child: KuteSheetMedia(child: builder(ctx)))
+        : (ctx) => WebPanelCover(child: builder(ctx)),
+    constraints: kuteSheetConstraints(context),
     backgroundColor: backgroundColor,
     barrierColor: barrierColor,
     shape: shape,
@@ -150,7 +180,9 @@ const double kuteBarShortSheetFraction = 0.6;
 /// the one that builds the sheet); [KuteSheetBarSpace] is that room as
 /// the scroll content's last child.
 double kuteSheetBarClearance(BuildContext context) =>
-    _KuteSheetBarRoom.barOver(context) ? kuteBarScrollClearance.h : 0;
+    _KuteSheetBarRoom.barOver(context) && !KuteDialogScope.inDialog(context)
+        ? kuteBarScrollClearance.h
+        : 0;
 
 /// [kuteSheetBarClearance] as a box: the last child of a sheet's scroll
 /// content, so its last rows scroll clear of the floating bar while the
@@ -223,10 +255,11 @@ class _KuteSheetBarFitState extends State<KuteSheetBarFit> {
         child: KuteBarContextScope(
             barContext: const KuteBarContext.hidden(),
             active: _short == true,
-            // Measured tall: the bar is over this sheet, and its scroll
-            // views leave it room (kuteSheetBarClearance).
-            child: _KuteSheetBarRoom(
-                over: _short == false, child: widget.child)),
+            // No room for the bar any more (founder, 27 November 2026):
+            // a sheet with no action of its own has no bar over it, tall
+            // or short (kute_shell_bar.dart, a bare sheet on top), so its
+            // scroll views end at their content (kuteSheetBarClearance).
+            child: _KuteSheetBarRoom(over: false, child: widget.child)),
       ),
     );
   }
@@ -293,7 +326,11 @@ class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
               child: content,
             ),
     );
-    return KuteSheetBarFit(child: sheet);
+    // A side panel on EXPANDED wears the sheet's own colour to its foot.
+    return KuteSheetBarFit(
+        child: color == null
+            ? sheet
+            : KuteDialogSurfaceMark(color: color, child: sheet));
   }
 }
 

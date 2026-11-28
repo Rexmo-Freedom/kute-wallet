@@ -9,6 +9,129 @@ class AppLocalizationsEl extends AppLocalizations {
   AppLocalizationsEl([String locale = 'el']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Αυτή η θέση χρησιμοποιεί μόχλευση, οπότε εδώ μπορείτε μόνο να τη μειώσετε ή να την κλείσετε.';
+
+  @override
+  String get hlExpoNothingToReduce =>
+      'Δεν υπάρχει εδώ θέση που να μπορεί να μειώσει αυτή η εντολή.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Δεν υπάρχουν ακόμη χρήματα για συναλλαγές. Προσθέστε χρήματα πριν υποβάλετε αυτή την εντολή.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Δεν ήταν δυνατός ο έλεγχος της θέσης σας σε αυτή την αγορά. Δοκιμάστε ξανά σε λίγο.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Ορίστε το stop loss κάτω από την τρέχουσα τιμή, αλλιώς κλείνει αμέσως τη θέση.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Ορίστε το stop loss πάνω από την τρέχουσα τιμή, αλλιώς κλείνει αμέσως τη θέση.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Ορίστε το take profit πάνω από την τρέχουσα τιμή, αλλιώς κλείνει αμέσως τη θέση.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Ορίστε το take profit κάτω από την τρέχουσα τιμή, αλλιώς κλείνει αμέσως τη θέση.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Ορίστε την τιμή ορίου ίση ή κάτω από την τιμή ενεργοποίησης.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Ορίστε την τιμή ορίου ίση ή πάνω από την τιμή ενεργοποίησης.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Αυτό το stop είναι πέρα από την τιμή ρευστοποίησης: η θέση θα ρευστοποιούνταν πριν ενεργοποιηθεί.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Αυτή η τιμή είναι πέρα από την τιμή αγοράς: εκτελείται τώρα, με την υψηλότερη χρέωση taker.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Το κλείσιμο ολόκληρης της θέσης ακυρώνει και τις εντολές stop και take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Ακυρωμένες εντολές προστασίας';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Εντολές προστασίας ακόμη ανοιχτές';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Οι εντολές stop και take profit δεν ακυρώθηκαν. Ακυρώστε τις στις Εντολές, ώστε να μην κλείσουν νέα θέση.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Το νέο stop loss τοποθετήθηκε, αλλά το παλιό δεν ακυρώθηκε. Ακυρώστε το στις Εντολές.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Αυτή η θέση έχει ήδη stop loss στα $price. Με την αντικατάσταση, το παλιό ακυρώνεται μόνο αφού τοποθετηθεί το νέο.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Αυτή η θέση έχει ήδη stop loss: $count. Με την αντικατάσταση, τα παλιά ακυρώνονται μόνο αφού τοποθετηθεί το νέο.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Αντικατάσταση';
+
+  @override
+  String get hlProtectAddStop => 'Προσθήκη άλλου';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Ακύρωση όλων των εντολών;';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Έτσι ακυρώνετε όλες τις ανοιχτές εντολές ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Έτσι ακυρώνετε όλες τις ανοιχτές εντολές ($count), μαζί με όσες προστατεύουν θέση: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Ακυρώνονται και οι εντολές σας στο Predictions.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Απομένουν $left από $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Εκτελέστηκε $percent%';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Το τελευταίο σας trailing stop σε αυτή την αγορά δεν έχει επιβεβαιωθεί ακόμη. Ελέγξτε τις ανοιχτές εντολές σας. Δεν στάλθηκε δεύτερη εντολή.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop στα $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Ακύρωση αυτής της εντολής;';
+
+  @override
   String get totalBalance => 'Συνολικό υπόλοιπο';
 
   @override
@@ -7059,6 +7182,68 @@ class AppLocalizationsEl extends AppLocalizations {
   String get betUntilCanceled => 'Μέχρι ακύρωσης';
 
   @override
+  String get advancedFillsNow => 'Εκτελείται τώρα';
+
+  @override
+  String get advancedRests => 'Περιμένει στο βιβλίο';
+
+  @override
+  String get betLimitOrderFilled => 'Η εντολή ορίου εκτελέστηκε';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Αγοράστηκαν $shares μερίδια $outcome στα $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Επιλέξτε τιμή σε βήματα των $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Επιλέξτε τιμή από $low έως $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Η μικρότερη εντολή εδώ είναι $count μερίδια.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count μερίδια σε ανοιχτές εντολές';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Μόνο $count μερίδια είναι ελεύθερα για πώληση. Τα υπόλοιπα είναι στις ανοιχτές εντολές σας.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Ακύρωση όλων των εντολών;';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Αυτό αφαιρεί $count ανοιχτές εντολές:',
+      one: 'Αυτό αφαιρεί 1 ανοιχτή εντολή:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Διατήρηση εντολών';
+
+  @override
+  String get betOrderTypeRow => 'Τύπος εντολής';
+
+  @override
+  String get betReservedRow => 'Δεσμευμένα';
+
+  @override
   String get betProceedsToPredictions => 'Στις Προβλέψεις';
 
   @override
@@ -11900,6 +12085,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Εξερεύνησε τις Επενδύσεις';
 
   @override
+  String get dollarsStartInvesting => 'Ξεκίνα να επενδύεις';
+
+  @override
   String get activityFilterTrades => 'Συναλλαγές';
 
   @override
@@ -12208,9 +12396,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get sendRecipientSearchHintNoPhone => 'Όνομα ή διεύθυνση κρύπτο';
-
-  @override
-  String get shareGetKuteLine => 'Μπες κι εσύ στη δράση στο getkute.com';
 
   @override
   String get sendMoveToYourDollars => 'Μεταφορά στα Δολάριά σου';
@@ -14649,4 +14834,91 @@ class AppLocalizationsEl extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Το take-profit δεν τοποθετήθηκε.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Το stop-loss δεν τοποθετήθηκε.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Το take-profit και το stop-loss δεν τοποθετήθηκαν.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Τοποθετήθηκαν μόνο $placed από $total εντολές.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Η εντολή εκτελέστηκε εν μέρει';
+
+  @override
+  String get hlAdvStillOpen => 'Ακόμη ανοιχτή';
+
+  @override
+  String get hlAdvRestStillOpen =>
+      'Το υπόλοιπο της εντολής είναι ακόμη ανοιχτό.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Μια εντολή TWAP χρειάζεται τουλάχιστον $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Η εντολή TWAP εκτελείται για $minutes λεπ.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Η κλιμάκωση δέχεται από $min έως $max εντολές.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Η τιμή έναρξης και λήξης πρέπει να διαφέρουν.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Και οι δύο τιμές πρέπει να είναι κάτω από την τρέχουσα τιμή.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Και οι δύο τιμές πρέπει να είναι πάνω από την τρέχουσα τιμή.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Αυτό το stop-loss είναι πέρα από την εκτιμώμενη τιμή ρευστοποίησης, οπότε η θέση μπορεί να ρευστοποιηθεί πρώτα.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Η εντολή εκτελέστηκε, αλλά το trailing stop δεν τοποθετήθηκε επειδή δεν εγκρίθηκε.';
+
+  @override
+  String get getAppBannerTitle => 'Κατέβασε την εφαρμογή Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Διαθέσιμη για iPhone και Android';
+
+  @override
+  String get chartPriceScale => 'Κλίμακα τιμών';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Αυτή η σελίδα είναι ανοιχτή μέσα σε άλλη εφαρμογή. Για Face ID και για να κρατήσετε το πορτοφόλι σας, ανοίξτε τη στο Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Αυτή η σελίδα είναι ανοιχτή μέσα σε άλλη εφαρμογή. Για να χρησιμοποιήσετε κλειδί πρόσβασης και να κρατήσετε το πορτοφόλι σας, ανοίξτε τη στο Chrome.';
+
+  @override
+  String get shareOpenInAppBody => 'Έχετε την εφαρμογή Kute; Ανοίξτε το εκεί.';
+
+  @override
+  String get shareOpenInApp => 'Άνοιγμα στην εφαρμογή';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Το κλείσιμο με Ledger δεν ακυρώνει τις εντολές stop και take profit της θέσης: κάθε ακύρωση χρειάζεται το Ledger σας. Ακυρώστε τις στις Εντολές, ώστε να μην κλείσουν νέα θέση.';
 }

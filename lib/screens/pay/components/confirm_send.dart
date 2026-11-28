@@ -1,3 +1,4 @@
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/models/advisor_context.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -33,7 +34,8 @@ import 'package:kute/services/onchain/native_onchain_service.dart'
 import 'package:kute/providers/bitcoin_labels_provider.dart';
 import 'package:kute/providers/bitcoin_software_send_provider.dart';
 import 'package:kute/models/onchain_types.dart' as onchain;
-import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
+import 'package:flutter/foundation.dart' show kIsWeb, listEquals, visibleForTesting;
+import 'package:kute/platform/web_image.dart';
 import 'package:kute/services/sound_service.dart';
 import 'package:kute/services/success_feedback.dart'
     show moneyFailureFeedbackAfterBand;
@@ -725,6 +727,15 @@ class _DestAsset {
                 height: size,
                 fallback: _textFallback(size),
               )
+            : kIsWeb
+            // Web: no CORS on the artwork host; the browser's <img>.
+            ? WebNetworkImage(
+                url: iconUrl!,
+                width: size,
+                height: size,
+                fit: BoxFit.contain,
+                error: _textFallback(size),
+              )
             : CachedNetworkImage(
                 imageUrl: iconUrl!,
                 width: size,
@@ -1135,12 +1146,16 @@ Future<bool> showConfirmationModal(
     PageRouteBuilder<bool>(
       opaque: false,
       barrierColor: Colors.black.withValues(alpha: 0.4),
-      pageBuilder: (_, __, ___) => _StandardConfirmationPage(
-        amountString: amountString,
-        unit: btcFormat,
-        amountFiat: amountFiat,
-        address: address,
-        fees: fees,
+      // A centred column on the app's background from MEDIUM up, as the
+      // send flow's pages are (kute_wide_frames.dart).
+      pageBuilder: (_, __, ___) => KuteFormColumn(
+        child: _StandardConfirmationPage(
+          amountString: amountString,
+          unit: btcFormat,
+          amountFiat: amountFiat,
+          address: address,
+          fees: fees,
+        ),
       ),
       transitionsBuilder: (_, anim, __, child) =>
           FadeTransition(opacity: anim, child: child),

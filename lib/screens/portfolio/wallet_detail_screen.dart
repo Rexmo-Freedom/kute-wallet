@@ -16,6 +16,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:kute/constants/feature_flags.dart';
 import 'package:kute/screens/ledger/ledger_account_body.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/wallet_removal_step_up.dart';
 import 'package:kute/screens/shared/wallet_bitcoin_body.dart';
@@ -229,6 +231,20 @@ class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
       overflow: TextOverflow.ellipsis,
     );
 
+    // EXPANDED (round three; founder, 25 November 2026: "it must be all
+    // occupying full screen when we can"): the wallet's own tab's wide
+    // body (shell_wallet_screen.dart, centred like the Bitcoin home: the
+    // balance and its actions at phone width, the charts and the activity
+    // side by side under them), the back button and the name on the
+    // page's left gutter, the dock and the backup card at phone width.
+    final wide = kuteIsExpanded(context);
+    final side = kuteWidePadding(context);
+    Widget phone(Widget child) => wide
+        ? KutePhoneColumn(
+            child: kuteNarrowMedia(context,
+                width: KuteLayout.paneWidth, child: child))
+        : child;
+
     return PopScope(
       onPopInvokedWithResult: (_, __) => _restoreActive(),
       child: Scaffold(
@@ -239,8 +255,10 @@ class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
           // displayed wallet (Ledger tabs route through
           // LedgerAccountActionBar, never hot-wallet actions).
           child: KuteDockHost(
+            // On EXPANDED the dock is a phone's width, centred under the
+            // page, never stretched across the window.
             dockBuilder: (onHeightChanged) =>
-                isLedgerAccount && _ledgerTab != LedgerAccountTab.bitcoin
+                phone(isLedgerAccount && _ledgerTab != LedgerAccountTab.bitcoin
                     ? LedgerAccountActionBar(
                         walletId: wallet.id,
                         tab: _ledgerTab,
@@ -251,14 +269,17 @@ class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
                         onHeightChanged: onHeightChanged,
                         onSearch: () => showKuteSearch(context,
                             walletId: wallet.id, source: 'wallet_detail'),
-                      ),
+                      )),
             body: SafeArea(
               bottom: false,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: EdgeInsets.fromLTRB(8.w, 8.h, 12.w, 4.h),
+                    padding: wide
+                        ? EdgeInsets.fromLTRB(
+                            side.left - 2, 8.h, side.right, 4.h)
+                        : EdgeInsets.fromLTRB(8.w, 8.h, 12.w, 4.h),
                     child: Row(
                       children: [
                         KuteBackButton(
@@ -301,10 +322,10 @@ class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
                     ),
                   ),
                   if (needsWalletBackup(wallet, pendingLabels: pendingLabels))
-                    Padding(
+                    phone(Padding(
                       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
                       child: SecurityActionCard(walletId: wallet.id),
-                    ),
+                    )),
                   Expanded(
                     child: isLedgerAccount
                         ? LedgerAccountBody(
@@ -312,7 +333,7 @@ class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
                             onTabChanged: (tab) =>
                                 setState(() => _ledgerTab = tab),
                           )
-                        : WalletBitcoinBody(wallet: wallet),
+                        : WalletBitcoinBody(wallet: wallet, wide: wide),
                   ),
                 ],
               ),
@@ -487,106 +508,101 @@ class WalletMenuButton extends ConsumerWidget {
     TrackingService.track('wallet_rename_started',
         params: {'surface': 'wallet_detail'});
     var saved = false;
-    await showDialog<void>(
+    // A sheet from MEDIUM up, never a card stretched across the window
+    // (showKuteAlert).
+    await showKuteAlert<void>(
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (dialogCtx) {
         final c = dialogCtx.colors;
-        return KuteBlur(
-          sigmaX: 5,
-          sigmaY: 5,
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            insetPadding: EdgeInsets.symmetric(horizontal: 24.w),
-            child: Container(
-              padding: EdgeInsets.all(20.w),
-              decoration: BoxDecoration(
-                color: c.surfaceLight.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(20.r),
-                border: Border.all(color: c.border),
+        final shell = KuteAlertShell(
+          insetPadding: EdgeInsets.symmetric(horizontal: 24.w),
+          padding: EdgeInsets.all(20.w),
+          decoration: BoxDecoration(
+            color: c.surfaceLight.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: c.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                context.l10n.rename,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              SizedBox(height: 16.h),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                style: TextStyle(color: c.textPrimary, fontSize: 15.sp),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: c.surface,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: BorderSide(color: c.borderSubtle, width: 0.5),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: BorderSide(color: c.borderSubtle, width: 0.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: BorderSide(color: c.accent, width: 1),
+                  ),
+                ),
+              ),
+              SizedBox(height: 20.h),
+              Row(
                 children: [
-                  Text(
-                    context.l10n.rename,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: CustomButton(
+                      onPressed: () => dialogCtx.pop(),
+                      text: context.l10n.cancel,
+                      primaryColor: c.surfaceLight,
+                      textColor: c.textPrimary,
                     ),
                   ),
-                  SizedBox(height: 16.h),
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    style: TextStyle(color: c.textPrimary, fontSize: 15.sp),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: c.surface,
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 14.w, vertical: 12.h),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide:
-                            BorderSide(color: c.borderSubtle, width: 0.5),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide:
-                            BorderSide(color: c.borderSubtle, width: 0.5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: BorderSide(color: c.accent, width: 1),
-                      ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: CustomButton(
+                      onPressed: () async {
+                        final next = controller.text.trim();
+                        if (next.isEmpty || next == wallet.name) {
+                          dialogCtx.pop();
+                          return;
+                        }
+                        await ref
+                            .read(settingsProvider.notifier)
+                            .renameWallet(wallet.id, next);
+                        saved = true;
+                        TrackingService.track('wallet_renamed', params: {
+                          'surface': 'wallet_detail',
+                          'changed': true,
+                        });
+                        if (dialogCtx.mounted) dialogCtx.pop();
+                      },
+                      text: context.l10n.save,
+                      primaryColor: context.ctaFill,
                     ),
-                  ),
-                  SizedBox(height: 20.h),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CustomButton(
-                          onPressed: () => dialogCtx.pop(),
-                          text: context.l10n.cancel,
-                          primaryColor: c.surfaceLight,
-                          textColor: c.textPrimary,
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: CustomButton(
-                          onPressed: () async {
-                            final next = controller.text.trim();
-                            if (next.isEmpty || next == wallet.name) {
-                              dialogCtx.pop();
-                              return;
-                            }
-                            await ref
-                                .read(settingsProvider.notifier)
-                                .renameWallet(wallet.id, next);
-                            saved = true;
-                            TrackingService.track('wallet_renamed', params: {
-                              'surface': 'wallet_detail',
-                              'changed': true,
-                            });
-                            if (dialogCtx.mounted) dialogCtx.pop();
-                          },
-                          text: context.l10n.save,
-                          primaryColor: context.ctaFill,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
-            ),
+            ],
           ),
         );
+        return KuteAlertShell.asSheet(dialogCtx)
+            ? shell
+            : KuteBlur(sigmaX: 5, sigmaY: 5, child: shell);
       },
     );
     if (!saved) {

@@ -1,3 +1,5 @@
+import 'package:kute/screens/shared/desk_lists.dart'
+    show ActivityDayColumns;
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
@@ -153,6 +155,7 @@ import 'package:kute/screens/shared/animations/fade_in_slide.dart';
 import 'package:kute/screens/shared/animations/bouncy_touch.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 
 /// Rows an activity preview shows before "See all" (Home, Dollars, the
@@ -191,7 +194,13 @@ class TransactionList extends ConsumerStatefulWidget {
     this.showAll = false,
     this.onlyUsdb = false,
     this.emptyState,
+    this.columns = false,
   });
+
+  /// The Activity screen on EXPANDED: the day cards in masonry columns
+  /// (ActivityDayColumns, desk_lists.dart).
+  final bool columns;
+
   @override
   _TransactionListState createState() => _TransactionListState();
 }
@@ -254,7 +263,7 @@ class _TransactionListState extends ConsumerState<TransactionList> {
 
     try {
       final inAppReview = InAppReview.instance;
-      if (await inAppReview.isAvailable()) {
+      if (PlatformCaps.hasInAppReview && await inAppReview.isAvailable()) {
         await inAppReview.requestReview();
         TrackingService.track('review_prompted',
             params: const {'trigger': 'first_tx'});
@@ -397,6 +406,27 @@ class _TransactionListState extends ConsumerState<TransactionList> {
     // "Balances hidden" placeholder.
     if (sortedDates.isEmpty) {
       return widget.emptyState ?? buildNoTransactionsFound(context);
+    }
+
+    if (widget.columns) {
+      return ActivityDayColumns(
+        weights: [
+          for (final date in sortedDates) groupedTransactions[date]!.length + 2
+        ],
+        sections: [
+          for (final (i, date) in sortedDates.indexed)
+            FadeInSlide(
+              index: i,
+              child: ActivityDaySection(
+                day: date,
+                rows: [
+                  for (final tx in groupedTransactions[date]!)
+                    _buildUnifiedTransactionItem(tx, context, ref),
+                ],
+              ),
+            ),
+        ],
+      );
     }
 
     return Column(
@@ -667,7 +697,8 @@ class _AmountText extends StatelessWidget {
 /// prediction won or lost); every other amount is the primary text
 /// colour.
 Widget buildWalletActivityRow({
-  required Widget leading,
+  // Null: no tile and no gap (a market with no picture on the web).
+  required Widget? leading,
   required Widget title,
   required String subtitle,
   required String amount,
@@ -763,7 +794,7 @@ class ActivityRowLayout extends InheritedWidget {
 const double kActivitySquareHeight = 140;
 
 class _TransactionRow extends ConsumerWidget {
-  final Widget leading;
+  final Widget? leading;
   final Widget title;
   final String subtitle;
   final String amount;
@@ -851,7 +882,7 @@ class _TransactionRow extends ConsumerWidget {
       padding: EdgeInsets.symmetric(
           horizontal: 16.w, vertical: compact ? 13.h : 14.h),
       child: TransactionRowContent(
-        leading: _RowIconTile(child: leading),
+        leading: leading == null ? null : _RowIconTile(child: leading!),
         title: title,
         subtitle: Text.rich(
           TextSpan(children: [
@@ -958,7 +989,7 @@ class _TransactionRow extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _RowIconTile(child: leading),
+            if (leading != null) _RowIconTile(child: leading!),
             const Spacer(),
             if (statusText != null) statusText,
             title,
@@ -978,8 +1009,10 @@ class _TransactionRow extends ConsumerWidget {
         child: LayoutBuilder(builder: (context, box) {
           return Row(
             children: [
-              _RowIconTile(size: 36, child: leading),
-              SizedBox(width: 12.w),
+              if (leading != null) ...[
+                _RowIconTile(size: 36, child: leading!),
+                SizedBox(width: 12.w),
+              ],
               Expanded(
                 child: Row(
                   children: [
@@ -1176,7 +1209,9 @@ class TransactionDetailHeader extends StatelessWidget {
     final c = context.colors;
     final face = row as _TransactionRow;
     return ReceiptHero(
-      leading: _RowIconTile(size: 56, child: face.leading),
+      leading: face.leading == null
+          ? null
+          : _RowIconTile(size: 56, child: face.leading!),
       title: face.title,
       amount: _AmountText(
         amount: face._signed(face.amount),

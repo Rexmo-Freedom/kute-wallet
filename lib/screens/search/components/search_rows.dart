@@ -40,7 +40,10 @@
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:kute/screens/polymarket/components/market_card.dart'
+    show polyThumbShown;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -321,8 +324,15 @@ class SearchListRow extends StatelessWidget {
 }
 
 /// An event's picture at a row's size, or a blank square.
-Widget searchEventLogo(BuildContext context, String? imageUrl,
+///
+/// Web: null. The picture's host cannot be read by the page and an `<img>`
+/// per row cost a WebGL canvas each, so a row there shows its name alone
+/// (founder, 26 November 2026: "dont show the icons when not loading the
+/// icons, just the name").
+Widget? searchEventLogo(BuildContext context, String? imageUrl,
     {double size = kSearchRowLogo}) {
+  // Web: only a picture a backend image route draws.
+  if (kIsWeb && !polyThumbShown(imageUrl)) return null;
   if (imageUrl != null && imageUrl.isNotEmpty) {
     return PolyCrestImage(url: imageUrl, size: size, radius: size / 4);
   }
@@ -535,12 +545,17 @@ class SearchInvestingRow extends ConsumerWidget {
         ? const <double>[]
         : hlSparklineWithLivePrice(series.closes, r.markPx);
     return SearchListRow(
-      leading: HlCoinIcon(
+      leading: hlLogoOrNull(
+          () => HlCoinIcon(
+              coin: r.coin,
+              wireCoin: r.wireCoin,
+              iconUrl: r.iconUrl,
+              category: r.category,
+              size: kSearchRowLogo),
           coin: r.coin,
           wireCoin: r.wireCoin,
           iconUrl: r.iconUrl,
-          category: r.category,
-          size: kSearchRowLogo),
+          category: r.category),
       title: name,
       titleLines: 1,
       subtitle: ticker.isEmpty ? null : ticker,
@@ -688,13 +703,18 @@ class SearchMoverRow extends StatelessWidget {
     return SearchListRow(
       // A blank plate, never the letter tile or a glyph, until the logo
       // paints (only markets with a logo are listed here).
-      leading: HlCoinIcon(
+      leading: hlLogoOrNull(
+          () => HlCoinIcon(
+              coin: market.coin,
+              wireCoin: market.wireCoin,
+              iconUrl: market.iconUrl,
+              category: market.category,
+              size: kSearchRowLogo,
+              placeholder: searchEventLogo(context, null)),
           coin: market.coin,
           wireCoin: market.wireCoin,
           iconUrl: market.iconUrl,
-          category: market.category,
-          size: kSearchRowLogo,
-          placeholder: searchEventLogo(context, null)),
+          category: market.category),
       title: market.coin,
       titleLines: 1,
       trailing: Text(
@@ -713,10 +733,17 @@ class SearchMoverRow extends StatelessWidget {
 /// leaves its second cell empty.
 class SearchMoverGrid extends StatelessWidget {
   const SearchMoverGrid(
-      {super.key, required this.markets, required this.onTap});
+      {super.key,
+      required this.markets,
+      required this.onTap,
+      this.columns = 2});
 
   final List<HlMarket> markets;
   final void Function(HlMarket market) onTap;
+
+  /// The grid's columns: two on a phone, three in the wide search panel
+  /// (unified_search_screen.dart, WIDE).
+  final int columns;
 
   /// How many the grid shows.
   static const int count = 6;
@@ -725,20 +752,19 @@ class SearchMoverGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final shown = markets.take(count).toList();
     final rows = <Widget>[];
-    for (var i = 0; i < shown.length; i += 2) {
+    for (var i = 0; i < shown.length; i += columns) {
       rows.add(Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-              child: SearchMoverRow(
-                  market: shown[i], onTap: () => onTap(shown[i]))),
-          SizedBox(width: kSearchGridGap.w),
-          Expanded(
-            child: i + 1 < shown.length
-                ? SearchMoverRow(
-                    market: shown[i + 1], onTap: () => onTap(shown[i + 1]))
-                : const SizedBox.shrink(),
-          ),
+          for (var j = i; j < i + columns; j++) ...[
+            if (j > i) SizedBox(width: kSearchGridGap.w),
+            Expanded(
+              child: j < shown.length
+                  ? SearchMoverRow(
+                      market: shown[j], onTap: () => onTap(shown[j]))
+                  : const SizedBox.shrink(),
+            ),
+          ],
         ],
       ));
     }

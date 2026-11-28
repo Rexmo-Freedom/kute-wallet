@@ -77,6 +77,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart'
     show hyperliquidTradingProvider;
@@ -139,11 +140,16 @@ const double kPortfolioHeroQuiet = 13;
 
 /// The hero (see the file header).
 class PortfolioHero extends ConsumerStatefulWidget {
-  const PortfolioHero({super.key, this.venue});
+  const PortfolioHero({super.key, this.venue, this.plotHeight});
 
   /// P&L: the "By product" row picked ([portfolioPnlVenueProvider]); null:
   /// both venues.
   final PortfolioPerformanceVenue? venue;
+
+  /// The plot's height in logical pixels; null: the phone's compact plot
+  /// ([kKuteTrendPlotHeightCompact]). The wide Portfolio (EXPANDED,
+  /// investments_portfolio.dart) gives the chart the room.
+  final double? plotHeight;
 
   @override
   ConsumerState<PortfolioHero> createState() => _PortfolioHeroState();
@@ -196,7 +202,8 @@ class _PortfolioHeroState extends ConsumerState<PortfolioHero> {
       children: [
         SizedBox(height: 4.h),
         _HeroFigure(refreshing: _refreshing, venue: widget.venue),
-        PortfolioHeroChart(venue: widget.venue),
+        PortfolioHeroChart(
+            venue: widget.venue, plotHeight: widget.plotHeight),
         SizedBox(height: 16.h),
         const _HeroLine(),
       ],
@@ -431,13 +438,17 @@ class _HeroLine extends ConsumerWidget {
 /// never lays the series again. [venue]: that venue's line alone, the line
 /// naming it with its logo.
 class PortfolioHeroChart extends ConsumerStatefulWidget {
-  const PortfolioHeroChart({super.key, this.now, this.venue});
+  const PortfolioHeroChart({super.key, this.now, this.venue, this.plotHeight});
 
   /// The moment the venues' own line ends on; now unless a test pins it.
   final DateTime? now;
 
   /// The venue drawn alone; null: both.
   final PortfolioPerformanceVenue? venue;
+
+  /// The plot's height ([PortfolioHero.plotHeight]); null: the compact
+  /// plot.
+  final double? plotHeight;
 
   @override
   ConsumerState<PortfolioHeroChart> createState() =>
@@ -494,7 +505,7 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
         return _layout(
             state: 'loading',
             line: const _HeroLineSkeleton(),
-            chart: const _HeroPlotSkeleton());
+            chart: _HeroPlotSkeleton(plotHeight: widget.plotHeight));
       case PortfolioPnlStatus.none:
         // Never traded, or nothing read: the total alone.
         return _layout(
@@ -621,7 +632,7 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
             zeroSplit: true,
             // The dotted line at zero.
             baseline: 0,
-            height: kKuteTrendPlotHeightCompact.h,
+            height: widget.plotHeight ?? kKuteTrendPlotHeightCompact.h,
             onScrub: (p) => _scrub.value = p,
             // Once per scrub gesture.
             onScrubStart: () => TrackingService.track(
@@ -631,6 +642,9 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
             selectedRange: ranges.indexOf(range),
             onRangeSelected: (i) =>
                 ref.read(pnlChartRangeProvider.notifier).state = ranges[i],
+            // The wide plot: the pills at their phone size, on the left.
+            rangeMaxWidth:
+                widget.plotHeight == null ? null : KuteLayout.paneWidth,
           ),
           if (period.leftOut.isNotEmpty)
             _NotCharted(count: period.leftOut.length),
@@ -725,7 +739,9 @@ class _HeroLineSkeleton extends StatelessWidget {
 
 /// The plot and the range row as shapes while the history is on its way.
 class _HeroPlotSkeleton extends StatelessWidget {
-  const _HeroPlotSkeleton();
+  const _HeroPlotSkeleton({this.plotHeight});
+
+  final double? plotHeight;
 
   @override
   Widget build(BuildContext context) => KuteSkeleton(
@@ -734,10 +750,18 @@ class _HeroPlotSkeleton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(height: 16.h),
-            SkeletonBar(double.infinity, kKuteTrendPlotHeightCompact.h,
+            SkeletonBar(
+                double.infinity, plotHeight ?? kKuteTrendPlotHeightCompact.h,
                 radius: 12.r),
             SizedBox(height: kKuteTrendRangeGap.h),
-            SkeletonBar(double.infinity, 28.h, radius: 14.h),
+            // The wide plot's range row: at most a pane wide, on the left.
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                  maxWidth: plotHeight == null
+                      ? double.infinity
+                      : KuteLayout.paneWidth),
+              child: SkeletonBar(double.infinity, 28.h, radius: 14.h),
+            ),
           ],
         ),
       );

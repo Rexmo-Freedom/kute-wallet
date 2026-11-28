@@ -922,7 +922,16 @@ class HlOpenOrder {
     required this.triggerPx,
     this.tif = 'Gtc',
     this.isPositionTpsl = false,
+    this.detailsKnown = true,
   });
+
+  /// False for a row first seen over the WebSocket: `orderUpdates` carries
+  /// only the basic order (coin, side, limitPx, sz, oid, timestamp, origSz,
+  /// cloid), never its type, trigger price or time in force, so a stop
+  /// would read as a limit at its 5% guard price. Such a row is listed but
+  /// never drawn as a movable line nor modified until the REST
+  /// `frontendOpenOrders` read confirms what it is.
+  final bool detailsKnown;
 
   /// Time in force as the venue reports it ('Gtc', 'Alo', 'Ioc'); a
   /// modify re-sends it so a post-only order stays post-only.
@@ -1065,6 +1074,20 @@ class HlAccountSnapshot {
   /// returns a builder dex's orders only when that dex is named).
   final Set<String> activeDexes;
 
+  /// The perp dexes whose positions this snapshot read ('' = the main
+  /// dex). A market on a dex outside it has an UNKNOWN position here, never
+  /// "none": the full account read covers the main dex and the USDC-settled
+  /// builder dexes only (hl_exposure_rule.dart).
+  final Set<String> positionDexes;
+
+  /// When each dex's positions in [positions] were read (the moment its
+  /// `clearinghouseState` request was sent), by dex. Empty for a snapshot
+  /// not read from the venue (a cache, a test). A builder dex's part a
+  /// credit watch reused keeps the time of the read it came from. The
+  /// order path re-reads a dex whose positions are older than
+  /// kHlPositionsFreshFor (hl_exposure_rule.dart) before it funds or writes leverage.
+  final Map<String, DateTime> positionsReadAt;
+
   const HlAccountSnapshot({
     required this.accountValue,
     required this.withdrawable,
@@ -1073,6 +1096,8 @@ class HlAccountSnapshot {
     required this.positions,
     required this.spotBalances,
     this.activeDexes = const {},
+    this.positionDexes = const {''},
+    this.positionsReadAt = const {},
   });
 
   /// True when this (single-dex) snapshot holds equity, margin or a
@@ -1091,6 +1116,8 @@ class HlAccountSnapshot {
   factory HlAccountSnapshot.fromJson({
     required Map<String, dynamic> perpState,
     Map<String, dynamic>? spotState,
+    String dex = '',
+    DateTime? readAt,
   }) {
     final marginSummary = (perpState['marginSummary'] is Map<String, dynamic>)
         ? perpState['marginSummary'] as Map<String, dynamic>
@@ -1117,6 +1144,8 @@ class HlAccountSnapshot {
           _toDouble(perpState['crossMaintenanceMarginUsed']) ?? 0,
       positions: positions,
       spotBalances: balances,
+      positionDexes: {dex},
+      positionsReadAt: readAt == null ? const {} : {dex: readAt},
     );
   }
 }

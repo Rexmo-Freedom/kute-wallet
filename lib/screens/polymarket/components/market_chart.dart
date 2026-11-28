@@ -88,7 +88,17 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart'
-    show DragStartBehavior, kDoubleTapSlop, kDoubleTapTimeout;
+    show
+        DragStartBehavior,
+        GestureBinding,
+        PointerDeviceKind,
+        PointerPanZoomStartEvent,
+        PointerPanZoomUpdateEvent,
+        PointerScaleEvent,
+        PointerScrollEvent,
+        PointerSignalEvent,
+        kDoubleTapSlop,
+        kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1735,6 +1745,90 @@ class _MarketChartState extends ConsumerState<MarketChart>
     if (_touchMs != null) setState(() => _touchMs = null);
   }
 
+  // ─────────────────────────── mouse ───────────────────────────
+  // Web and desktop (founder, 25 November 2026): a plain drag pans (as
+  // a finger does), the wheel or a trackpad pinch zooms around the
+  // pointer, and hovering shows the crosshair and the chance. Touch never
+  // sends hover or signals, so a phone is as it was.
+
+  bool _hovering = false;
+  double _panZoomScale = 1;
+
+  void _onHover(PointerHoverEvent e, List<_Series> series) {
+    if (_pinching || e.kind != PointerDeviceKind.mouse) return;
+    _hovering = true;
+    _scrubAt(e.localPosition.dx, series);
+  }
+
+  void _onHoverExit() {
+    if (!_hovering) return;
+    _hovering = false;
+    _endScrub();
+  }
+
+  void _onMouseDown(PointerDownEvent e) {
+    if (e.kind == PointerDeviceKind.mouse && _hovering) {
+      _hovering = false;
+      _endScrub();
+    }
+    _onPointerDown(e);
+  }
+
+  void _onPointerSignal(PointerSignalEvent e) {
+    if (_pinching) return;
+    if (e is PointerScrollEvent) {
+      final d = e.scrollDelta;
+      GestureBinding.instance.pointerSignalResolver.register(e, (_) {
+        if (d.dx.abs() > d.dy.abs()) {
+          _panByPixels(-d.dx);
+        } else if (d.dy != 0) {
+          _zoomBy(math.exp(-d.dy / 300), e.localPosition.dx);
+        }
+      });
+    } else if (e is PointerScaleEvent) {
+      GestureBinding.instance.pointerSignalResolver
+          .register(e, (_) => _zoomBy(e.scale, e.localPosition.dx));
+    }
+  }
+
+  void _onPanZoomStart(PointerPanZoomStartEvent e) => _panZoomScale = 1;
+
+  void _onPanZoomUpdate(PointerPanZoomUpdateEvent e) {
+    if (e.scale <= 0) return;
+    final step = e.scale / _panZoomScale;
+    _panZoomScale = e.scale;
+    if ((step - 1).abs() > 0.001) _zoomBy(step, e.localPosition.dx);
+  }
+
+  /// Zooms by [factor] (over 1: a shorter span, in) keeping the moment
+  /// under [focalX] under it; at the live edge the newest point stays on
+  /// the right, as a pinch keeps it.
+  void _zoomBy(double factor, double focalX) {
+    final f = _frame;
+    if (f == null || _plotWidth <= 0 || !factor.isFinite || factor <= 0) {
+      return;
+    }
+    final total = f.dataEnd - f.dataStart;
+    final span0 = f.end - f.start;
+    final span = (span0 / factor).round().clamp(f.minSpan, total);
+    if (span >= total && factor < 0.999) _requestMoreHistory();
+    final atEdge = f.end >= f.dataEnd;
+    final share = (focalX / _chartW).clamp(0.0, 1.0);
+    final end = atEdge
+        ? f.dataEnd
+        : (f.start + share * span0 + (1 - share) * span).round();
+    _setView(span, end, f);
+  }
+
+  void _panByPixels(double dx) {
+    final f = _frame;
+    if (f == null || _plotWidth <= 0) return;
+    final span = f.end - f.start;
+    final end = (f.end - dx / _chartW * span).round();
+    if (end < f.dataStart + span) _requestMoreHistory();
+    _setView(span, end, f);
+  }
+
   // ─────────────────────────── event markers ───────────────────────────
 
   /// The markers inside window [f], grouped so that no two drawn markers
@@ -2032,11 +2126,17 @@ class _MarketChartState extends ConsumerState<MarketChart>
       _tags = _tags.forPlot(w, series);
       final size = Size(w, _plotH);
       return Listener(
-        onPointerDown: _onPointerDown,
+        onPointerDown: _onMouseDown,
         onPointerMove: _onPointerMove,
         onPointerUp: (e) => _onPointerUp(e.pointer),
         onPointerCancel: (e) => _onPointerUp(e.pointer),
-        child: GestureDetector(
+        onPointerSignal: _onPointerSignal,
+        onPointerPanZoomStart: _onPanZoomStart,
+        onPointerPanZoomUpdate: _onPanZoomUpdate,
+        child: MouseRegion(
+          onHover: (e) => _onHover(e, series),
+          onExit: (_) => _onHoverExit(),
+          child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           dragStartBehavior: DragStartBehavior.down,
           onTapUp: (d) {
@@ -2081,6 +2181,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
             child: _layers(context, c, series, shown, rangeT, target,
                 atLiveEdge, isLive),
           ),
+        ),
         ),
       );
     });

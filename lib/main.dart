@@ -1,10 +1,11 @@
+import 'package:kute/screens/shared/wallet_icon.dart' show BrandMark;
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'dart:async';
+import 'package:kute/screens/hyperliquid/components/hl_web_logos.dart';
 import 'package:kute/app_widget.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/restart_widget.dart';
-import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/exit_reason_service.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -22,11 +23,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:kute/screens/spash/splash.dart' show Splash;
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
+import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/web_biometrics.dart';
+import 'package:kute/services/analytics/web_posthog/web_posthog.dart';
+import 'package:kute/services/secure/web_vault/web_vault.dart';
 
 /// Wall-clock stamp taken at the very first line of `main()`. Read once
 /// from the first home render to emit the `app_cold_start` latency
@@ -71,6 +77,13 @@ Future<void> _bootstrap() async {
   // (the bottom command bar) doesn't flash. Fire-and-forget — it warms via
   // a post-frame callback and must never delay boot.
   unawaited(LiquidGlassWidgets.initialize());
+
+  // The web reads Sal's sheets over the network: the wallet mark's sheet
+  // first, and kept (BrandMark.warmForWeb).
+  if (kIsWeb) {
+    final views = widgetsBinding.platformDispatcher.views;
+    BrandMark.warmForWeb(views.isEmpty ? 2.0 : views.first.devicePixelRatio);
+  }
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -170,6 +183,20 @@ Future<void> _bootstrap() async {
       child: AppWidget(),
     ),
   );
+
+  // A browser can start on any route (a reload on the unlock page, a link
+  // into the app), and only the splash route takes the page's own splash
+  // down and lets the first frame through (FlutterNativeSplash.remove).
+  // Started elsewhere, the app ran behind that splash for good (founder,
+  // 24 November 2026: "stuck here?"). So: once the first tree is built
+  // and no splash route is in it, take it down here; and whatever
+  // happens, never later than a few seconds in.
+  if (kIsWeb) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!Splash.handsOff) FlutterNativeSplash.remove();
+    });
+    Timer(const Duration(seconds: 6), FlutterNativeSplash.remove);
+  }
 }
 
 /// Firebase init that can NEVER sink the boot `Future.wait`. The old
@@ -182,13 +209,29 @@ Future<void> _bootstrap() async {
 /// so desktop works without a bundled plist; on timeout/failure the app
 /// simply continues without Firebase (handlers are no-op-safe).
 Future<void> _initFirebase() async {
+  // Web (and Windows) have no generated options until a web app is added
+  // in the Firebase console and `flutterfire configure` is run: boot skips
+  // Firebase there instead of throwing. Push, Crashlytics and the uninstall
+  // token check `Firebase.apps` / PlatformCaps before touching it.
+  final options = _firebaseOptionsOrNull();
+  if (options == null) return;
   try {
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+      options: options,
     ).timeout(const Duration(seconds: 8));
   } catch (_) {
     // Offline cold start, Firebase outage, or an unconfigured platform —
     // analytics resume on a later launch; never block first frame.
+  }
+}
+
+/// The generated options for this platform, or null where none were
+/// generated (`DefaultFirebaseOptions` throws UnsupportedError there).
+FirebaseOptions? _firebaseOptionsOrNull() {
+  try {
+    return DefaultFirebaseOptions.currentPlatform;
+  } on UnsupportedError {
+    return null;
   }
 }
 
@@ -208,6 +251,21 @@ Future<void> _timedBootStep(String name, Future<void> step) async {
 }
 
 Future<void> _initializeApp() async {
+  // Web only, before anything touches secure storage: the seed vault takes
+  // over flutter_secure_storage (lib/services/secure/web_vault/). No-op on
+  // iOS and Android.
+  if (kIsWeb) await _timedBootStep('vault', WebVault.install());
+  // Web only: PostHog through Kute's own pure-Dart client (no posthog-js,
+  // no third-party script in the page), installed before anything calls
+  // `Posthog()`. lib/services/analytics/web_posthog/. No-op on the phones.
+  if (kIsWeb) WebPosthog.install();
+  // Web only: the index of the Investing logos shipped with the build
+  // (hl_web_logos.dart), read before the first list builds so a row knows
+  // at once whether it has a logo. Same origin, a few kilobytes; bounded.
+  final webLogos = kIsWeb
+      ? HlWebLogos.preload()
+          .timeout(const Duration(seconds: 2), onTimeout: () {})
+      : null;
   // Boot fan-out. Each leg is wrapped in its own try-catch so a single
   // failure (no internet, missing `.env`, Hive corruption, Firebase
   // outage) can't sink the whole boot. Without this, `Future.wait`
@@ -268,11 +326,13 @@ Future<void> _initializeApp() async {
   // Crash reports are NOT tied to the analytics opt-out: the privacy policy
   // (§6.3) covers them separately. Crashlytics is offline-safe; not awaited
   // so a slow/failed enable can never block first frame or throw into boot.
-  try {
-    unawaited(FirebaseCrashlytics.instance
-        .setCrashlyticsCollectionEnabled(!kDebugMode)
-        .catchError((_) {}));
-  } catch (_) {/* Firebase not ready (offline cold start) — retries next launch */}
+  if (PlatformCaps.hasCrashlytics) {
+    try {
+      unawaited(FirebaseCrashlytics.instance
+          .setCrashlyticsCollectionEnabled(!kDebugMode)
+          .catchError((_) {}));
+    } catch (_) {/* Firebase not ready (offline cold start) — retries next launch */}
+  }
   // Once-per-session crash context key (release-gated inside).
   try {
     TrackingService.setSessionKey(
@@ -316,32 +376,14 @@ Future<void> _initializeApp() async {
   // report the abnormal ones now that Crashlytics + Hive are up.
   // Fire-and-forget — must never delay first frame.
   unawaited(ExitReasonService.reportLastExit());
-  // AppsFlyer (install attribution / ad ROAS) + PostHog identify:
-  // DEFERRED as one fire-and-forget CHAIN. The chain preserves the
-  // required internal ordering — the PostHog setup first (so identify
-  // reaches a configured SDK), AppsFlyer after TrackingService.initialize
-  // (awaited above, so the device UUID exists for customerUserId) and
-  // BEFORE any AffiliateService auth (so authWallet can hand the
-  // appsflyer_id to the backend for S2S revenue events; the session
-  // restore above only reads storage); identify runs after that restore
-  // so the next event lands under the stable identity. None of it is
-  // needed for first frame: attribution fires once per install and
-  // queues, the affiliate code is read lazily by the Earn screen, and
-  // pre-identify events sit under PostHog's anonymous id and are aliased
-  // on identify (the 'unknown' sentinel fallback still counts the user in
-  // MAU until a real code lands).
-  //
-  // Persist any deferred-deeplink referrer the moment AppsFlyer
-  // delivers it, so it survives the race against the first authWallet
-  // (and across boots) and binds within the backend's 7-day late-bind
-  // window. Wired BEFORE init so a callback that fires during startup
-  // is captured.
-  AppsFlyerService.onReferrerCaptured = AffiliateService.setPendingReferrer;
-  AppsFlyerService.onInstallAttributionCaptured =
-      AffiliateService.queueInstallAttribution;
+  // PostHog identify, deferred as one fire-and-forget chain: the PostHog
+  // setup first (so identify reaches a configured SDK), then the session
+  // restore above, so the next event lands under the stable identity. None
+  // of it is needed for first frame; pre-identify events sit under
+  // PostHog's anonymous id and are aliased on identify. (AppsFlyer left
+  // the app on 27 November 2026: no install attribution SDK.)
   unawaited(() async {
     await TrackingService.analyticsReady;
-    await AppsFlyerService.init().catchError((_) {});
     // WalletIdentityService binds to Breez SDK lazily (in the Earn
     // screen's bootstrap) — no SDK wait here.
     await sessionRestored;
@@ -357,6 +399,7 @@ Future<void> _initializeApp() async {
   // didn't complete in time, downstream Spark-reading providers fall
   // through to their cached/empty branches and the SDK will retry
   // when the screen that needs it actually mounts.
+  if (webLogos != null) await webLogos;
   final sparkSw = Stopwatch()..start();
   try {
     await BreezSdkSparkLib.init().timeout(const Duration(seconds: 6));
@@ -472,8 +515,14 @@ Future<void> _initPostHog() async {
 }
 
 Future<void> _initHive() async {
-  final directory = await getApplicationDocumentsDirectory();
-  Hive.init(directory.path);
+  // Web has no app directory (no path_provider); Hive keeps its boxes in
+  // IndexedDB there and ignores the path.
+  if (PlatformCaps.hasFileSystem) {
+    final directory = await getApplicationDocumentsDirectory();
+    Hive.init(directory.path);
+  } else {
+    Hive.init(null);
+  }
   Hive.registerAdapter(SwapOrderAdapter());
   // Every startup box, the stored analytics opt-out and the once-per-
   // launch reusable-deposit hygiene live in lib/services/hive_boot.dart
@@ -481,4 +530,7 @@ Future<void> _initHive() async {
   await openStartupHiveBoxes();
   // Boxes a retired build left behind that nothing reads (best-effort).
   await deleteOrphanedHiveBoxes();
+  // Web only: is there a platform authenticator for biometric unlock, and
+  // this browser's stored credential id (PlatformCaps.hasBiometrics).
+  await WebBiometrics.prime();
 }

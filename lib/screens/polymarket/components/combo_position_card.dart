@@ -94,14 +94,18 @@ class ComboPositionCard extends StatelessWidget {
             builder: (context, box) => Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PolyCardThumbnail(
-                  title: l10n.comboLegsLabel(p.legsTotal),
-                  imageUrl: firstImage,
-                  category: '',
-                  size: 40.w,
-                  radius: 10.r,
-                ),
-                SizedBox(width: 10.w),
+                // Web: no picture (its host cannot be read by the page);
+                // the name closes up.
+                if (polyThumbShown(firstImage)) ...[
+                  PolyCardThumbnail(
+                    title: l10n.comboLegsLabel(p.legsTotal),
+                    imageUrl: firstImage,
+                    category: '',
+                    size: 40.w,
+                    radius: 10.r,
+                  ),
+                  SizedBox(width: 10.w),
+                ],
                 Expanded(
                   child: Text(
                     l10n.comboLegsLabel(p.legsTotal),

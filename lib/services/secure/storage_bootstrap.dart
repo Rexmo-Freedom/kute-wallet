@@ -8,7 +8,9 @@ import 'package:hive_ce/hive.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/secret_store.dart';
+import 'package:kute/services/secure/web_vault/web_vault.dart';
 import 'package:kute/services/secure_storage.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Cold-start state of secure storage relative to the Hive settings.
 enum StorageBootState {
@@ -72,7 +74,7 @@ class StorageBootstrap {
         _settingsBox = settingsBox ?? (() => Hive.openBox('settings')),
         _random = random ?? Random.secure(),
         _isCupertino =
-            isCupertino ?? defaultTargetPlatform == TargetPlatform.iOS,
+            isCupertino ?? PlatformOs.nativeTarget == TargetPlatform.iOS,
         _isProtectedDataAvailable = isProtectedDataAvailable ??
             secureStorage.isCupertinoProtectedDataAvailable,
         _protectedDataChanges = protectedDataChanges ??
@@ -128,8 +130,16 @@ class StorageBootstrap {
     if (!hasWallets) return const StorageBootResult(StorageBootState.fresh);
 
     final binding = await _store.read(key: bindingKey);
-    final pinHash = await _store.read(key: 'pin_hash');
-    final legacyPin = await _store.read(key: 'pin');
+    // Web: the vault (or the old layout until it migrates) is the PIN
+    // material; there is no `pin_hash` to read.
+    final web = WebVault.instance;
+    final pinHash = web != null
+        ? (web.hasPinMaterial
+            ? const SecretPresent('vault')
+            : const SecretAbsent())
+        : await _store.read(key: 'pin_hash');
+    final legacyPin =
+        web != null ? const SecretAbsent() : await _store.read(key: 'pin');
     final box = await _settingsBox();
 
     final failures = [binding, pinHash, legacyPin].whereType<SecretFailed>();

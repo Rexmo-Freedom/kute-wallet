@@ -101,6 +101,9 @@ dependencies:
   # 9 -> 11 jump orphans every Android install's stored secrets. Move to
   # ^11 only after a v10-carrying release has shipped and been adopted.
   flutter_secure_storage: 10.3.4
+  # Web only: the seed vault (lib/services/secure/web_vault/) replaces the
+  # plugin's web platform. Pinned to the version 10.3.4 resolves.
+  flutter_secure_storage_platform_interface: 2.0.3
   hive_ce: ^2.15.0
   local_auth: ^3.0.2
   permission_handler: ^13.0.1
@@ -152,6 +155,9 @@ dependencies:
   decimal: ^3.2.4
   bs58check: ^1.0.2
   hex: ^0.2.0
+  # NFKC for the web vault's password (seed_vault.dart); already in the
+  # lock through bip39_mnemonic.
+  unorm_dart: 0.3.2
   # Hardware Wallet - Ledger (unmodified published release, including Gen 5)
   ledger_flutter_plus: 1.6.0+1
   universal_ble: 2.2.0
@@ -189,6 +195,13 @@ dependencies:
 dependency_overrides:
   vector_math: 2.2.0
   pointycastle: ^4.0.0
+  # web branch only: breez-sdk-spark-flutter v0.26.1 plus web support, which
+  # runs the SDK on Flutter web through the official wasm build (npm
+  # @breeztech/breez-sdk-spark, vendored in web/breez_sdk_spark). The package
+  # is vendored in third_party/ so CI resolves it (see VENDORED.md there).
+  # iOS / Android keep the same generated FFI bindings.
+  breez_sdk_spark_flutter:
+    path: third_party/breez_sdk_spark_flutter
 
 dev_dependencies:
   integration_test:

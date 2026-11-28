@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'dart:math';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -15,6 +14,8 @@ import 'package:kute/screens/home/components/kute_shell_bar.dart'
     show KuteBarPrimaryButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 
 class Start extends ConsumerStatefulWidget {
   const Start({super.key});
@@ -26,7 +27,6 @@ class Start extends ConsumerStatefulWidget {
 class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
   late AnimationController _entranceController;
   late AnimationController _breatheController;
-  late AnimationController _sparksEntrance;
 
   // Staggered entrance animations
   late Animation<double> _logoFade;
@@ -35,7 +35,7 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
   late Animation<double> _buttonsFade;
   late Animation<Offset> _buttonsSlide;
 
-  // Ambient glow breathing
+  // The background wash breathing
   late Animation<double> _breathe;
 
   @override
@@ -91,14 +91,6 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
       CurvedAnimation(parent: _breatheController, curve: Curves.easeInOut),
     );
 
-    // Sparks — Strike-style. One-shot pop-in animation that runs
-    // after Sal lands. Each individual spark adds its own stagger
-    // inside the painter using `progress` as a global clock.
-    _sparksEntrance = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
     // Animation starts are deferred to didChangeDependencies so we can
     // honour the platform "reduce motion" setting (read off MediaQuery,
     // which is only reliable after initState). See _startAnimations.
@@ -119,10 +111,9 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     if (reduceMotion) {
-      // Skip the decorative entrance bloom, breathing glow loop and the
-      // one-shot spark burst — snap straight to the final composed frame.
+      // Skip the entrance and the breathing background wash: snap
+      // straight to the final composed frame.
       _entranceController.value = 1.0;
-      _sparksEntrance.value = 1.0;
       // Haptics still fire on a single beat so the "arrival" cue survives
       // without the looping/staggered motion.
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -133,30 +124,11 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
 
     _entranceController.forward();
     _breatheController.repeat(reverse: true);
-    // Fire the sparks after the logo has scaled in (~0.35 of the
-    // 2 s entrance = ~700 ms). Strike-style thunder-reverb: a
-    // heavy "strike" doubled at +80 ms to feel like a clap echoing
-    // off the chest, then a decay tail of medium/light/selection
-    // pulses chasing the visual spark fade.
+    // One beat as Sal lands, after he has scaled in (~0.35 of the 2 s
+    // entrance = ~700 ms). The echo and the decay tail that chased the
+    // spark burst went with it (founder, 27 November 2026).
     Future.delayed(const Duration(milliseconds: 650), () {
-      if (!mounted) return;
-      HapticFeedback.heavyImpact();
-      _sparksEntrance.forward();
-      Future.delayed(const Duration(milliseconds: 80), () {
-        if (mounted) HapticFeedback.heavyImpact();
-      });
-      Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted) HapticFeedback.mediumImpact();
-      });
-      Future.delayed(const Duration(milliseconds: 340), () {
-        if (mounted) HapticFeedback.mediumImpact();
-      });
-      Future.delayed(const Duration(milliseconds: 480), () {
-        if (mounted) HapticFeedback.lightImpact();
-      });
-      Future.delayed(const Duration(milliseconds: 620), () {
-        if (mounted) HapticFeedback.selectionClick();
-      });
+      if (mounted) HapticFeedback.heavyImpact();
     });
   }
 
@@ -164,7 +136,6 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
   void dispose() {
     _entranceController.dispose();
     _breatheController.dispose();
-    _sparksEntrance.dispose();
     super.dispose();
   }
 
@@ -178,7 +149,11 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
       backgroundColor: c.background,
       body: Stack(
         children: [
-          _buildBackground(c, accentColor, isLight),
+          // Across the whole window, never cut at the form column's sides.
+          Positioned.fill(
+            child:
+                KuteFullBleed(child: _buildBackground(c, accentColor, isLight)),
+          ),
           PlatformSafeArea(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 28.w),
@@ -186,10 +161,9 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
                 children: [
                   const Spacer(flex: 3),
 
-                  // Dog logo + Strike-style spark burst. The sparks
-                  // sit in a fixed-size box around the dog so they
-                  // can radiate beyond the GIF's bounds without
-                  // disturbing the column's vertical rhythm.
+                  // Sal on his own (founder, 27 November 2026: the
+                  // lightning burst around him is gone), in the same
+                  // 220 box it filled, so the column keeps its rhythm.
                   FadeTransition(
                     opacity: _logoFade,
                     child: ScaleTransition(
@@ -199,35 +173,15 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
                         child: SizedBox(
                           width: 220.w,
                           height: 220.w,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              AnimatedBuilder(
-                                animation: Listenable.merge(
-                                    [_sparksEntrance, _breatheController]),
-                                builder: (context, _) {
-                                  return CustomPaint(
-                                    size: Size(220.w, 220.w),
-                                    painter: _SparkPainter(
-                                      entrance: _sparksEntrance.value,
-                                      twinkle: _breatheController.value,
-                                      color: accentColor,
-                                    ),
-                                  );
-                                },
-                              ),
-                              // The hero. The sparks behind him were always
-                              // animated; Sal himself was a still GIF loop.
-                              // He now breathes, wags, blinks and glances
-                              // around inside the same burst.
-                              // The 3D Sal idling; the rig until the
-                              // sheets exist.
-                              SalSprite(
-                                clip: 'body_idle',
-                                size: 160.w,
-                                fallback: KuteDogIdle(size: 160.w),
-                              ),
-                            ],
+                          child: Center(
+                            // The 3D Sal idling (he breathes, wags, blinks
+                            // and glances around); the rig until the
+                            // sheets exist.
+                            child: SalSprite(
+                              clip: 'body_idle',
+                              size: 160.w,
+                              fallback: KuteDogIdle(size: 160.w),
+                            ),
                           ),
                         ),
                       ),
@@ -380,7 +334,7 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
               // the 20 the column keeps under it.
               child: SizedBox(
                   height: KuteBarPrimaryButton.roomUnder(context,
-                          pageToFoot: !Platform.isAndroid) -
+                          pageToFoot: !PlatformOs.isAndroid) -
                       20.h),
             ),
           ],
@@ -390,127 +344,154 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
   }
 }
 
-/// Strike-style lightning arc burst around Sal. Each spark is a
-/// short jagged bolt radiating outward from just past the mascot's
-/// silhouette — like static electricity arcing off him. Two
-/// animation inputs:
-///   * [entrance] (0..1) — one-shot bloom. Bolts grow outward
-///     across this window with per-bolt stagger.
-///   * [twinkle] (0..1) — continuous ambient pulse for the
-///     post-entrance flicker (each bolt blinks at its own phase
-///     so the field looks alive, not metronomic).
-class _SparkPainter extends CustomPainter {
-  final double entrance;
-  final double twinkle;
-  final Color color;
-  // Deterministic seed so bolt geometry stays stable across rebuilds.
-  // Re-rolling each frame would scatter the bolts visibly.
-  static const _seed = 0xC0FFEE;
-  static const int _boltCount = 10;
-
-  const _SparkPainter({
-    required this.entrance,
-    required this.twinkle,
-    required this.color,
-  });
+/// THE BRAND SIDE of a split screen on EXPANDED (round three, founder 25
+/// November 2026: "it must be all occupying full screen when we can";
+/// kute_split_screen.dart): the Start screen's own hero, Sal idling over
+/// the tagline (no burst around him since 27 November 2026), on its
+/// breathing background wash across the whole half. No entrance (the
+/// steps after Start show it already composed, so moving between steps
+/// never replays it) and no haptics; the wash breathes unless Reduce
+/// Motion is on.
+class StartBrandSide extends StatefulWidget {
+  const StartBrandSide({super.key});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (entrance <= 0) return;
-    final rng = Random(_seed);
-    final center = Offset(size.width / 2, size.height / 2);
-    // Each bolt starts at the edge of the dog's silhouette
-    // (~22% of canvas) and extends outward into the band.
-    final innerRadius = size.width * 0.28;
-    // Bolt length range — short enough to read as discrete sparks,
-    // long enough to feel electric rather than dotted.
-    final boltMin = size.width * 0.08;
-    final boltMax = size.width * 0.16;
+  State<StartBrandSide> createState() => _StartBrandSideState();
+}
 
-    // Pre-generate all bolt geometries (angle, length, segment
-    // offsets) using the seeded RNG so paint order is stable.
-    for (int i = 0; i < _boltCount; i++) {
-      final t = i / _boltCount;
-      // Stagger entrance — bolts bloom outward in a wave.
-      final startThresh = t * 0.45;
-      final localEntry = ((entrance - startThresh) / 0.55).clamp(0.0, 1.0);
-      if (localEntry <= 0) continue;
+class _StartBrandSideState extends State<StartBrandSide>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _breatheController = AnimationController(
+    duration: const Duration(seconds: 4),
+    vsync: this,
+  );
+  late final Animation<double> _breathe =
+      CurvedAnimation(parent: _breatheController, curve: Curves.easeInOut);
+  bool _started = false;
 
-      // Anchor angle: equally-spaced around the ring with a tight
-      // jitter so the bolts don't form a perfect clock.
-      final angle = (t * 2 * pi) + (rng.nextDouble() - 0.5) * 0.5;
-      final boltLength = boltMin + rng.nextDouble() * (boltMax - boltMin);
-
-      // Pre-generate zigzag offsets — 3 segments per bolt with
-      // alternating perpendicular jitter so they read as lightning.
-      const segments = 3;
-      final jitterMags = List<double>.generate(
-        segments,
-        // Less jitter toward the tip — bolts end clean.
-        (s) =>
-            (0.38 - 0.18 * (s / segments)) * (0.55 + rng.nextDouble() * 0.45),
-      );
-
-      // Build the bolt path from anchor outward.
-      final anchor = Offset(
-        center.dx + cos(angle) * innerRadius,
-        center.dy + sin(angle) * innerRadius,
-      );
-
-      // The bolt only extends as far as `localEntry` lets it grow.
-      final grownLength =
-          boltLength * Curves.easeOutCubic.transform(localEntry);
-      final segLen = grownLength / segments;
-
-      final path = Path()..moveTo(anchor.dx, anchor.dy);
-      var curX = anchor.dx;
-      var curY = anchor.dy;
-      for (int s = 0; s < segments; s++) {
-        // Alternate the jitter direction so it zigzags.
-        final sign = (s % 2 == 0) ? 1.0 : -1.0;
-        final segAngle = angle + sign * jitterMags[s];
-        curX += cos(segAngle) * segLen;
-        curY += sin(segAngle) * segLen;
-        path.lineTo(curX, curY);
-      }
-
-      // Flicker: each bolt's alpha pulses on its own phase so the
-      // crowd doesn't blink as one.
-      final phase = (twinkle + t * 1.3) % 1.0;
-      final flicker = 0.55 + 0.45 * sin(phase * 2 * pi);
-      final alpha = (flicker * localEntry).clamp(0.0, 1.0);
-
-      // Outer glow — wide, soft, blurred.
-      final glow = Paint()
-        ..color = color.withValues(alpha: 0.32 * alpha)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4.0
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-      canvas.drawPath(path, glow);
-
-      // Mid stroke — softer ramp from glow to core.
-      final mid = Paint()
-        ..color = color.withValues(alpha: 0.55 * alpha)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-      canvas.drawPath(path, mid);
-
-      // Bright core — the actual lightning line.
-      final core = Paint()
-        ..color = color.withValues(alpha: 0.95 * alpha)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-      canvas.drawPath(path, core);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduce = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduce) {
+      _breatheController.stop();
+      _started = false;
+    } else if (!_started) {
+      _started = true;
+      _breatheController.repeat(reverse: true);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _SparkPainter old) =>
-      old.entrance != entrance || old.twinkle != twinkle || old.color != color;
+  void dispose() {
+    _breatheController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isLight = !context.isDark;
+    final accent = c.accent;
+    return LayoutBuilder(builder: (context, constraints) {
+      final w = constraints.maxWidth;
+      final h = constraints.maxHeight;
+      // The Start screen's 220 box around Sal, a little larger on a wide
+      // half.
+      final box = (w * 0.42).clamp(220.0, 320.0);
+      final scale = box / 220;
+      return AnimatedBuilder(
+        animation: _breathe,
+        builder: (context, _) {
+          final t = _breathe.value;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // The app's background, as the form half's: the seam
+              // between the halves is no line, only the glow fading out.
+              ColoredBox(color: c.background),
+              // The Start screen's two glows, sized to the half. Each
+              // fades out whole before the seam (a radial glow cut at the
+              // half's edge would stand as a hard vertical line); they
+              // bleed off the window's own edges only.
+              Positioned(
+                top: -h * 0.16 + (10 * sin(t * pi)),
+                right: w * 0.06,
+                child: _glow(
+                  w * 0.85,
+                  accent.withValues(
+                      alpha: isLight ? 0.06 + 0.02 * t : 0.10 + 0.04 * t),
+                ),
+              ),
+              Positioned(
+                bottom: -h * 0.06 - (15 * sin(t * pi * 0.7)),
+                left: -w * 0.18,
+                child: _glow(
+                  w * 0.7,
+                  (isLight ? accent : c.surfaceLight)
+                      .withValues(alpha: isLight ? 0.04 : 0.12 + 0.04 * t),
+                ),
+              ),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 48),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: box,
+                        height: box,
+                        child: Center(
+                          child: SalSprite(
+                            clip: 'body_idle',
+                            size: 160 * scale,
+                            fallback: KuteDogIdle(size: 160 * scale),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 40 * min(scale, 1.3),
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -1.6,
+                            height: 1.05,
+                            fontFamily: Theme.of(context)
+                                .textTheme
+                                .bodyLarge
+                                ?.fontFamily,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: context.l10n.startTaglineLead,
+                              style: TextStyle(color: c.textPrimary),
+                            ),
+                            TextSpan(
+                              text: context.l10n.startTaglineAccent,
+                              style: TextStyle(color: accent),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    });
+  }
+
+  Widget _glow(double size, Color color) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(colors: [color, Colors.transparent]),
+        ),
+      );
 }

@@ -11,6 +11,7 @@ import 'package:kute/screens/polymarket/components/market_livestream_view.dart'
 import 'package:kute/services/polymarket/livestream_source.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Draggable mini player rendered at the app root (above every route, the
 /// bet slip included). Once a stream is handed over via
@@ -77,6 +78,9 @@ class _FloatingStreamPlayerState extends ConsumerState<FloatingStreamPlayer> {
   Widget build(BuildContext context) {
     final stream = ref.watch(floatingStreamProvider);
     final source = stream.source;
+    // No web view here (web, Windows): nothing can play in a mini player;
+    // the market's strip opens the stream in a new tab instead.
+    if (!PlatformCaps.hasWebView) return const SizedBox.shrink();
     if (source == null) {
       _stop();
       return const SizedBox.shrink();

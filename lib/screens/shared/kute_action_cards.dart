@@ -630,9 +630,45 @@ class KuteActionCard extends StatelessWidget {
                     onTap!();
                   }
                 : onTap,
-            child: card,
+            child: enabled ? _KuteCardHover(child: card) : card,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A mouse over an enabled card (a laptop): the pointer cursor and a
+/// whisper of ink over the card's surface. Nothing drawn without a mouse.
+class _KuteCardHover extends StatefulWidget {
+  const _KuteCardHover({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KuteCardHover> createState() => _KuteCardHoverState();
+}
+
+class _KuteCardHoverState extends State<_KuteCardHover> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = KuteActionCard.surfaceOf(context).borderRadius;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          color: _hover
+              ? context.colors.textPrimary
+                  .withValues(alpha: context.isDark ? 0.06 : 0.04)
+              : null,
+          borderRadius: radius,
+        ),
+        child: widget.child,
       ),
     );
   }
@@ -706,9 +742,15 @@ class KuteActionCardGrid extends StatelessWidget {
     this.lead,
     this.gap = kKuteActionCardGap,
     this.oneLineTitles = false,
+    this.across,
   });
 
   final List<KuteActionCard> cards;
+
+  /// On a wide page (round three, Settings on EXPANDED): up to this many
+  /// cards in ONE row where every label fits its share of the width, the
+  /// usual rules otherwise. Null: the usual rules.
+  final int? across;
 
   /// The main action, drawn first, full width and with more presence; the
   /// [cards] follow under it by the usual rules, a lone one compact (see
@@ -831,6 +873,18 @@ class KuteActionCardGrid extends StatelessWidget {
       );
     }
     if (cards.isEmpty) return const SizedBox.shrink();
+    final most = across;
+    if (most != null && cards.length > 1 && cards.length <= most) {
+      return LayoutBuilder(builder: (context, constraints) {
+        final share =
+            (constraints.maxWidth - (cards.length - 1) * g) / cards.length;
+        if (constraints.hasBoundedWidth && labelsFit(context, cards, share)) {
+          return row(cards);
+        }
+        return KuteActionCardGrid(
+            cards: cards, gap: gap, oneLineTitles: oneLineTitles);
+      });
+    }
     if (oneLineTitles &&
         cards.length == 2 &&
         !cards.every((card) => card.compact)) {

@@ -4,8 +4,10 @@
 // extended line, horizontal ray, vertical line, parallel channel, long
 // and short position, price and date range), a long position selected
 // with its toolbar, and a zone's settings sheet. On a 390 x 844 and a
-// 360 x 640 phone in portrait and an 844 x 390 one in landscape, light
-// and dark, in the app's real theme and Inter. Written only when asked:
+// 360 x 640 phone in portrait and an 844 x 390 one in landscape, and on
+// a 1440 x 900 and a 1000 x 700 laptop (the web: the fly-out a panel
+// beside the rail, the settings in the app's shared panel), light and
+// dark, in the app's real theme and Inter. Written only when asked:
 //
 //   flutter test test/render/chart_rail_render_test.dart \
 //     --dart-define=CHART_RAIL_OUT=<dir>
@@ -29,10 +31,11 @@ const _out = String.fromEnvironment('CHART_RAIL_OUT');
 const _key = ValueKey('shot');
 const _dpr = 3.0;
 
-Future<void> _png(WidgetTester tester, String name) async {
+Future<void> _png(WidgetTester tester, String name,
+    {double pixelRatio = _dpr}) async {
   final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(_key));
-  final image =
-      (await tester.runAsync(() => boundary.toImage(pixelRatio: _dpr)))!;
+  final image = (await tester
+      .runAsync(() => boundary.toImage(pixelRatio: pixelRatio)))!;
   await tester.runAsync(() async {
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     File('$_out/$name.png').writeAsBytesSync(data!.buffer.asUint8List());
@@ -141,12 +144,18 @@ void main() {
     'phone': Size(390, 844),
     'small': Size(360, 640),
     'landscape': Size(844, 390),
+    'laptop': Size(1440, 900),
+    'laptop_small': Size(1000, 700),
   };
 
   for (final MapEntry(key: sizeName, value: size) in sizes.entries) {
     for (final dark in [false, true]) {
       final mode = dark ? 'dark' : 'light';
       testWidgets('rail $sizeName $mode', (tester) async {
+        final laptop = size.width >= 900;
+        // A laptop's shot at 1.5x is plenty to read.
+        Future<void> png(String name) =>
+            _png(tester, name, pixelRatio: laptop ? 1.5 : _dpr);
         tester.view.devicePixelRatio = _dpr;
         addTearDown(tester.view.reset);
         // Real shadows: the test default draws each as a solid outline.
@@ -167,7 +176,7 @@ void main() {
         );
         await enterHlEdit(tester);
         await _settle(tester);
-        await _png(tester, '${sizeName}_rail_$mode');
+        await png('${sizeName}_rail_$mode');
 
         // A sheet (upright phone) closes on its X, a panel on a tap away.
         Future<void> closeFlyout() async {
@@ -182,14 +191,14 @@ void main() {
         // The Lines fly-out.
         await tester.longPress(_group('lines'));
         await _settle(tester);
-        await _png(tester, '${sizeName}_lines_$mode');
+        await png('${sizeName}_lines_$mode');
         await closeFlyout();
         await _settle(tester);
 
         // The Positions and measure fly-out.
         await tester.longPress(_group('positions'));
         await _settle(tester);
-        await _png(tester, '${sizeName}_positions_$mode');
+        await png('${sizeName}_positions_$mode');
         await closeFlyout();
         await _settle(tester);
 
@@ -199,19 +208,19 @@ void main() {
           notifier.add(d);
         }
         await _settle(tester);
-        await _png(tester, '${sizeName}_tools_$mode');
+        await png('${sizeName}_tools_$mode');
 
         // A long position selected, its toolbar up.
         await tester.tapAt(_at(tester, at(102, 66000)));
         await _settle(tester);
-        await _png(tester, '${sizeName}_long_selected_$mode');
+        await png('${sizeName}_long_selected_$mode');
 
-        if (sizeName == 'phone') {
+        if (sizeName == 'phone' || laptop) {
           // The selected position's settings sheet.
           await tester
               .tap(find.byKey(const ValueKey('hl-drawing-toolbar-settings')));
           await _settle(tester);
-          await _png(tester, '${sizeName}_settings_$mode');
+          await png('${sizeName}_settings_$mode');
           await tester
               .tap(find.byKey(const ValueKey('hl-drawing-settings-close')));
           await _settle(tester);

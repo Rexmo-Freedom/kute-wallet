@@ -16,6 +16,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 import 'package:kute/helpers/formatters/currency_formatter.dart';
+import 'package:kute/screens/home/bitcoin_home_panes.dart'
+    show
+        BitcoinActivityPane,
+        BitcoinPanesFrame,
+        BitcoinSideColumn,
+        kBitcoinSideTop;
+import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/background_sync_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
@@ -34,7 +41,18 @@ import 'package:kute/theme/app_theme.dart';
 class WalletBitcoinBody extends ConsumerWidget {
   final WalletConfig wallet;
 
-  const WalletBitcoinBody({super.key, required this.wallet});
+  /// The EXPANDED wallet tab (shell_wallet_screen.dart), as the Bitcoin
+  /// home (bitcoin_home_panes.dart): its balance and actions in the
+  /// desktop top bar, its activity on the left, its charts on the right.
+  /// False: the body exactly as it is.
+  final bool wide;
+
+  /// [wide] only: the backup banner at the top of the activity, when the
+  /// tab shows one.
+  final Widget? banner;
+
+  const WalletBitcoinBody(
+      {super.key, required this.wallet, this.wide = false, this.banner});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -72,28 +90,42 @@ class WalletBitcoinBody extends ConsumerWidget {
     final isAwaitingFirstBalance = balance == null &&
         ref.watch(bdkScanningWalletsProvider).contains(wallet.id);
 
+    Future<void> refresh() async {
+      HapticFeedback.lightImpact();
+      ref
+          .read(walletBalanceCacheProvider.notifier)
+          .invalidateStreamFreshness(wallet.id);
+      // Single-shot BDK scan targeting the scoped
+      // wallet only. The continuous loop is
+      // deliberately NOT used here — BDK Electrum
+      // scans crash under repeated polling, so the
+      // detail screen only scans on key user actions
+      // (open, pull-to-refresh, Send/Move). An explicit
+      // refresh scans every address up to the stop gap,
+      // not only the ones this app revealed.
+      await BackgroundSyncService()
+          .scanBdkScope(source: 'pull_refresh', fullScan: true);
+    }
+
+    final balanceCard = isAwaitingFirstBalance
+        ? const _BalanceSkeleton()
+        : _BalanceCard(
+            sats: sats,
+            fiatValue: fiatValue,
+            fiatCurrency: selectedCurrency,
+            btcFormat: btcFormat,
+          );
+
+    if (wide)
+      return _WideWallet(wallet: wallet, banner: banner, onRefresh: refresh);
+
     return RefreshIndicator(
       // Accent spinner so the pull-to-refresh matches the
       // app palette (same treatment as the affiliate
       // screen) while still signalling the BDK scan is
       // mid-flight.
       color: c.accent,
-      onRefresh: () async {
-        HapticFeedback.lightImpact();
-        ref
-            .read(walletBalanceCacheProvider.notifier)
-            .invalidateStreamFreshness(wallet.id);
-        // Single-shot BDK scan targeting the scoped
-        // wallet only. The continuous loop is
-        // deliberately NOT used here — BDK Electrum
-        // scans crash under repeated polling, so the
-        // detail screen only scans on key user actions
-        // (open, pull-to-refresh, Send/Move). An explicit
-        // refresh scans every address up to the stop gap,
-        // not only the ones this app revealed.
-        await BackgroundSyncService()
-            .scanBdkScope(source: 'pull_refresh', fullScan: true);
-      },
+      onRefresh: refresh,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(
@@ -105,14 +137,7 @@ class WalletBitcoinBody extends ConsumerWidget {
           children: [
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: isAwaitingFirstBalance
-                  ? const _BalanceSkeleton()
-                  : _BalanceCard(
-                      sats: sats,
-                      fiatValue: fiatValue,
-                      fiatCurrency: selectedCurrency,
-                      btcFormat: btcFormat,
-                    ),
+              child: balanceCard,
             ),
             SizedBox(height: 16.h),
             Padding(
@@ -149,6 +174,44 @@ class WalletBitcoinBody extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The wide tab ([WalletBitcoinBody.wide]; bitcoin_home_panes.dart): the
+/// wallet's balance and actions are the desktop top bar's, so the page is
+/// its activity on the left (the backup banner at the top of its list)
+/// and, once it has a history, its charts on the right (the phone strip's
+/// Balance / Price / UTXOs). No history: one empty state, centred.
+class _WideWallet extends ConsumerWidget {
+  const _WideWallet(
+      {required this.wallet, required this.banner, required this.onRefresh});
+
+  final WalletConfig wallet;
+  final Widget? banner;
+  final RefreshCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final empty = ref.watch(walletTransactionCacheProvider.select(
+        (cache) => cache[wallet.id]?.allTransactionsSorted.isEmpty ?? true));
+    return BitcoinPanesFrame(
+      left: BitcoinActivityPane(
+        onRefresh: onRefresh,
+        banners: [if (banner != null) banner!],
+        empty: empty,
+        list: (_, columns) => SliverToBoxAdapter(
+          child: TransactionList(
+              walletIdOverride: wallet.id, showAll: true, columns: columns),
+        ),
+      ),
+      right: empty
+          ? null
+          : BitcoinSideColumn(
+              child: HomeAnalyticsWidget(
+                padding: EdgeInsets.only(top: kBitcoinSideTop, bottom: 24.h),
+              ),
+            ),
     );
   }
 }

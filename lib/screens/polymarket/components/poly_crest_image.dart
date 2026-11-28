@@ -2,11 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/polymarket_artwork.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/platform/web_image.dart';
+import 'package:kute/platform/web_image_proxy.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/services/icon_cache/icon_disk_cache.dart' show IconCaches, runBounded;
 
@@ -61,10 +64,56 @@ class PolyCrestImage extends StatelessWidget {
     final normalized = polymarketArtworkUrl(url);
     final fb = fallback ??
         PolyArtworkFallback(size: size, label: label, category: category);
+    // Web: the browser's <img> rounds its own corners (CSS), with no
+    // Flutter clip around the view, which the engine would restyle on
+    // every frame for every image on the page; the stand-in is clipped.
+    // Web, a picture a backend image route covers: read through it and
+    // drawn in the canvas at this size (web_image_proxy.dart); a missing
+    // one shows the stand-in.
+    if (normalized != null &&
+        kIsWeb &&
+        cacheManager == null &&
+        debugCacheManager == null &&
+        WebImageProxy.proxied(normalized) != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: WebProxiedPicture(
+          url: normalized,
+          size: size,
+          fit: fit,
+          error: fb,
+        ),
+      );
+    }
+    if (normalized != null &&
+        kIsWeb &&
+        cacheManager == null &&
+        debugCacheManager == null) {
+      final corners = BorderRadius.circular(radius);
+      return WebNetworkImage(
+        url: normalized,
+        width: size,
+        height: size,
+        fit: fit,
+        borderRadius: corners,
+        error: ClipRRect(borderRadius: corners, child: fb),
+      );
+    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: normalized == null
           ? fb
+          // Web: Polymarket's hosts send no CORS headers, so the bytes
+          // cannot be read; the browser's <img> draws the image, SVG or
+          // raster, whatever the URL says.
+          : kIsWeb && cacheManager == null && debugCacheManager == null
+          ? WebNetworkImage(
+              url: normalized,
+              width: size,
+              height: size,
+              fit: fit,
+              error: fb,
+            )
           : _CachedArtwork(
               url: normalized,
               size: size,
@@ -89,6 +138,15 @@ class PolyCrestImage extends StatelessWidget {
   static Future<void> prefetch(Iterable<String?> urls,
       {BaseCacheManager? cacheManager}) {
     if (!IconCaches.prefetchEnabled) return Future.value();
+    if (kIsWeb && cacheManager == null && debugCacheManager == null) {
+      final todo = <String>[];
+      for (final raw in urls) {
+        if (raw == null || raw.trim().isEmpty) continue;
+        final u = polymarketArtworkUrl(raw);
+        if (u != null && _requested.add(u)) todo.add(u);
+      }
+      return WebImageLoader.prefetch(todo, concurrency: prefetchConcurrency);
+    }
     final cm = cacheManager ?? debugCacheManager ?? polyArtworkCacheManager;
     final todo = <String>[];
     for (final raw in urls) {
@@ -379,4 +437,117 @@ class PolyReceiptArtwork extends StatelessWidget {
       radius: 12,
       fallback: SvgPicture.asset('lib/assets/polymarket-logo.svg',
           width: 44, height: 44));
+}
+
+/// A single market's picture followed by its [gap] (a slip's, a sheet's or
+/// a header's leading picture). On the phones exactly [PolyCrestImage]
+/// and the gap. On the web (founder, 27 November 2026: "an empty rounded
+/// square where the picture belongs"): a picture a backend image route
+/// serves is read through it and drawn small in the canvas, as the list
+/// thumbnails are; any other (no URL, a host no route covers, one found
+/// missing) draws nothing at all, neither box nor gap, so the text takes
+/// its place. [gapBefore] puts the gap in front instead.
+class PolyPictureLead extends StatefulWidget {
+  const PolyPictureLead({
+    super.key,
+    required this.url,
+    required this.size,
+    required this.radius,
+    required this.gap,
+    this.gapBefore = false,
+    this.fallback,
+    this.label,
+  });
+
+  final String? url;
+  final double size;
+  final double radius;
+  final double gap;
+  final bool gapBefore;
+  final Widget? fallback;
+  final String? label;
+
+  /// Tests: the web's rule off the web.
+  @visibleForTesting
+  static bool debugWeb = false;
+
+  /// Whether the web draws a picture for [url] (as far as this session
+  /// knows). Always on the phones.
+  static bool shown(String? url) {
+    if (!kIsWeb && !debugWeb) return true;
+    final u = polymarketArtworkUrl(url);
+    return u != null && WebImageProxy.drawable(u);
+  }
+
+  @override
+  State<PolyPictureLead> createState() => _PolyPictureLeadState();
+}
+
+class _PolyPictureLeadState extends State<PolyPictureLead> {
+  /// Web: the picture proved missing.
+  bool _gone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _watch();
+  }
+
+  @override
+  void didUpdateWidget(covariant PolyPictureLead old) {
+    super.didUpdateWidget(old);
+    if (old.url != widget.url) {
+      _gone = false;
+      _watch();
+    }
+  }
+
+  void _watch() {
+    if (!kIsWeb && !PolyPictureLead.debugWeb) return;
+    final u = polymarketArtworkUrl(widget.url);
+    if (u == null || !WebImageProxy.drawable(u)) return;
+    final url = widget.url;
+    WebImageProxy.load(u).then((bytes) {
+      if (bytes == null && mounted && widget.url == url) {
+        setState(() => _gone = true);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final web = kIsWeb || PolyPictureLead.debugWeb;
+    final url = widget.url;
+    if (url == null || url.isEmpty) {
+      if (web || widget.fallback == null) return const SizedBox.shrink();
+    } else if (web && (_gone || !PolyPictureLead.shown(url))) {
+      return const SizedBox.shrink();
+    }
+    final Widget picture;
+    if (url == null || url.isEmpty) {
+      picture = widget.fallback!;
+    } else if (web) {
+      picture = ClipRRect(
+        borderRadius: BorderRadius.circular(widget.radius),
+        child: WebProxiedPicture(
+          url: polymarketArtworkUrl(url)!,
+          size: widget.size,
+          error: const SizedBox.shrink(),
+        ),
+      );
+    } else {
+      picture = PolyCrestImage(
+        url: url,
+        size: widget.size,
+        radius: widget.radius,
+        fallback: widget.fallback,
+        label: widget.label,
+      );
+    }
+    final gap = SizedBox(width: widget.gap);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: widget.gapBefore ? [gap, picture] : [picture, gap],
+    );
+  }
 }

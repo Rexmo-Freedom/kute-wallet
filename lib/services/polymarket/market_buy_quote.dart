@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:kute/services/polymarket/limit_order_rules.dart'
+    show polymarketLimitBuyShares;
 import 'package:kute/services/polymarket/market_terms_store.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/services/polymarket_clob_websocket.dart'
@@ -440,7 +442,9 @@ class PolymarketOrderPlan {
   /// meet the venue's one-dollar floor only within the stake plus the
   /// quote's rounding cent, never into the fee room.
   static double sharesFor(double amount, double price) {
-    var shares = ((amount / price) * 100).floorToDouble() / 100;
+    // In integers: \$1.40 at 28¢ is 5.00 shares, never the 4.99 that
+    // 1.40 / 0.28 = 4.999999… floored to (limit_order_rules.dart).
+    var shares = polymarketLimitBuyShares(amount, price);
     if (shares * price < 1.0 && amount >= 1.0) {
       final bumped = (1.0 / price * 100).ceilToDouble() / 100;
       if (bumped * price <=

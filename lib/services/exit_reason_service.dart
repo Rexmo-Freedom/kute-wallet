@@ -1,10 +1,10 @@
-import 'dart:io';
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:kute/services/once_flags_service.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Post-mortem reporter for the telemetry blind spot on Android.
 ///
@@ -96,11 +96,12 @@ class ExitReasonService {
   /// ones we haven't reported before. Fire-and-forget from boot —
   /// never throws, no-ops below Android 11.
   static Future<void> reportLastExit() async {
-    if (Platform.isIOS) {
+    if (!PlatformCaps.hasNativeChannels) return;
+    if (PlatformOs.isIOS) {
       await _reportIosPreviousCrash();
       return;
     }
-    if (!Platform.isAndroid) return;
+    if (!PlatformOs.isAndroid) return;
     try {
       final lowRam = await _channel.invokeMethod<bool>('isLowRamDevice');
       if (lowRam != null) TrackingService.setSessionKey('low_ram', lowRam);
@@ -240,7 +241,7 @@ class ExitReasonService {
 
   /// iOS: Crashlytics knows whether the previous run crashed natively.
   static Future<void> _reportIosPreviousCrash() async {
-    if (kDebugMode) return;
+    if (kDebugMode || !PlatformCaps.hasCrashlytics) return;
     try {
       final crashed =
           await FirebaseCrashlytics.instance.didCrashOnPreviousExecution();

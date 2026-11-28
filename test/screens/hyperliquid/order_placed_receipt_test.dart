@@ -68,6 +68,8 @@ void main() {
     double sizeFilled = 0.05,
     HlPositionPlan? plan,
     double? realizedPnl,
+    double restingSize = 0,
+    List<String> notices = const [],
   }) async {
     await tester.pumpWidget(ProviderScope(child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -92,9 +94,95 @@ void main() {
       notionalUsd: sizeFilled * 60000,
       positionPlan: plan,
       realizedPnl: realizedPnl,
+      restingSize: restingSize,
+      notices: notices,
     );
     await tester.pumpAndSettle();
   }
+
+  Future<void> pumpAccepted(WidgetTester tester, Widget overlay) async {
+    await tester.pumpWidget(ProviderScope(child: ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        navigatorKey: rootKey,
+        theme: buildLightTheme(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: withKuteShellBar,
+        home: const Scaffold(body: Text('host')),
+      ),
+    )));
+    pushKuteSuccessOverlay(navigator: rootKey.currentState!, overlay: overlay);
+    await tester.pumpAndSettle();
+  }
+
+  group('what the venue did not take is said on the receipt', () {
+    testWidgets('H14: a limit filled in part says so, and what still rests',
+        (tester) async {
+      await pumpReceipt(tester, isLong: true, sizeFilled: 0.02,
+          restingSize: 0.03);
+      expect(find.text('Order partly filled'), findsOneWidget);
+      expect(find.text('Order filled'), findsNothing);
+      expect(find.text('Still open'), findsOneWidget);
+      expect(find.text('0.03 BTC'), findsOneWidget);
+      expect(find.text('The rest of the order is still open.'), findsOneWidget);
+      // The rest rests on the book: View orders, not View positions.
+      expect(find.text('View orders'), findsOneWidget);
+      expect(find.text('View positions'), findsNothing);
+    });
+
+    testWidgets('H4 / H5: a refused stop-loss or trailing stop is said',
+        (tester) async {
+      await pumpReceipt(tester, isLong: true, notices: const [
+        'The stop-loss was not placed.',
+        'The order filled, but the trailing stop was not placed because it '
+            'was not approved.',
+      ]);
+      expect(find.text('Order filled'), findsOneWidget);
+      expect(
+          find.textContaining('The stop-loss was not placed.'), findsOneWidget);
+      expect(find.textContaining('the trailing stop was not placed'),
+          findsOneWidget);
+      expect(find.text('Your balance will update in a moment.'), findsNothing);
+    });
+
+    testWidgets('H15: an accepted TWAP states its type and minutes',
+        (tester) async {
+      await pumpAccepted(
+          tester,
+          const HlOrderAcceptedOverlay(
+            coin: 'BTC',
+            amount: r'$150.00',
+            rows: {'Order type': 'TWAP order', 'Duration': '30 min'},
+            detail: 'Your TWAP order is running for 30 min.',
+          ));
+      expect(find.text('Order placed'), findsOneWidget);
+      expect(find.text('TWAP order'), findsOneWidget);
+      expect(find.text('30 min'), findsOneWidget);
+      expect(find.text('Your TWAP order is running for 30 min.'),
+          findsOneWidget);
+      // Never "pending fill" for a TWAP.
+      expect(find.textContaining('It may fill over time'), findsNothing);
+    });
+
+    testWidgets('H15: a reduce-only order is a close, with its limit price',
+        (tester) async {
+      await pumpAccepted(
+          tester,
+          const HlOrderAcceptedOverlay(
+            coin: 'BTC',
+            amount: r'$50.00',
+            isClose: true,
+            rows: {'Order type': 'Limit order', 'Limit price': r'$61,000'},
+            notices: ['Only 3 of 5 orders were placed.'],
+          ));
+      expect(find.text('Close order placed'), findsOneWidget);
+      expect(find.text('Limit order'), findsOneWidget);
+      expect(find.text(r'$61,000'), findsOneWidget);
+      expect(find.textContaining('Only 3 of 5 orders were placed.'),
+          findsOneWidget);
+    });
+  });
 
   group('filled receipt against a held position', () {
     testWidgets('an open keeps the opened-order chip', (tester) async {

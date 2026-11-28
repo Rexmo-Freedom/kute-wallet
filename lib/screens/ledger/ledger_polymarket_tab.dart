@@ -13,9 +13,15 @@
 // Public discovery stays visible independently of account reads. Activity
 // lives in Portfolio; its shared rows below use this Ledger's records only.
 
+import 'package:kute/screens/shared/desk_lists.dart'
+    show ActivityDayColumns, deskListPadding;
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart'
-    show polyCardGroups, polyCardOpenSlip, polyGroupRowDivider, polyGroupRowIndent;
+    show
+        polyCardGroups,
+        polyCardOpenSlip,
+        polyGroupRowDivider,
+        polyGroupRowIndent;
 import 'package:kute/screens/polymarket/components/position_card.dart';
 import 'package:flutter/material.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
@@ -364,8 +370,8 @@ class LedgerPmActivityRow extends ConsumerWidget {
     return buildWalletActivityRow(
       onTap: r == null
           ? null
-          : () => showPredictionResultDetails(context, r,
-              ledgerWalletId: walletId),
+          : () =>
+              showPredictionResultDetails(context, r, ledgerWalletId: walletId),
       leading: predictionActivityIcon(activityCrestIcon(ref, activity)),
       title: activityRowTitle(copy.title),
       subtitle: copy.subtitle,
@@ -406,7 +412,12 @@ class LedgerPmActivityList extends StatelessWidget {
       {super.key,
       required this.rows,
       this.positions = const [],
-      this.walletId});
+      this.walletId,
+      this.columns = false});
+
+  /// A page across the window on EXPANDED: the day cards in masonry
+  /// columns (ActivityDayColumns, desk_lists.dart).
+  final bool columns;
 
   @override
   Widget build(BuildContext context) {
@@ -421,18 +432,17 @@ class LedgerPmActivityList extends StatelessWidget {
         : ([...rows, ...results.keys]
           ..sort((a, b) => b.timestamp.compareTo(a.timestamp)));
     // Hosted under the Ledger Portfolio's dock: the last row clears it.
+    final sections = activityDaySections<Activity>(
+      all,
+      timeOf: (a) => a.timestampDate,
+      rowOf: (a) => LedgerPmActivityRow(
+          activity: a, history: rows, result: results[a], walletId: walletId),
+    );
+    final side = columns ? deskListPadding().left : 0.0;
     return ListView(
       padding: EdgeInsets.fromLTRB(
-          0, 4.h, 0, 40.h + kuteDockScrollClearance(context)),
-      children: activityDaySections<Activity>(
-        all,
-        timeOf: (a) => a.timestampDate,
-        rowOf: (a) => LedgerPmActivityRow(
-            activity: a,
-            history: rows,
-            result: results[a],
-            walletId: walletId),
-      ),
+          side, 4.h, side, 40.h + kuteDockScrollClearance(context)),
+      children: columns ? [ActivityDayColumns(sections: sections)] : sections,
     );
   }
 }
@@ -475,8 +485,8 @@ class LedgerPmPositionRow extends ConsumerWidget {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: PolyPositionCard(
-        question: polyShownQuestion(
-            context, position.title, position.eventSlug),
+        question:
+            polyShownQuestion(context, position.title, position.eventSlug),
         imageUrl: position.icon,
         outcome: position.outcome,
         shares: position.size,

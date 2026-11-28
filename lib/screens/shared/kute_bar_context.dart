@@ -122,6 +122,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart' show NoTransitionPage;
 import 'package:kute/models/advisor_context.dart';
+import 'package:kute/platform/kute_wide_frames.dart'
+    show KuteDialogScope, kuteBarBottomRoomFor, kutePlatformWindowWidth;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/theme/app_theme.dart' show AppColors;
@@ -756,8 +758,27 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    // A dialog on EXPANDED draws its primary in its own foot
+    // (kute_dialog.dart), not in the floating bar: the room a surface
+    // kept for the bar over its last rows (the scope around a bare
+    // spacer, PolySlipCta's and the keypads') would only be a blank band
+    // above that button.
+    if (widget.barContext.isPrimary && KuteDialogScope.inDialog(context)) {
+      final child = widget.child;
+      if (child is SizedBox && child.child == null && child.width == null) {
+        return const SizedBox.shrink();
+      }
+    }
+    return widget.child;
+  }
 }
+
+/// A route the bar counts as a sheet over the tabs
+/// ([KuteBarRouteObserver.counts]) though it is no bottom sheet: the
+/// panels sheets become on EXPANDED
+/// (kute_dialog.dart).
+abstract interface class KuteBarSheetRoute {}
 
 // ── Scroll clearance ─────────────────────────────────────────────────────
 
@@ -768,7 +789,13 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
 /// reserved outside the scroll (no band under a sheet's content). A view
 /// that runs to the screen's bottom edge adds the home-indicator inset
 /// itself.
-const double kuteBarScrollClearance = 72;
+///
+/// From MEDIUM up the bar stands higher off the window's foot (founder,
+/// round two: "the button in the end give it more space";
+/// kuteBarBottomRoomFor, kute_wide_frames.dart), and the clearance grows
+/// by as much, so the last rows still scroll clear of it.
+double get kuteBarScrollClearance =>
+    72 + kuteBarBottomRoomFor(kutePlatformWindowWidth()) - 2;
 
 // ── Routes over the tabs ─────────────────────────────────────────────────
 
@@ -828,7 +855,9 @@ class KuteBarRouteObserver extends NavigatorObserver {
     }
     final name = settings.name;
     if (name != null && kuteBarSilentRoutes.contains(name)) return false;
-    return route is PageRoute || route is ModalBottomSheetRoute;
+    return route is PageRoute ||
+        route is ModalBottomSheetRoute ||
+        route is KuteBarSheetRoute;
   }
 
   /// Whether a page or a sheet the bar shows over ([counts]) stands on
@@ -866,6 +895,17 @@ class KuteBarRouteObserver extends NavigatorObserver {
       outer = navigator.context.findAncestorStateOfType<NavigatorState>();
     }
     return true;
+  }
+
+  /// The modal bottom sheet on top across navigators ([onTop]), or null
+  /// when the top is a page, a panel or nothing. The bar reads it
+  /// (kute_shell_bar.dart): a sheet that sets no context of its own has
+  /// no bar over it.
+  static Route<dynamic>? sheetOnTop() {
+    for (final r in _over) {
+      if (r is ModalBottomSheetRoute && onTop(r)) return r;
+    }
+    return null;
   }
 
   static void _add(Route<dynamic> route) {

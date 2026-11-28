@@ -250,4 +250,90 @@ void main() {
     expect(classifyLedgerAction(LedgerActionKind.hlTrailingStop).gate,
         LedgerReleaseGate.flagO1);
   });
+
+  group('an unclear send is reconciled, never blocking until a wipe', () {
+    Future<int> unclearSend() async {
+      // A lost answer leaves the asset blocked, its nonce recorded.
+      await expectLater(
+          place(service((_) async => throw TimeoutException('lost'))),
+          throwsA(isA<PendingTrailingStopException>()));
+      final box = await Hive.openBox<String>(TrailingStopGuard.boxName);
+      final raw = jsonDecode(box.values.single) as Map;
+      expect(raw['stage'], 'submitting');
+      return raw['nonce'] as int;
+    }
+
+    final address = key.address.hex;
+
+    test('resting or in the history on the venue: cleared', () async {
+      final nonce = await unclearSend();
+      int? asked;
+      await TrailingStopGuard().ensureAvailable(
+          address: address,
+          assetId: 0,
+          lookup: (sentAt) async {
+            asked = sentAt;
+            return TrailingStopVenueState.found;
+          });
+      expect(asked, nonce);
+      // Cleared for good: no lookup needed any more.
+      await TrailingStopGuard().ensureAvailable(address: address, assetId: 0);
+    });
+
+    test('absent from both lists: still blocked inside the window, cleared '
+        'after it', () async {
+      final nonce = await unclearSend();
+      final sent = DateTime.fromMillisecondsSinceEpoch(nonce);
+      Future<TrailingStopVenueState> absent(int _) async =>
+          TrailingStopVenueState.absent;
+      await expectLater(
+          TrailingStopGuard(clock: () => sent.add(const Duration(seconds: 30)))
+              .ensureAvailable(address: address, assetId: 0, lookup: absent),
+          throwsA(isA<PendingTrailingStopException>()));
+      await TrailingStopGuard(
+              clock: () => sent.add(TrailingStopGuard.absentAfter))
+          .ensureAvailable(address: address, assetId: 0, lookup: absent);
+      await TrailingStopGuard().ensureAvailable(address: address, assetId: 0);
+    });
+
+    test('the venue cannot say: still blocked, the copy pointing at open '
+        'orders', () async {
+      final nonce = await unclearSend();
+      final late = DateTime.fromMillisecondsSinceEpoch(nonce)
+          .add(const Duration(hours: 1));
+      for (final lookup in <TrailingStopLookup>[
+        (_) async => TrailingStopVenueState.unknown,
+        (_) async => throw StateError('info down'),
+      ]) {
+        await expectLater(
+            TrailingStopGuard(clock: () => late)
+                .ensureAvailable(address: address, assetId: 0, lookup: lookup),
+            throwsA(isA<PendingTrailingStopException>()));
+      }
+      expect(const PendingTrailingStopException().toString(),
+          contains('Check your open orders'));
+      expect(const PendingTrailingStopException().toString(),
+          isNot(contains('support')));
+    });
+
+    test('the next send reconciles first and goes out once cleared',
+        () async {
+      await unclearSend();
+      var posts = 0;
+      final result = await service((_) async {
+        posts++;
+        return http.Response(
+            '{"status":"ok","response":{"type":"default"}}', 200);
+      }).placeTrailingStopOrder(
+          market: market,
+          isBuy: false,
+          size: .001,
+          trail: trail,
+          referencePrice: 65000,
+          reduceOnly: true,
+          lookup: (_) async => TrailingStopVenueState.found);
+      expect(posts, 1);
+      expect(result.kind, HlOrderResultKind.resting);
+    });
+  });
 }

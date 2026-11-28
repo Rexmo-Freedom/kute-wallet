@@ -210,6 +210,7 @@ import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/wallet_scope_provider.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show kuteMoneyFlowRoute;
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/services/success_feedback.dart'
@@ -500,8 +501,10 @@ Future<void> showDepositSheet(
   // bottom-sheet version had.
   // ignore: discarded_futures
   Navigator.of(context, rootNavigator: true).push(
-    MaterialPageRoute(
-      fullscreenDialog: true,
+    // A dialog card on EXPANDED, a centred column on MEDIUM, the page on
+    // a phone (kute_dialog.dart, kuteMoneyFlowRoute).
+    kuteMoneyFlowRoute<void>(
+      context,
       // The bar reads "Move money" over "ask Sal where it should go"
       // while this is up (kute_bar_context.dart).
       builder: (sheetContext) => KuteBarContextScope(
@@ -6096,10 +6099,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ? MoveLockedSide.buyToHyperliquid
             : MoveLockedSide.depositFromFiat;
     Navigator.of(context, rootNavigator: true).pushReplacement(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => DepositSheet(lockedSide: lockedSide),
-      ),
+      kuteMoneyFlowRoute<void>(context,
+          builder: (_) => DepositSheet(lockedSide: lockedSide)),
     );
   }
 

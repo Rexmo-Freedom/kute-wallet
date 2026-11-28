@@ -24,6 +24,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart'
+    show RenderAbstractViewport, RenderObject;
 
 import 'package:kute/theme/app_theme.dart';
 
@@ -171,6 +173,27 @@ class _KuteChartCrosshairState extends State<KuteChartCrosshair> {
   KuteCrosshairData? Function(Size size)? _lastResolve;
   Object? _lastKey;
 
+  /// How much of this layer's top is scrolled out of its scroll view (a
+  /// market page's body scrolls under its pinned header). The card sits
+  /// that much lower, at the top of what is still in view (founder, 24
+  /// November 2026, of a laptop's chart scrolled a little under the
+  /// header: "price indicator is clipped on top"). Measured after layout.
+  double _hiddenTop = 0;
+
+  void _measureHiddenTop() {
+    if (!mounted) return;
+    var hidden = 0.0;
+    final box = context.findRenderObject();
+    if (box is RenderBox && box.attached && box.hasSize) {
+      final RenderObject? viewport = RenderAbstractViewport.maybeOf(box);
+      if (viewport is RenderBox && viewport.attached) {
+        final top = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
+        hidden = math.max(0.0, -top);
+      }
+    }
+    if ((hidden - _hiddenTop).abs() > 0.5) setState(() => _hiddenTop = hidden);
+  }
+
   @override
   Widget build(BuildContext context) {
     final active = widget.resolve != null;
@@ -180,6 +203,9 @@ class _KuteChartCrosshairState extends State<KuteChartCrosshair> {
     }
     final resolve = _lastResolve;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (active) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _measureHiddenTop());
+    }
 
     return IgnorePointer(
       child: AnimatedOpacity(
@@ -218,7 +244,8 @@ class _KuteChartCrosshairState extends State<KuteChartCrosshair> {
                         child: CustomSingleChildLayout(
                           delegate: _ScrubCardLayout(
                               x: data.x.clamp(0.0, size.width).toDouble(),
-                              rightInset: widget.cardRightInset),
+                              rightInset: widget.cardRightInset,
+                              hiddenTop: _hiddenTop),
                           child: KuteScrubCard(data: card),
                         ),
                       ),
@@ -233,9 +260,13 @@ class _KuteChartCrosshairState extends State<KuteChartCrosshair> {
 /// Puts the card beside the hairline at the top of the plot: on its right,
 /// on its left when the right has no room, always inside the chart.
 class _ScrubCardLayout extends SingleChildLayoutDelegate {
-  _ScrubCardLayout({required this.x, this.rightInset = 0});
+  _ScrubCardLayout({required this.x, this.rightInset = 0, this.hiddenTop = 0});
   final double x;
   final double rightInset;
+
+  /// The part of the plot's top scrolled out of view: the card starts
+  /// under it, never past the plot's foot.
+  final double hiddenTop;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
@@ -257,12 +288,14 @@ class _ScrubCardLayout extends SingleChildLayoutDelegate {
     left = left
         .clamp(0.0, math.max(0.0, size.width - childSize.width))
         .toDouble();
-    return Offset(left, kuteScrubCardTop);
+    final top = math.min(kuteScrubCardTop + hiddenTop,
+        math.max(kuteScrubCardTop, size.height - childSize.height));
+    return Offset(left, top);
   }
 
   @override
   bool shouldRelayout(covariant _ScrubCardLayout old) =>
-      old.x != x || old.rightInset != rightInset;
+      old.x != x || old.rightInset != rightInset || old.hiddenTop != hiddenTop;
 }
 
 /// The scrub card: the app's floating-card surface (white on light with a

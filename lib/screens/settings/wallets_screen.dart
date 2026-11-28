@@ -29,7 +29,9 @@ import 'package:kute/services/passkey_service.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_wide_page_parts.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -115,13 +117,53 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
         if (w.id == spendingId || (w.hasVerifiedEvm && ledgerAnyVenueAllowed()))
           w,
     ];
+    final walletList = _WalletGroup(
+      children: [
+        for (final w in wallets)
+          _WalletTile(
+            wallet: w,
+            ensureRevealGrant: _ensureRevealGrant,
+            keyClipboard: _keyClipboard,
+          ),
+      ],
+    );
+    final evmGroups = [
+      for (final w in evmWallets) ...[
+        if (evmWallets.length > 1)
+          _GroupCaption(
+              w.name.isNotEmpty ? w.name : context.l10n.accountWallet),
+        _EvmAccountGroup(
+          wallet: w,
+          isSpending: w.id == spendingId,
+          ensureRevealGrant: _ensureRevealGrant,
+          keyClipboard: _keyClipboard,
+        ),
+        if (w != evmWallets.last) SizedBox(height: 16.h),
+      ],
+    ];
+    // EXPANDED (round three; founder, 25 November 2026: "it must be all
+    // occupying full screen when we can"): the wallet list and the
+    // Investing and Predictions accounts side by side, each at a readable
+    // width, the back button and the title on the page's left gutter. As
+    // the detail beside Settings this reads the detail's own width, so a
+    // narrow detail keeps the phone's single column.
+    final wide = kuteIsExpanded(context);
+    final both = wallets.isNotEmpty && evmWallets.isNotEmpty;
+    final side = wide
+        ? kuteWidePadding(context,
+            maxWidth: both ? kuteWideTwoColumns : kuteWideColumnMax)
+        : EdgeInsets.symmetric(horizontal: 16.w);
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        centerTitle: true,
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? side.left + 40 : null,
         elevation: 0,
-        leading: const KuteBackButton(),
+        leading: wide
+            ? kuteWideLeading(side.left, const KuteBackButton())
+            : const KuteBackButton(),
         title: Text(context.l10n.settingsBackupAndRecovery,
             style: TextStyle(
               color: c.textPrimary,
@@ -131,36 +173,52 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
             )),
       ),
       body: ListView(
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 32.h),
-        children: [
-          if (wallets.isNotEmpty)
-            _WalletGroup(
-              children: [
-                for (final w in wallets)
-                  _WalletTile(
-                    wallet: w,
-                    ensureRevealGrant: _ensureRevealGrant,
-                    keyClipboard: _keyClipboard,
-                  ),
+        padding: EdgeInsets.fromLTRB(side.left, 8.h, side.right, 32.h),
+        children: wide
+            ? [
+                if (both)
+                  KuteColumns.fixed(columns: [
+                    // The wallet list's card on the accounts' card's top
+                    // line: the heading's room above it, unpainted (the
+                    // list has no heading of its own).
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ExcludeSemantics(
+                          child: Visibility.maintain(
+                            visible: false,
+                            child: _SectionTitle(
+                                context.l10n.walletsInvestingAndPredictions),
+                          ),
+                        ),
+                        walletList,
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _SectionTitle(
+                            context.l10n.walletsInvestingAndPredictions),
+                        ...evmGroups,
+                      ],
+                    ),
+                  ])
+                else ...[
+                  if (wallets.isNotEmpty) walletList,
+                  if (evmWallets.isNotEmpty) ...[
+                    _SectionTitle(context.l10n.walletsInvestingAndPredictions),
+                    ...evmGroups,
+                  ],
+                ],
+              ]
+            : [
+                if (wallets.isNotEmpty) walletList,
+                if (evmWallets.isNotEmpty) ...[
+                  SizedBox(height: 24.h),
+                  _SectionTitle(context.l10n.walletsInvestingAndPredictions),
+                  ...evmGroups,
+                ],
               ],
-            ),
-          if (evmWallets.isNotEmpty) ...[
-            SizedBox(height: 24.h),
-            _SectionTitle(context.l10n.walletsInvestingAndPredictions),
-            for (final w in evmWallets) ...[
-              if (evmWallets.length > 1)
-                _GroupCaption(
-                    w.name.isNotEmpty ? w.name : context.l10n.accountWallet),
-              _EvmAccountGroup(
-                wallet: w,
-                isSpending: w.id == spendingId,
-                ensureRevealGrant: _ensureRevealGrant,
-                keyClipboard: _keyClipboard,
-              ),
-              if (w != evmWallets.last) SizedBox(height: 16.h),
-            ],
-          ],
-        ],
       ),
     );
   }
@@ -410,9 +468,12 @@ Future<({String? mnemonic})?> _revealMnemonic(
       // different credential and show words that don't control the
       // funds. Pass the wallet's own label so a multi-wallet user sees
       // THIS wallet's phrase, not the last-cached one's.
-      mnemonic = await PasskeyService.getMnemonic(
+      // getMnemonicFor routes on the marker: legacy and Breez-home
+      // wallets run getMnemonic exactly as before, Kute-home wallets
+      // derive on Kute's RP; an unknown marker yields nothing.
+      mnemonic = await PasskeyService.getMnemonicFor(
         label: w.passkeyLabel,
-        legacy: w.passkeyProvider == null,
+        provider: w.passkeyProvider,
       );
     } else {
       final read = await readStoredSeedInteractive(context, ref, w.id,

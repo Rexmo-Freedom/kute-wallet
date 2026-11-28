@@ -1,8 +1,13 @@
+import 'package:kute/platform/unlock_secret.dart';
+import 'package:kute/screens/shared/kute_password_field.dart';
+import 'package:kute/screens/shared/password_copy.dart';
 import 'dart:async';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
 
 import 'package:kute/services/onchain/native_onchain_service.dart' show OnchainEndpoint;
 import 'package:kute/helpers/pin_attempt_guard.dart';
@@ -59,8 +64,17 @@ import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/platform/web_biometrics.dart';
+import 'package:kute/platform/open_external.dart';
+import 'package:kute/platform/web_build.dart';
 
 final biometricsAvailableProvider = FutureProvider<bool>((ref) async {
+  // Web without a platform authenticator: the PIN is the only lock.
+  if (!PlatformCaps.hasBiometrics) return false;
+  // Web with one: WebAuthn, checked at boot (web_biometrics.dart).
+  if (PlatformCaps.isWeb) return true;
   try {
     return await LocalAuthentication().canCheckBiometrics;
   } catch (e) {
@@ -82,6 +96,13 @@ const kAdvancedCapability = 'settings.advanced';
 /// program is withheld) both ask through it, each tracking its own tap.
 Future<void> requestAppReview(WidgetRef ref) async {
   final settingsNotifier = ref.read(settingsProvider.notifier);
+  if (!PlatformCaps.hasInAppReview) {
+    // No review sheet here (web, Windows): the App Store page in a new tab.
+    final listing = appStoreListingUri(dotenv.env['APP_STORE_ID']);
+    if (listing != null) await openExternally(listing);
+    settingsNotifier.setReviewDone(true);
+    return;
+  }
   final inAppReview = InAppReview.instance;
   if (await inAppReview.isAvailable()) {
     await inAppReview.requestReview();
@@ -93,11 +114,16 @@ Future<void> requestAppReview(WidgetRef ref) async {
 
 /// The app version as Settings → Advanced shows it: the exact string the
 /// app sends to the backend policy request (`appVersion`, the pubspec
-/// version without the build number), then the build number.
+/// version without the build number), then the build number. On web, also
+/// the first 7 characters of the running web build (the stamp's id), so a
+/// screenshot tells which deploy it came from.
 final appVersionLabelProvider = FutureProvider<String>((ref) async {
   final info = await PackageInfo.fromPlatform();
   final build = info.buildNumber.trim();
-  return build.isEmpty ? info.version : '${info.version} ($build)';
+  final label = build.isEmpty ? info.version : '${info.version} ($build)';
+  final web = kIsWeb ? webBuildId() : null;
+  if (web == null || web.isEmpty) return label;
+  return '$label · web ${web.length > 7 ? web.substring(0, 7) : web}';
 });
 
 class Settings extends ConsumerStatefulWidget {
@@ -207,17 +233,176 @@ class _SettingsState extends ConsumerState<Settings> {
       orElse: () => false,
     );
 
+    // EXPANDED (round three; founder, 25 November 2026, of Settings as a
+    // 560 column in a wide empty window: "lots of screens are vertical
+    // only. It must be all occupying full screen when we can"): the four
+    // cards in one row across the page, the sections side by side under
+    // them as columns of their grouped cards (Security | Preferences |
+    // Advanced, three from about 1200 wide, two under it), Advanced open
+    // (nothing in it is destructive). In the master column beside a
+    // sub-page (KuteMasterDetail) and everywhere narrower: as on a phone.
+    // The master column (founder, 24 November 2026, of the squeezed copy
+    // of this page beside Backup and recovery: "this is incorrectly
+    // formatted"): a compact list on the page's own left gutter, the four
+    // cards as rows of the sections' card (the open sub-page's row
+    // marked), the sections under it as on a phone.
+    final master = KuteMasterScope.of(context);
+    final inMaster = master != null;
+    final wide = !inMaster && kuteIsExpanded(context);
+
+    final security = _section(context, context.l10n.security, [
+      if (showBiometrics)
+        KeyedSubtree(
+          key: _biometricsKey,
+          child: _buildBiometricsSection(context, ref),
+        ),
+      _buildAutoLockSection(context, ref),
+      const _NotificationsRow(),
+      // Hidden until it ships (feature_flags.dart).
+      if (showAnalyticsOptOut) _buildAnalyticsSection(context),
+    ]);
+    final preferences = _section(context, context.l10n.preferences, [
+      KeyedSubtree(
+        key: _themeKey,
+        child: _buildThemeModeSection(context, ref),
+      ),
+      _buildLanguageSection(ref, context),
+      _buildCurrencyDenominationSection(ref, context),
+      _buildBitcoinUnitSection(ref, context),
+    ]);
+    final export = showExport
+        ? _section(context, context.l10n.export,
+            [_buildTransactionExportSection(context, ref)])
+        : null;
+    // Rate the app, when it is not one of the cards.
+    final support = showReferral
+        ? _section(context, context.l10n.settingsSupportAndFeedback,
+            [_buildRateAppSection(context, ref)])
+        : null;
+    final advancedRows = [
+      _buildSupportInfoCaption(context),
+      _buildAppVersionRow(context, ref),
+      _buildAffiliateIdRow(context),
+      if (showElectrum) _buildElectrumNodeSection(context, ref),
+    ];
+
+    final List<Widget> body;
+    if (wide) {
+      body = [
+        SizedBox(height: 24.h),
+        _buildTopCards(context, ref, showReferral: showReferral, across: 4),
+        SizedBox(height: 32.h),
+        KuteColumns(
+          // In reading order across the columns: Security, Preferences,
+          // Advanced on the first line, Export and Support under the
+          // first two; on a window of about 1900 and up (the page running
+          // gutter to gutter) four or all five side by side, no card
+          // past a readable column.
+          maxColumns: 5,
+          children: [
+            security,
+            preferences,
+            _section(context, context.l10n.advanced, advancedRows),
+            if (export != null) export,
+            if (support != null) support,
+          ],
+        ),
+      ];
+    } else {
+      body = [
+        if (!inMaster) SizedBox(height: 24.h),
+        // FOUR BIG CARDS ON TOP (founder, 4 November 2026: "the
+        // passwords/backup, referrals, and support should be 4 big
+        // cards on the top and the rest of the items below"): the
+        // shared big squares (kute_action_cards.dart), 2 x 2.
+        // Backup, the app PIN, the referral program and support;
+        // with the referral program withheld, Rate the app takes
+        // its place so the grid stays whole.
+        if (inMaster)
+          _buildTopRows(context, ref,
+              showReferral: showReferral, selected: master.selected)
+        else
+          _buildTopCards(context, ref, showReferral: showReferral),
+        SizedBox(height: 24.h),
+        // Each section below is one grouped card (AppDecorations.card)
+        // with hairline dividers between its rows, the same
+        // chrome as the add-wallet device list.
+        security,
+        SizedBox(height: 24.h),
+        preferences,
+        if (export != null) ...[
+          SizedBox(height: 24.h),
+          export,
+        ],
+        if (support != null) ...[
+          SizedBox(height: 24.h),
+          support,
+        ],
+        SizedBox(height: 24.h),
+        // Technical settings sit behind one collapsed Advanced row
+        // at the bottom. The section always shows, whatever the
+        // policy says, so support can always ask for the app
+        // version and affiliate id at its top; `settings.advanced`
+        // gates only the custom Bitcoin server row inside it.
+        _GroupedCard(children: [
+          _SettingsRow(
+            title: context.l10n.advanced,
+            icon: Icons.tune_rounded,
+            subtitle: context.l10n.settingsAdvancedSubtitle,
+            trailing: Icon(
+              _showAdvanced
+                  ? Icons.expand_less_rounded
+                  : Icons.expand_more_rounded,
+              color: context.colors.textTertiary,
+              size: 22.sp,
+            ),
+            onTap: () {
+              final expanded = !_showAdvanced;
+              TrackingService.track('settings_advanced_toggled',
+                  params: {'expanded': expanded});
+              setState(() => _showAdvanced = expanded);
+            },
+          ),
+          if (_showAdvanced) ...advancedRows,
+        ]),
+      ];
+    }
+
+    final side = inMaster
+        ? EdgeInsets.only(left: master.gutter, right: kuteWideGutter)
+        : wide
+            ? kuteWidePadding(context)
+            : EdgeInsets.symmetric(horizontal: 16.w);
+    // The back button and the title on the left gutter: the full page on
+    // EXPANDED and the master column (where back leaves Settings, the
+    // detail's own back closing the detail).
+    final gutterBar = wide || inMaster;
     return Scaffold(
-      backgroundColor: c.background,
+      // The master column's background is the split's own (its fade).
+      backgroundColor: inMaster ? Colors.transparent : c.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        centerTitle: true,
+        // On EXPANDED the back button and the title sit on the page's
+        // left gutter.
+        centerTitle: !gutterBar,
+        titleSpacing: gutterBar ? 8 : null,
+        leadingWidth: gutterBar ? side.left + 40 : null,
         elevation: 0,
         // The bar reads "Ask Sal about Kute" over Settings.
         leading: KuteBarContextScope(
           barContext: KuteBarContext(
               label: context.l10n.barAskAboutKute, source: 'settings'),
-          child: const KuteBackButton(),
+          child: gutterBar
+              ? Padding(
+                  padding: EdgeInsets.only(left: side.left - 2),
+                  child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: inMaster
+                          ? KuteBackButton(
+                              onPressed: () => _leaveFromMaster(context))
+                          : const KuteBackButton()),
+                )
+              : const KuteBackButton(),
         ),
         title: Text(
           context.l10n.settings,
@@ -231,109 +416,36 @@ class _SettingsState extends ConsumerState<Settings> {
       ),
       extendBodyBehindAppBar: true,
       body: Container(
-        decoration: AppDecorations.screenGradient(context),
+        decoration: inMaster
+            ? const BoxDecoration()
+            : AppDecorations.screenGradient(context),
         child: SafeArea(
           bottom: false,
-          child: SingleChildScrollView(
+          child: kuteMasterReveal(master, SingleChildScrollView(
             // The last rows scroll clear of the floating bar.
-            padding: EdgeInsets.fromLTRB(
-                16.w, 16.h, 16.w, 40.h + kuteBarScrollClearance.h),
+            // The master's list starts on the detail's first line.
+            padding: EdgeInsets.fromLTRB(side.left, inMaster ? 8 : 16.h,
+                side.right, 40.h + kuteBarScrollClearance.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: 24.h),
-                // FOUR BIG CARDS ON TOP (founder, 4 November 2026: "the
-                // passwords/backup, referrals, and support should be 4 big
-                // cards on the top and the rest of the items below"): the
-                // shared big squares (kute_action_cards.dart), 2 x 2.
-                // Backup, the app PIN, the referral program and support;
-                // with the referral program withheld, Rate the app takes
-                // its place so the grid stays whole.
-                _buildTopCards(context, ref, showReferral: showReferral),
-                SizedBox(height: 24.h),
-                // Each section below is one grouped card (AppDecorations.card)
-                // with hairline dividers between its rows, the same
-                // chrome as the add-wallet device list.
-                _buildSectionHeader(context, context.l10n.security),
-                _GroupedCard(children: [
-                  if (showBiometrics)
-                    KeyedSubtree(
-                      key: _biometricsKey,
-                      child: _buildBiometricsSection(context, ref),
-                    ),
-                  _buildAutoLockSection(context, ref),
-                  const _NotificationsRow(),
-                  // Hidden until it ships (feature_flags.dart).
-                  if (showAnalyticsOptOut) _buildAnalyticsSection(context),
-                ]),
-
-                SizedBox(height: 24.h),
-                _buildSectionHeader(context, context.l10n.preferences),
-                _GroupedCard(children: [
-                  KeyedSubtree(
-                    key: _themeKey,
-                    child: _buildThemeModeSection(context, ref),
-                  ),
-                  _buildLanguageSection(ref, context),
-                  _buildCurrencyDenominationSection(ref, context),
-                  _buildBitcoinUnitSection(ref, context),
-                ]),
-
-                if (showExport) ...[
-                  SizedBox(height: 24.h),
-                  _buildSectionHeader(context, context.l10n.export),
-                  _GroupedCard(children: [
-                    _buildTransactionExportSection(context, ref)
-                  ]),
-                ],
-
-                // Rate the app, when it is not one of the cards.
-                if (showReferral) ...[
-                  SizedBox(height: 24.h),
-                  _buildSectionHeader(
-                      context, context.l10n.settingsSupportAndFeedback),
-                  _GroupedCard(children: [_buildRateAppSection(context, ref)]),
-                ],
-
-                SizedBox(height: 24.h),
-                // Technical settings sit behind one collapsed Advanced row
-                // at the bottom. The section always shows, whatever the
-                // policy says, so support can always ask for the app
-                // version and affiliate id at its top; `settings.advanced`
-                // gates only the custom Bitcoin server row inside it.
-                _GroupedCard(children: [
-                  _SettingsRow(
-                    title: context.l10n.advanced,
-                    icon: Icons.tune_rounded,
-                    subtitle: context.l10n.settingsAdvancedSubtitle,
-                    trailing: Icon(
-                      _showAdvanced
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      color: context.colors.textTertiary,
-                      size: 22.sp,
-                    ),
-                    onTap: () {
-                      final expanded = !_showAdvanced;
-                      TrackingService.track('settings_advanced_toggled',
-                          params: {'expanded': expanded});
-                      setState(() => _showAdvanced = expanded);
-                    },
-                  ),
-                  if (_showAdvanced) ...[
-                    _buildSupportInfoCaption(context),
-                    _buildAppVersionRow(context, ref),
-                    _buildAffiliateIdRow(context),
-                    if (showElectrum) _buildElectrumNodeSection(context, ref),
-                  ],
-                ]),
-              ],
+              children: body,
             ),
-          ),
+          )),
         ),
       ),
     );
   }
+
+  /// A section: its header over its grouped card.
+  Widget _section(BuildContext context, String title, List<Widget> rows) =>
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildSectionHeader(context, title),
+          _GroupedCard(children: rows),
+        ],
+      );
 
   /// The small "Support info" caption at the top of the expanded
   /// Advanced section, over the app version and affiliate id rows.
@@ -509,79 +621,172 @@ class _SettingsState extends ConsumerState<Settings> {
   /// app PIN, the referral program (Rate the app when it is withheld) and
   /// support, each doing what its row did.
   Widget _buildTopCards(BuildContext context, WidgetRef ref,
-      {required bool showReferral}) {
-    final l10n = context.l10n;
+      {required bool showReferral, int? across}) {
     return KuteActionCardGrid(
       key: const ValueKey('settings-top-cards'),
+      across: across,
       cards: [
-        _SettingsCard.of(
-          context,
-          key: const ValueKey('settings-card-backup'),
-          icon: Icons.account_balance_wallet_rounded,
-          title: l10n.settingsBackupAndRecovery,
-          subtitle: l10n.settingsBackupAndRecoverySubtitle,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            TrackingService.settingsActionTapped('backup_and_recovery');
-            // Auth happens INSIDE the wallets screen on mount — matches the
-            // existing seed-words flow (biometric attempt first, falls back
-            // to the PIN bottom sheet).
-            context.pushNamed('wallets');
-          },
-        ),
-        _SettingsCard.of(
-          context,
-          key: const ValueKey('settings-card-pin'),
-          icon: Icons.lock_rounded,
-          title: l10n.appPin,
-          subtitle: l10n.changeUnlockCode,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            _openChangePin(context, ref);
-          },
-        ),
-        if (showReferral)
+        for (final item in _topItems(context, ref, showReferral: showReferral))
           _SettingsCard.of(
             context,
-            key: const ValueKey('settings-card-referral'),
-            icon: Icons.group_rounded,
-            title: l10n.settingsReferralProgram,
-            subtitle: l10n.shareCodeTitle,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              TrackingService.settingsActionTapped('referral_program');
-              context.push('/affiliate');
-            },
-          )
-        else
-          _SettingsCard.of(
-            context,
-            key: const ValueKey('settings-card-rate'),
-            icon: Icons.star_rounded,
-            title: l10n.settingsRateTheApp,
-            subtitle: l10n.settingsLeaveAReview,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              // ignore: discarded_futures
-              _rateApp(context, ref);
-            },
+            key: ValueKey('settings-card-${item.id}'),
+            icon: item.icon,
+            title: item.title,
+            subtitle: item.subtitle,
+            onTap: item.onTap,
           ),
-        // Opens live Crisp chat.
-        _SettingsCard.of(
-          context,
-          key: const ValueKey('settings-card-support'),
-          icon: Icons.support_agent_rounded,
-          title: l10n.chatWithSupport,
-          subtitle: l10n.getHelpFromKuteTeam,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            TrackingService.supportOpened(source: 'settings');
-            // ignore: discarded_futures
-            openSupportChat();
-          },
-        ),
       ],
     );
+  }
+
+  /// The four cards as rows of one grouped card, for the master column
+  /// beside a sub-page: the sections' own rows (icon, title, subtitle,
+  /// chevron), the open sub-page's row ([selected]) on the rows' pressed
+  /// surface.
+  Widget _buildTopRows(BuildContext context, WidgetRef ref,
+      {required bool showReferral, Object? selected}) {
+    return _GroupedCard(children: [
+      for (final item in _topItems(context, ref, showReferral: showReferral))
+        ColoredBox(
+          key: ValueKey('settings-master-${item.id}'),
+          color: item.detail != null && item.detail == selected
+              ? context.colors.surfaceLight
+              : Colors.transparent,
+          child: _SettingsRow(
+            title: item.title,
+            icon: item.icon,
+            subtitle: item.subtitle,
+            onTap: item.onTap,
+          ),
+        ),
+    ]);
+  }
+
+  /// What the four cards are ([_buildTopCards], [_buildTopRows]): [id]
+  /// names the card, [detail] the sub-page it opens beside Settings.
+  List<
+      ({
+        String id,
+        String? detail,
+        IconData icon,
+        String title,
+        String subtitle,
+        VoidCallback onTap,
+      })> _topItems(BuildContext context, WidgetRef ref,
+      {required bool showReferral}) {
+    final l10n = context.l10n;
+    return [
+      (
+        id: 'backup',
+        detail: 'wallets',
+        icon: Icons.account_balance_wallet_rounded,
+        title: l10n.settingsBackupAndRecovery,
+        subtitle: l10n.settingsBackupAndRecoverySubtitle,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          TrackingService.settingsActionTapped('backup_and_recovery');
+          // Auth happens INSIDE the wallets screen on mount — matches the
+          // existing seed-words flow (biometric attempt first, falls back
+          // to the PIN bottom sheet).
+          _openDetail(context, 'wallets', name: 'wallets');
+        },
+      ),
+      (
+        id: 'pin',
+        detail: null,
+        icon: Icons.lock_rounded,
+        // A web vault made with a password (24 to 27 November 2026) still
+        // names it; changing it sets a PIN (unlock_secret.dart).
+        title: UnlockSecret.current == VaultSecretKind.password
+            ? PasswordCopy.settingsTitle
+            : l10n.appPin,
+        subtitle: l10n.changeUnlockCode,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _openChangePin(context, ref);
+        },
+      ),
+      if (showReferral)
+        (
+          id: 'referral',
+          detail: 'affiliate',
+          icon: Icons.group_rounded,
+          title: l10n.settingsReferralProgram,
+          subtitle: l10n.shareCodeTitle,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            TrackingService.settingsActionTapped('referral_program');
+            _openDetail(context, 'affiliate', location: '/affiliate');
+          },
+        )
+      else
+        (
+          id: 'rate',
+          detail: null,
+          icon: Icons.star_rounded,
+          title: l10n.settingsRateTheApp,
+          subtitle: l10n.settingsLeaveAReview,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            // ignore: discarded_futures
+            _rateApp(context, ref);
+          },
+        ),
+      // Opens live Crisp chat.
+      (
+        id: 'support',
+        detail: null,
+        icon: Icons.support_agent_rounded,
+        title: l10n.chatWithSupport,
+        subtitle: l10n.getHelpFromKuteTeam,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          TrackingService.supportOpened(source: 'settings');
+          // ignore: discarded_futures
+          openSupportChat();
+        },
+      ),
+    ];
+  }
+
+  /// Back from the master column beside a sub-page leaves Settings: the
+  /// sub-page's route and Settings' own, as back on the full page does
+  /// (the sub-page's own back closes it alone).
+  void _leaveFromMaster(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    if (navigator.canPop()) navigator.pop();
+  }
+
+  /// A sub-page that is a full page (Wallets, the referral program): on
+  /// EXPANDED the detail beside Settings (KuteMasterDetail, pushed with
+  /// [kuteSettingsDetailExtra]); from the master column beside one, in
+  /// place of the detail shown ([detail] names it; nothing when it is the
+  /// one shown). As before everywhere else.
+  void _openDetail(BuildContext context, String detail,
+      {String? name, String? location}) {
+    final router = GoRouter.of(context);
+    final master =
+        context.getInheritedWidgetOfExactType<KuteMasterScope>();
+    if (master != null) {
+      // Already the detail shown.
+      if (master.selected == detail) return;
+      if (name != null) {
+        // ignore: discarded_futures
+        router.pushReplacementNamed(name, extra: kuteSettingsDetailExtra);
+      } else {
+        // ignore: discarded_futures
+        router.pushReplacement(location!, extra: kuteSettingsDetailExtra);
+      }
+      return;
+    }
+    if (name != null) {
+      // ignore: discarded_futures
+      router.pushNamed(name, extra: kuteSettingsDetailExtra);
+    } else {
+      // ignore: discarded_futures
+      router.push(location!, extra: kuteSettingsDetailExtra);
+    }
   }
 
   void _openChangePin(BuildContext context, WidgetRef ref,
@@ -611,8 +816,11 @@ class _SettingsState extends ConsumerState<Settings> {
   }
 
   Widget _buildBiometricsSection(BuildContext context, WidgetRef ref) {
-    final biometricsEnabled =
+    final setting =
         ref.watch(settingsProvider.select((s) => s.biometricsEnabled));
+    // Web: on only once this browser holds its credential.
+    final biometricsEnabled =
+        setting && (!PlatformCaps.isWeb || WebBiometrics.enrolled);
 
     return _SettingsRow(
       title: context.l10n.biometricUnlock,
@@ -683,7 +891,23 @@ class _SettingsState extends ConsumerState<Settings> {
       return;
     }
     _biometricsToggleInFlight = true;
+    // Web, turning it on: the platform check runs first, straight from
+    // this tap (Safari needs the tap's user activation for WebAuthn, and a
+    // PIN step-up outlasts it); nothing is stored until the change is
+    // approved below. A cancel leaves it off.
+    WebBiometricEnrolment? enrolment;
     try {
+      if (PlatformCaps.isWeb && enable) {
+        enrolment = await WebBiometrics.begin();
+        if (enrolment == null) {
+          TrackingService.track('biometrics_toggle_cancelled',
+              params: {'enable': enable});
+          return;
+        }
+      }
+      if (!mounted) {
+        return;
+      }
       final approved = await approveLocalAction(
         context,
         ref,
@@ -700,6 +924,26 @@ class _SettingsState extends ConsumerState<Settings> {
       if (!mounted) {
         return;
       }
+      if (PlatformCaps.isWeb) {
+        // Web: turning it on stores the credential made above (wraps the
+        // vault's key under its PRF output). Turning it off drops the
+        // stored id. Needs PRF; see web_biometrics.dart.
+        if (enable) {
+          final pending = enrolment;
+          enrolment = null;
+          if (pending == null || !await WebBiometrics.commit(pending)) {
+            TrackingService.track('biometrics_toggle_cancelled',
+                params: {'enable': enable});
+            return;
+          }
+        } else {
+          await WebBiometrics.forget();
+        }
+        if (!mounted) {
+          return;
+        }
+        setState(() {});
+      }
       await ref.read(settingsProvider.notifier).setBiometricsEnabled(enable);
       TrackingService.settingsChanged(
           setting: 'biometrics',
@@ -707,6 +951,9 @@ class _SettingsState extends ConsumerState<Settings> {
           previousValue: (!enable).toString());
       TrackingService.track('biometrics_toggled', params: {'enabled': enable});
     } finally {
+      // Declined, unmounted or failed before the commit: the PRF output
+      // goes.
+      enrolment?.discard();
       _biometricsToggleInFlight = false;
     }
   }
@@ -1430,6 +1677,21 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
   static const List<String> _stepNames = ['current', 'new', 'confirm'];
 
+  /// The current secret's kind and the new one's (unlock_secret.dart): a
+  /// web vault made with a password takes it in one field for the current
+  /// step, and the new secret is always the 6-digit PIN (27 November
+  /// 2026), so a password vault changed here becomes a PIN vault.
+  final VaultSecretKind _oldKind = UnlockSecret.current;
+  final TextEditingController _field = TextEditingController();
+
+  bool get _stepIsPassword =>
+      _step == 0 && _oldKind == VaultSecretKind.password;
+
+  /// The active step's entry is complete: six digits, or (the current
+  /// password) anything typed.
+  bool get _entryReady =>
+      _stepIsPassword ? _activePin.isNotEmpty : _activePin.length == 6;
+
   String get _stepName => _stepNames[_step];
 
   @override
@@ -1459,6 +1721,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       });
     }
     TrackingService.clearFlowContext('pin_change');
+    _field.dispose();
     super.dispose();
   }
 
@@ -1473,6 +1736,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
   /// A real step transition (never on a retry of the same step).
   void _goToStep(int step) {
+    _field.clear();
     setState(() {
       _step = step;
       _isLoading = false;
@@ -1546,12 +1810,15 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final password = _stepIsPassword;
     final titleText = switch (_step) {
-      0 => context.l10n.changePinEnterCurrent,
+      0 => password
+          ? PasswordCopy.enterCurrent
+          : context.l10n.changePinEnterCurrent,
       1 => context.l10n.changePinCreateNew,
       _ => context.l10n.changePinConfirmNew,
     };
-    final canContinue = _activePin.length == 6 && !_isLoading;
+    final canContinue = _entryReady && !_isLoading;
 
     return AppBottomSheetContainer(
       child: Column(
@@ -1562,6 +1829,21 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
             title: titleText,
             trailing: const _SheetCloseButton(),
           ),
+          if (password)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: KutePasswordField(
+                // A fresh field per step, so autofocus lands in it again.
+                key: ValueKey('change-password-$_step'),
+                controller: _field,
+                enabled: !_isLoading,
+                onChanged: _setActivePin,
+                onSubmitted: (_) {
+                  if (_entryReady && !_isLoading) _handleNextStep();
+                },
+              ),
+            )
+          else
           PinProgressIndicator(currentLength: _activePin.length),
           SizedBox(height: 12.h),
           // Reserved line so the keypad doesn't jump when an error lands.
@@ -1586,6 +1868,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
                   ),
           ),
           SizedBox(height: 12.h),
+          if (!password)
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 12.w),
             child: IgnorePointer(
@@ -1607,7 +1890,9 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
               enabled: canContinue,
               busy: _isLoading,
               source: 'change_pin',
-              disabledLabel: context.l10n.barNeedPin,
+              disabledLabel: password
+                  ? PasswordCopy.needPassword
+                  : context.l10n.barNeedPin,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),
@@ -1644,8 +1929,10 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
     final authModel = ref.read(authModelProvider);
 
     // 1. Validation
-    if (_activePin.length != 6) {
-      setState(() => _errorText = context.l10n.mustBe6Digits);
+    if (!_entryReady) {
+      setState(() => _errorText = _stepIsPassword
+          ? PasswordCopy.needPassword
+          : context.l10n.mustBe6Digits);
       return;
     }
 
@@ -1661,6 +1948,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
           return;
         }
         if (lockout > Duration.zero) {
+          _field.clear();
           setState(() {
             _errorText = context.l10n.lockedForTime('${lockout.inSeconds}s');
             _oldPin = '';
@@ -1683,8 +1971,11 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
           if (!mounted) {
             return;
           }
+          _field.clear();
           setState(() {
-            _errorText = context.l10n.incorrectPin;
+            _errorText = _oldKind == VaultSecretKind.password
+                ? PasswordCopy.wrong
+                : context.l10n.incorrectPin;
             _oldPin = '';
             _isLoading = false;
           });
@@ -1709,6 +2000,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         if (_newPin != _confirmPin) {
           _trackFailed('mismatch');
           HapticFeedback.heavyImpact();
+          _field.clear();
           setState(() {
             _errorText = context.l10n.pinsDoNotMatch;
             _confirmPin = '';
@@ -1750,7 +2042,9 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
               return;
             }
             setState(() {
-              _errorText = context.l10n.incorrectPin;
+              _errorText = _oldKind == VaultSecretKind.password
+                  ? PasswordCopy.wrong
+                  : context.l10n.incorrectPin;
               _oldPin = '';
               _newPin = '';
               _confirmPin = '';
@@ -1986,6 +2280,18 @@ class _CustomNodeModalContentState
   /// error later (now caught gracefully in BitcoinModel.sync), but
   /// 99% of bad inputs are typos / dead hosts that fail at this layer.
   Future<void> _probeReachability(String hostPort) async {
+    if (hostPort.startsWith('https://') && kIsWeb) {
+      // dart:io has no HttpClient in a browser. A plain GET with no
+      // headers is a CORS "simple" request, so no preflight is sent.
+      final uri = Uri.parse(
+          '${hostPort.replaceFirst(RegExp(r'/+$'), '')}/blocks/tip/height');
+      final response =
+          await http.get(uri).timeout(const Duration(seconds: 6));
+      if (response.statusCode != 200) {
+        throw const HttpException('Node unavailable');
+      }
+      return;
+    }
     if (hostPort.startsWith('https://')) {
       final client = HttpClient()
         ..connectionTimeout = const Duration(seconds: 6);
@@ -2822,7 +3128,8 @@ class _NotificationsRowState extends State<_NotificationsRow>
       TrackingService.settingsActionTapped('notifications_open_settings');
       var opened = false;
       try {
-        opened = await openAppSettings();
+        opened =
+            PlatformCaps.hasPermissionHandler && await openAppSettings();
       } catch (_) {
         opened = false;
       }

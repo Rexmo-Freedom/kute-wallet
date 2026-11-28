@@ -162,6 +162,11 @@ class BigAmountDisplay extends StatelessWidget {
   /// which is what the Move and Send steps want.
   final bool centered;
 
+  /// A typed field in the figure's place (a laptop's ticket, where the
+  /// amount is typed rather than keyed on the pad); the lines under it
+  /// are unchanged. Null: the figure.
+  final Widget? field;
+
   const BigAmountDisplay({
     super.key,
     required this.amountText,
@@ -182,6 +187,7 @@ class BigAmountDisplay extends StatelessWidget {
     this.trailingCaption,
     this.unitControl,
     this.centered = false,
+    this.field,
   });
 
   @override
@@ -212,7 +218,8 @@ class BigAmountDisplay extends StatelessWidget {
             Expanded(
               child: loading
                   ? SkeletonBar(160.w, 48.h, radius: 12.r)
-                  : FittedBox(
+                  : field ??
+                      FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment:
                           centered ? Alignment.center : Alignment.centerLeft,

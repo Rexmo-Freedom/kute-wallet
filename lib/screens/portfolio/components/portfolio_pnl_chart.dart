@@ -87,6 +87,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_wide_frames.dart'
+    show kuteWindowIsExpanded, kuteWideColumnMax, kuteWideColumnMin, kuteWideGap;
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/models/open_pnl_history.dart' show openPnlRangeShown;
@@ -521,38 +523,91 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
           chart,
           SizedBox(height: kKuteTrendRangeGap.h),
           ranges,
-          if (stats != null && !stats.isEmpty) ...[
-            SizedBox(height: 24.h),
-            // On the Portfolio, ONE soft card (see the file header).
-            if (flat)
-              PortfolioCardList(
-                key: const ValueKey('statistics-pnl-stats-card'),
-                rows: [
-                  Builder(
-                    builder: (context) => Padding(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: PortfolioRowInset.of(context),
-                          vertical: PortfolioRowInset.verticalOf(context)),
-                      child: PnlStatsStrip(stats: stats),
-                    ),
-                  ),
-                ],
-              )
-            else
-              PnlStatsStrip(stats: stats),
-          ],
+          ..._figures(context, stats, footer),
+          SizedBox(height: flat ? 8.h : 16.h),
+        ],
+      ),
+    );
+  }
+
+  /// The stats strip and the venues under the ranges. Flat, in a column
+  /// wide enough for two readable ones (a laptop's Portfolio, its page
+  /// across the window): the two side by side, each at most a readable
+  /// column, never one card across the chart's width.
+  List<Widget> _figures(
+      BuildContext context, PnlStatsFigures? stats, Widget? footer) {
+    final hasStats = stats != null && !stats.isEmpty;
+    final statsBlock = <Widget>[
+      if (hasStats) ...[
+        SizedBox(height: 24.h),
+        // On the Portfolio, ONE soft card (see the file header).
+        if (widget.flat)
+          PortfolioCardList(
+            key: const ValueKey('statistics-pnl-stats-card'),
+            rows: [
+              Builder(
+                builder: (context) => Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: PortfolioRowInset.of(context),
+                      vertical: PortfolioRowInset.verticalOf(context)),
+                  child: PnlStatsStrip(stats: stats),
+                ),
+              ),
+            ],
+          )
+        else
+          PnlStatsStrip(stats: stats),
+      ],
+    ];
+    List<Widget> venuesBlock(double top) => [
           if (footer != null) ...[
-            SizedBox(height: 28.h),
-            Text(l10n.pnlByVenue,
+            SizedBox(height: top),
+            Text(context.l10n.pnlByVenue,
                 key: const ValueKey('statistics-pnl-by-venue'),
                 style: balancesFlatSectionTitle(context)),
             SizedBox(height: kBalancesTitleGap.h),
             footer,
           ],
-          SizedBox(height: flat ? 8.h : 16.h),
-        ],
-      ),
-    );
+        ];
+    if (!widget.flat ||
+        !hasStats ||
+        footer == null ||
+        !kuteWindowIsExpanded(context)) {
+      return [...statsBlock, ...venuesBlock(28.h)];
+    }
+    Widget half(List<Widget> children) => Expanded(
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: kuteWideColumnMax),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: children,
+              ),
+            ),
+          ),
+        );
+    return [
+      LayoutBuilder(builder: (context, box) {
+        if (box.maxWidth < 2 * kuteWideColumnMin + kuteWideGap) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [...statsBlock, ...venuesBlock(28.h)],
+          );
+        }
+        // Side by side, their first lines on one line.
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            half([SizedBox(height: 28.h), ...statsBlock.skip(1)]),
+            const SizedBox(width: kuteWideGap),
+            half(venuesBlock(28.h)),
+          ],
+        );
+      }),
+    ];
   }
 
   /// The page itself (flat) or a Ledger's card, with its insets.

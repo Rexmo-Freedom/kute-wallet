@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
+import 'package:kute/platform/kute_wide_frames.dart' show KuteDialogScope;
+import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity, kSlipFillMaxKeyHeight;
 import 'package:kute/theme/app_theme.dart';
 
 class CustomKeypad extends StatelessWidget {
@@ -36,6 +38,12 @@ class CustomKeypad extends StatelessWidget {
   /// with no border and a 24r corner, when nothing else is 24.
   final bool chromed;
 
+  /// Web only: a hardware keyboard's digits and Backspace press the keys
+  /// wherever this pad is (the PIN set, confirm and unlock screens on a
+  /// laptop; founder, 27 November 2026, the PIN on every browser), not
+  /// only inside a panel. Off the web it changes nothing.
+  final bool typeFromKeyboard;
+
   const CustomKeypad({
     super.key,
     required this.onDigitPressed,
@@ -45,6 +53,7 @@ class CustomKeypad extends StatelessWidget {
     this.onDecimalPressed,
     this.compact = false,
     this.chromed = false,
+    this.typeFromKeyboard = false,
   });
 
   double get _keyHeight => compact ? 56.h : 72.h;
@@ -72,88 +81,58 @@ class CustomKeypad extends StatelessWidget {
       _buildRow(context, ['7', '8', '9'], keyHeight),
       _buildBottomRow(context, c, keyHeight),
     ];
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w),
-      child: adaptive
-          ? _KeypadRows(
-              keyHeight: _keyHeight,
-              minKeyHeight: math.min(_minKeyHeight, _keyHeight),
-              rowGap: _rowGap,
-              minRowGap: math.min(_minRowGap, _rowGap),
-              give: SlipDensity.keypadGive(context),
-              onRange: (range) =>
-                  SlipDensity.reportKeypadRange(context, range),
-              children: rows,
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < rows.length; i++) ...[
-                  if (i > 0) SizedBox(height: _rowGap),
-                  rows[i],
+    return KuteKeypadHardwareKeys(
+      onDigit: onDigitPressed,
+      onBackspace: onBackspacePressed,
+      onDecimal: showDecimal ? onDecimalPressed : null,
+      onWeb: typeFromKeyboard,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w),
+        child: adaptive
+            ? _KeypadRows(
+                keyHeight: _keyHeight,
+                minKeyHeight: math.min(_minKeyHeight, _keyHeight),
+                rowGap: _rowGap,
+                minRowGap: math.min(_minRowGap, _rowGap),
+                give: SlipDensity.keypadGive(context),
+                maxKeyHeight: SlipDensity.fills(context)
+                    ? math.max(_keyHeight, kSlipFillMaxKeyHeight)
+                    : null,
+                onRange: (range) =>
+                    SlipDensity.reportKeypadRange(context, range),
+                children: rows,
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < rows.length; i++) ...[
+                    if (i > 0) SizedBox(height: _rowGap),
+                    rows[i],
+                  ],
                 ],
-              ],
-            ),
+              ),
+      ),
     );
   }
 
   Widget _buildBottomRow(
       BuildContext context, AppColorsExtension c, double? keyHeight) {
     return Row(
-            crossAxisAlignment: keyHeight == null
-                ? CrossAxisAlignment.stretch
-                : CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: showDecimal
-                    ? _BouncingKey(
-                        height: keyHeight,
-                        onPressed: onDecimalPressed ?? () {},
-                        surfaceColor: c.surface,
-                        activeColor: c.surfaceLight,
-                        isSecondary: true,
-                        chromed: chromed,
-                        child: Text(
-                          '.',
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: _digitSize,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                            height: 1.0,
-                          ),
-                        ),
-                      )
-                    : onBiometricPressed != null
-                        ? _BouncingKey(
-                            height: keyHeight,
-                            onPressed: onBiometricPressed!,
-                            surfaceColor: c.surface,
-                            activeColor: c.surfaceLight,
-                            isSecondary: true,
-                            chromed: chromed,
-                            // Was the accent, the only warm colour on an
-                            // otherwise neutral grid, which read as a
-                            // warning rather than a way in.
-                            child: Icon(
-                                Theme.of(context).platform == TargetPlatform.iOS
-                                    ? Icons.face_rounded
-                                    : Icons.fingerprint_rounded,
-                                color: c.textSecondary,
-                                size: 28.sp),
-                          )
-                        : const SizedBox(),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: _BouncingKey(
+      crossAxisAlignment: keyHeight == null
+          ? CrossAxisAlignment.stretch
+          : CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: showDecimal
+              ? _BouncingKey(
                   height: keyHeight,
-                  onPressed: () => onDigitPressed('0'),
+                  onPressed: onDecimalPressed ?? () {},
                   surfaceColor: c.surface,
                   activeColor: c.surfaceLight,
+                  isSecondary: true,
                   chromed: chromed,
                   child: Text(
-                    '0',
+                    '.',
                     style: TextStyle(
                       color: c.textPrimary,
                       fontSize: _digitSize,
@@ -162,23 +141,62 @@ class CustomKeypad extends StatelessWidget {
                       height: 1.0,
                     ),
                   ),
-                ),
+                )
+              : onBiometricPressed != null
+                  ? _BouncingKey(
+                      height: keyHeight,
+                      onPressed: onBiometricPressed!,
+                      surfaceColor: c.surface,
+                      activeColor: c.surfaceLight,
+                      isSecondary: true,
+                      chromed: chromed,
+                      // Was the accent, the only warm colour on an
+                      // otherwise neutral grid, which read as a
+                      // warning rather than a way in.
+                      child: Icon(
+                          Theme.of(context).platform == TargetPlatform.iOS
+                              ? Icons.face_rounded
+                              : Icons.fingerprint_rounded,
+                          color: c.textSecondary,
+                          size: 28.sp),
+                    )
+                  : const SizedBox(),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: _BouncingKey(
+            height: keyHeight,
+            onPressed: () => onDigitPressed('0'),
+            surfaceColor: c.surface,
+            activeColor: c.surfaceLight,
+            chromed: chromed,
+            child: Text(
+              '0',
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: _digitSize,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+                height: 1.0,
               ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: _BouncingKey(
-                  height: keyHeight,
-                  onPressed: onBackspacePressed,
-                  surfaceColor: c.surface,
-                  activeColor: c.surfaceLight,
-                  isSecondary: true,
-                  chromed: chromed,
-                  child: Icon(Icons.backspace_rounded,
-                      color: c.textSecondary, size: 24.sp),
-                ),
-              ),
-            ],
-          );
+            ),
+          ),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: _BouncingKey(
+            height: keyHeight,
+            onPressed: onBackspacePressed,
+            surfaceColor: c.surface,
+            activeColor: c.surfaceLight,
+            isSecondary: true,
+            chromed: chromed,
+            child: Icon(Icons.backspace_rounded,
+                color: c.textSecondary, size: 24.sp),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildRow(
@@ -410,11 +428,18 @@ class _KeypadRows extends MultiChildRenderObjectWidget {
     required this.rowGap,
     required this.minRowGap,
     required this.give,
+    this.maxKeyHeight,
     required this.onRange,
     required super.children,
   });
 
   final double keyHeight, minKeyHeight, rowGap, minRowGap, give;
+
+  /// Non-null on a full-height ticket ([SlipDensity.fills]): given more
+  /// than its designed height, the keys grow up to this, the gaps between
+  /// the rows to [_kFillMaxRowGap], and what is left goes above the pad
+  /// (at most [_kFillAirUnder] under it).
+  final double? maxKeyHeight;
   final ValueChanged<double> onRange;
 
   @override
@@ -424,6 +449,7 @@ class _KeypadRows extends MultiChildRenderObjectWidget {
         rowGap: rowGap,
         minRowGap: minRowGap,
         give: give,
+        maxKeyHeight: maxKeyHeight,
         onRange: onRange,
       );
 
@@ -435,9 +461,17 @@ class _KeypadRows extends MultiChildRenderObjectWidget {
       ..rowGap = rowGap
       ..minRowGap = minRowGap
       ..give = give
+      ..maxKeyHeight = maxKeyHeight
       ..onRange = onRange;
   }
 }
+
+/// The widest gap between a full-height pad's rows (see
+/// [_KeypadRows.maxKeyHeight]).
+const double _kFillMaxRowGap = 20;
+
+/// The most room under a full-height pad (see [_RenderKeypadRows]).
+const double _kFillAirUnder = 24;
 
 class _KeypadRowParentData extends ContainerBoxParentData<RenderBox> {}
 
@@ -451,19 +485,27 @@ class _RenderKeypadRows extends RenderBox
     required double rowGap,
     required double minRowGap,
     required double give,
+    double? maxKeyHeight,
     required this.onRange,
-  })  : _keyHeight = keyHeight,
+  })  : _maxKeyHeight = maxKeyHeight,
+        _keyHeight = keyHeight,
         _minKeyHeight = minKeyHeight,
         _rowGap = rowGap,
         _minRowGap = minRowGap,
         _give = give;
 
   double _keyHeight, _minKeyHeight, _rowGap, _minRowGap, _give;
+  double? _maxKeyHeight;
   ValueChanged<double> onRange;
 
+  set maxKeyHeight(double? v) {
+    if (v == _maxKeyHeight) return;
+    _maxKeyHeight = v;
+    markNeedsLayout();
+  }
+
   set keyHeight(double v) => _set(_keyHeight, v, () => _keyHeight = v);
-  set minKeyHeight(double v) =>
-      _set(_minKeyHeight, v, () => _minKeyHeight = v);
+  set minKeyHeight(double v) => _set(_minKeyHeight, v, () => _minKeyHeight = v);
   set rowGap(double v) => _set(_rowGap, v, () => _rowGap = v);
   set minRowGap(double v) => _set(_minRowGap, v, () => _minRowGap = v);
   set give(double v) => _set(_give, v, () => _give = v);
@@ -486,8 +528,7 @@ class _RenderKeypadRows extends RenderBox
   }
 
   @override
-  double computeMinIntrinsicHeight(double width) =>
-      _smallest;
+  double computeMinIntrinsicHeight(double width) => _smallest;
 
   @override
   double computeMaxIntrinsicHeight(double width) => _unbounded;
@@ -516,12 +557,15 @@ class _RenderKeypadRows extends RenderBox
 
   double _heightFor(BoxConstraints constraints) {
     if (!constraints.hasBoundedHeight) return _unbounded;
+    if (_maxKeyHeight != null && constraints.maxHeight > _natural) {
+      return constraints.maxHeight;
+    }
     return constraints.maxHeight.clamp(_smallest, _natural).toDouble();
   }
 
   @override
-  Size computeDryLayout(BoxConstraints constraints) => constraints.constrain(
-      Size(constraints.maxWidth, _heightFor(constraints)));
+  Size computeDryLayout(BoxConstraints constraints) => constraints
+      .constrain(Size(constraints.maxWidth, _heightFor(constraints)));
 
   @override
   void performLayout() {
@@ -529,10 +573,26 @@ class _RenderKeypadRows extends RenderBox
     final height = _heightFor(constraints);
     final span = _natural - _smallest;
     final t = span <= 0 ? 1.0 : ((height - _smallest) / span).clamp(0.0, 1.0);
-    final key = _minKeyHeight + (_keyHeight - _minKeyHeight) * t;
-    final gap = _minRowGap + (_rowGap - _minRowGap) * t;
-    final width = constraints.maxWidth;
+    var key = _minKeyHeight + (_keyHeight - _minKeyHeight) * t;
+    var gap = _minRowGap + (_rowGap - _minRowGap) * t;
     var y = 0.0;
+    final grow = _maxKeyHeight;
+    if (grow != null && height > _natural && childCount > 0) {
+      // A full-height ticket: the keys grow first (to [grow]), then the
+      // gaps between the rows; the rest goes above the pad, all but a
+      // little air under it, so on a tall side panel the pad sits by the
+      // button it feeds (the thumb's place on a phone) and the form
+      // keeps the top.
+      final rows = childCount;
+      key = math.min(grow, (height - _gaps * _rowGap) / rows);
+      final rest = height - rows * key;
+      gap = _gaps == 0
+          ? 0
+          : math.min(math.max(_rowGap, _kFillMaxRowGap), rest / _gaps);
+      final spare = math.max(0.0, rest - _gaps * gap);
+      y = math.max(spare / 2, spare - _kFillAirUnder);
+    }
+    final width = constraints.maxWidth;
     for (var c = firstChild; c != null; c = childAfter(c)) {
       c.layout(BoxConstraints.tightFor(width: width, height: key));
       (c.parentData! as _KeypadRowParentData).offset = Offset(0, y);
@@ -548,4 +608,142 @@ class _RenderKeypadRows extends RenderBox
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
       defaultHitTestChildren(result, position: position);
+}
+
+/// A HARDWARE KEYBOARD TYPES ON THE KEYPAD in a panel on a laptop
+/// (wide_design_2.md, C: the money flows' dialogs, "a hardware keyboard
+/// types the amount"; kute_dialog.dart): the digits, the point (or a
+/// comma) and backspace press the keypad's own keys, so every rule the
+/// keys apply holds. Only inside a panel ([KuteDialogScope]), only while
+/// its route is on top, and never while a text field has the focus or a
+/// shortcut modifier is held. A phone, and a keypad outside a panel (the
+/// slips in place have their own), are untouched.
+///
+/// [onWeb]: on the web the pad listens outside a panel too (the PIN pad
+/// on a laptop). When two listening pads are mounted at once (the lock
+/// overlay over a sheet's pad), only the newest one that may take keys
+/// does, so a digit never lands on a pad under the one on screen.
+class KuteKeypadHardwareKeys extends StatefulWidget {
+  const KuteKeypadHardwareKeys({
+    super.key,
+    required this.onDigit,
+    required this.onBackspace,
+    this.onDecimal,
+    this.onWeb = false,
+    required this.child,
+  });
+
+  final ValueSetter<String> onDigit;
+  final VoidCallback onBackspace;
+  final VoidCallback? onDecimal;
+  final bool onWeb;
+  final Widget child;
+
+  /// Tests: run as if on the web.
+  @visibleForTesting
+  static bool debugIsWeb = false;
+
+  @override
+  State<KuteKeypadHardwareKeys> createState() => _KuteKeypadHardwareKeysState();
+}
+
+class _KuteKeypadHardwareKeysState extends State<KuteKeypadHardwareKeys> {
+  /// The listening pads, oldest first.
+  static final List<_KuteKeypadHardwareKeysState> _listeners = [];
+
+  bool get _listening => _listeners.contains(this);
+
+  bool get _shouldListen =>
+      KuteDialogScope.inDialog(context) ||
+      (widget.onWeb && (kIsWeb || KuteKeypadHardwareKeys.debugIsWeb));
+
+  void _sync() {
+    final listen = _shouldListen;
+    if (listen && !_listening) {
+      if (_listeners.isEmpty) HardwareKeyboard.instance.addHandler(_dispatch);
+      _listeners.add(this);
+    } else if (!listen && _listening) {
+      _stop();
+    }
+  }
+
+  void _stop() {
+    _listeners.remove(this);
+    if (_listeners.isEmpty) HardwareKeyboard.instance.removeHandler(_dispatch);
+  }
+
+  /// The newest pad that may take keys gets the event; none below it.
+  static bool _dispatch(KeyEvent event) {
+    for (final pad in _listeners.reversed.toList()) {
+      if (pad._eligible()) return pad._onKey(event);
+    }
+    return false;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant KuteKeypadHardwareKeys oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.onWeb != widget.onWeb) _sync();
+  }
+
+  @override
+  void dispose() {
+    if (_listening) _stop();
+    super.dispose();
+  }
+
+  /// Whether this pad is on screen and free to take keys.
+  bool _eligible() {
+    if (!mounted) return false;
+    if (ModalRoute.of(context)?.isCurrent == false) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    // A disabled pad (AmountKeypad's AbsorbPointer, a PIN pad's
+    // IgnorePointer while it checks or is locked out) takes no keys.
+    final absorb = context.findAncestorWidgetOfExactType<AbsorbPointer>();
+    if (absorb != null && absorb.absorbing) return false;
+    final ignore = context.findAncestorWidgetOfExactType<IgnorePointer>();
+    if (ignore != null && ignore.ignoring) return false;
+    return true;
+  }
+
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return false;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.backspace) {
+      widget.onBackspace();
+      return true;
+    }
+    final ch = event.character;
+    if (ch == null || ch.length != 1) return false;
+    if (RegExp(r'[0-9]').hasMatch(ch)) {
+      widget.onDigit(ch);
+      return true;
+    }
+    final decimal = widget.onDecimal;
+    if (decimal != null && (ch == '.' || ch == ',')) {
+      decimal();
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

@@ -332,16 +332,11 @@ void main() {
     await tester.ensureVisible(find.byIcon(Icons.add_rounded));
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pumpAndSettle();
-    // The order's details open in a bottom sheet, never in place.
-    expect(find.text('Until canceled'), findsNothing);
-    await tester.ensureVisible(find.text('Details'));
-    await tester.tap(find.text('Details'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('slip-detail-sheet')), findsOneWidget);
+    // The order's rows are the page's summary card, in place (the
+    // Advanced redesign: no Details sheet).
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('bet-slip-advanced-summary')));
     expect(find.text('Until canceled'), findsOneWidget);
-    await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('slip-detail-sheet')), findsNothing);
     expect(find.textContaining(r'Place $35.00 limit at'), findsOneWidget);
     await tester.tap(find.byType(KuteBackButton));
     await tester.pumpAndSettle();

@@ -8,6 +8,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/controllers/import_wallet_controller.dart';
 import 'package:kute/screens/shared/jade_device_picker.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_wide_page_parts.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/ledger/ledger_failure_copy.dart';
 import 'package:kute/screens/ledger/ledger_investment_gate.dart'
@@ -35,6 +36,7 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:kute/screens/shared/kute_paste_chip.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 
 class XPubImportScreen extends ConsumerStatefulWidget {
   const XPubImportScreen({super.key});
@@ -58,6 +60,7 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
       ref.watch(runtimeCapabilitiesProvider).blockReason(_capability);
 
   bool _isConnectingLedger = false;
+
   /// Set when a BLE connect / xpub-fetch attempt fails. Drives the
   /// inline retry card in the Bluetooth method content so the user
   /// sees the common fixes (close Ledger Live, unlock, open Bitcoin
@@ -73,7 +76,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
   String? _expandedMethod;
 
   BitcoinAddressType _selectedAddressType = BitcoinAddressType.nativeSegwit;
-  final TextEditingController _derivationPathController = TextEditingController(text: "m/84'/0'/0'");
+  final TextEditingController _derivationPathController =
+      TextEditingController(text: "m/84'/0'/0'");
   bool _useCustomDerivation = false;
 
   bool _showAdvancedBtOptions = false;
@@ -194,8 +198,9 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
     });
   }
 
-  String get _effectiveDerivationPath =>
-      _useCustomDerivation ? _derivationPathController.text.trim() : _selectedAddressType.derivationPath;
+  String get _effectiveDerivationPath => _useCustomDerivation
+      ? _derivationPathController.text.trim()
+      : _selectedAddressType.derivationPath;
 
   Future<void> _connectLedgerAndGetXpub(WalletDeviceConfig config) async {
     setState(() {
@@ -237,7 +242,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
     }
   }
 
-  Future<void> _scanLedgerWithRetry(WalletDeviceConfig config, LedgerService ledger) async {
+  Future<void> _scanLedgerWithRetry(
+      WalletDeviceConfig config, LedgerService ledger) async {
     for (int attempt = 0; attempt < 3; attempt++) {
       try {
         final xpub = await ledger.getXpub(
@@ -294,7 +300,10 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
     _trackHardwareFailed('ledger', 'open_app',
         error: 'timeout', failureCode: 'app_not_open');
     if (mounted) {
-      showMessageSnackBar(context: context, message: context.l10n.ledgerBitcoinAppNotOpenMessage, error: true);
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.ledgerBitcoinAppNotOpenMessage,
+          error: true);
     }
     await ledger.disconnect();
     return false;
@@ -399,13 +408,16 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
         await _importCapturedKey(config, xpub);
       } else if (mounted) {
         _trackHardwareFailed('jade', 'xpub_fetch');
-        showMessageSnackBar(context: context, message: context.l10n.failedToRetrieveWalletData, error: true);
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.failedToRetrieveWalletData,
+            error: true);
       }
     } catch (e) {
       _trackHardwareFailed('jade', stage, error: e);
       if (mounted) {
-        setState(() =>
-            _connectError = context.l10n.walletsCouldntConnectToDevice(config.title));
+        setState(() => _connectError =
+            context.l10n.walletsCouldntConnectToDevice(config.title));
       }
     } finally {
       if (mounted) setState(() => _isConnectingLedger = false);
@@ -414,10 +426,14 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
 
   static String _scriptTypeString(BitcoinAddressType type) {
     switch (type) {
-      case BitcoinAddressType.nativeSegwit: return 'bip84';
-      case BitcoinAddressType.taproot: return 'bip86';
-      case BitcoinAddressType.nestedSegwit: return 'bip49';
-      case BitcoinAddressType.legacy: return 'bip44';
+      case BitcoinAddressType.nativeSegwit:
+        return 'bip84';
+      case BitcoinAddressType.taproot:
+        return 'bip86';
+      case BitcoinAddressType.nestedSegwit:
+        return 'bip49';
+      case BitcoinAddressType.legacy:
+        return 'bip44';
     }
   }
 
@@ -427,20 +443,28 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
   /// terms (`segwit` / `taproot`) instead of BIP slugs.
   static String _scriptTypeLabel(BitcoinAddressType type) {
     switch (type) {
-      case BitcoinAddressType.nativeSegwit: return 'segwit';
-      case BitcoinAddressType.taproot: return 'taproot';
-      case BitcoinAddressType.nestedSegwit: return 'nested_segwit';
-      case BitcoinAddressType.legacy: return 'legacy';
+      case BitcoinAddressType.nativeSegwit:
+        return 'segwit';
+      case BitcoinAddressType.taproot:
+        return 'taproot';
+      case BitcoinAddressType.nestedSegwit:
+        return 'nested_segwit';
+      case BitcoinAddressType.legacy:
+        return 'legacy';
     }
   }
 
   /// `wallet_added` script_type vocabulary.
   static String _walletAddedScriptType(BitcoinAddressType type) {
     switch (type) {
-      case BitcoinAddressType.nativeSegwit: return 'native_segwit';
-      case BitcoinAddressType.taproot: return 'taproot';
-      case BitcoinAddressType.nestedSegwit: return 'nested_segwit';
-      case BitcoinAddressType.legacy: return 'legacy';
+      case BitcoinAddressType.nativeSegwit:
+        return 'native_segwit';
+      case BitcoinAddressType.taproot:
+        return 'taproot';
+      case BitcoinAddressType.nestedSegwit:
+        return 'nested_segwit';
+      case BitcoinAddressType.legacy:
+        return 'legacy';
     }
   }
 
@@ -598,7 +622,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
     }
   }
 
-  Widget _buildStepRow(int stepNumber, String text, AppColorsExtension c, {bool isActive = false}) {
+  Widget _buildStepRow(int stepNumber, String text, AppColorsExtension c,
+      {bool isActive = false}) {
     return Padding(
       padding: EdgeInsets.only(bottom: 10.h),
       child: Row(
@@ -610,7 +635,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
             decoration: BoxDecoration(
               color: c.surfaceLight,
               borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(color: isActive ? c.textPrimary : c.borderSubtle),
+              border:
+                  Border.all(color: isActive ? c.textPrimary : c.borderSubtle),
             ),
             child: Center(
               child: Text(
@@ -629,7 +655,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
               padding: EdgeInsets.only(top: 2.h),
               child: Text(
                 text,
-                style: TextStyle(color: c.textSecondary, fontSize: 14.sp, height: 1.4),
+                style: TextStyle(
+                    color: c.textSecondary, fontSize: 14.sp, height: 1.4),
               ),
             ),
           ),
@@ -651,7 +678,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     return AnimatedContainer(
-      duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       decoration: BoxDecoration(
         color: c.surface,
@@ -677,8 +705,7 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
             },
             borderRadius: BorderRadius.circular(18.r),
             child: Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 18.w, vertical: 18.h),
+              padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 18.h),
               child: Row(
                 children: [
                   Container(
@@ -691,9 +718,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                     child: isLoading
                         ? Padding(
                             padding: EdgeInsets.all(10.sp),
-                            child:
-                                LoadingAnimationWidget.staggeredDotsWave(
-                                    color: c.textPrimary, size: 20.sp),
+                            child: LoadingAnimationWidget.staggeredDotsWave(
+                                color: c.textPrimary, size: 20.sp),
                           )
                         : Icon(icon, color: c.textPrimary, size: 22.sp),
                   ),
@@ -723,21 +749,22 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                   SizedBox(width: 8.w),
                   AnimatedRotation(
                     turns: isExpanded ? 0.25 : 0,
-                    duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
                     child: Icon(Icons.chevron_right,
-                        color: c.textTertiary,
-                        size: 22.sp),
+                        color: c.textTertiary, size: 22.sp),
                   ),
                 ],
               ),
             ),
           ),
           AnimatedSize(
-            duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
+            duration: reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            child: isExpanded
-                ? contentBuilder(c)
-                : const SizedBox.shrink(),
+            child: isExpanded ? contentBuilder(c) : const SizedBox.shrink(),
           ),
         ],
       ),
@@ -805,7 +832,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                   },
                   borderRadius: BorderRadius.circular(10.r),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                     decoration: BoxDecoration(
                       color: c.surface,
                       borderRadius: BorderRadius.circular(10.r),
@@ -813,12 +841,16 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.open_in_new, size: 14.sp, color: c.textSecondary),
+                        Icon(Icons.open_in_new,
+                            size: 14.sp, color: c.textSecondary),
                         SizedBox(width: 8.w),
                         Expanded(
                           child: Text(
                             context.l10n.walletsUsingQrPinUnlockJade,
-                            style: TextStyle(color: c.textPrimary, fontSize: 14.sp, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                                color: c.textPrimary,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],
@@ -826,10 +858,13 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                   ),
                 ),
               ),
-              _buildStepRow(2, context.l10n.walletsJadeQrAppearScan, c, isActive: true),
+              _buildStepRow(2, context.l10n.walletsJadeQrAppearScan, c,
+                  isActive: true),
             ] else ...[
-              _buildStepRow(1, context.l10n.walletsNavigateExportXpubQr(config.title), c),
-              _buildStepRow(2, context.l10n.walletsTapToScanQrFromDevice, c, isActive: true),
+              _buildStepRow(
+                  1, context.l10n.walletsNavigateExportXpubQr(config.title), c),
+              _buildStepRow(2, context.l10n.walletsTapToScanQrFromDevice, c,
+                  isActive: true),
             ],
           ],
           SizedBox(height: 12.h),
@@ -846,7 +881,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
     );
   }
 
-  Widget _buildBluetoothContent(AppColorsExtension c, WalletDeviceConfig config) {
+  Widget _buildBluetoothContent(
+      AppColorsExtension c, WalletDeviceConfig config) {
     return Padding(
       padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 14.h),
       child: Column(
@@ -865,11 +901,17 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
           ],
           if (config.type == 'jade') ...[
             _buildStepRow(1, context.l10n.walletsTurnOnJadeBluetoothEnabled, c),
-            _buildStepRow(2, context.l10n.walletsTapConnectEnterPinJade, c, isActive: !_isConnectingLedger),
+            _buildStepRow(2, context.l10n.walletsTapConnectEnterPinJade, c,
+                isActive: !_isConnectingLedger),
           ] else ...[
             _buildStepRow(1, context.l10n.walletsCloseLedgerLiveCompletely, c),
             _buildStepRow(2, context.l10n.walletsTurnOnUnlockLedger, c),
-            _buildStepRow(3, context.l10n.tapBelowToConnectYouLlBePromptedToOpenTheBitcoinAppIfNeeded, c, isActive: !_isConnectingLedger),
+            _buildStepRow(
+                3,
+                context.l10n
+                    .tapBelowToConnectYouLlBePromptedToOpenTheBitcoinAppIfNeeded,
+                c,
+                isActive: !_isConnectingLedger),
           ],
 
           // Advanced options toggle
@@ -886,7 +928,7 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
               decoration: BoxDecoration(
-                color: c.surfaceLight.withValues(alpha:0.5),
+                color: c.surfaceLight.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(color: c.borderSubtle, width: 0.5),
               ),
@@ -896,7 +938,10 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                   SizedBox(width: 8.w),
                   Text(
                     context.l10n.walletsAdvanced,
-                    style: TextStyle(color: c.textSecondary, fontSize: 14.sp, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: c.textSecondary,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600),
                   ),
                   const Spacer(),
                   // Name a value only when it differs from the default,
@@ -913,7 +958,9 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                     ),
                   SizedBox(width: 4.w),
                   Icon(
-                    _showAdvancedBtOptions ? Icons.expand_less : Icons.expand_more,
+                    _showAdvancedBtOptions
+                        ? Icons.expand_less
+                        : Icons.expand_more,
                     color: c.textTertiary,
                     size: 18.sp,
                   ),
@@ -929,7 +976,11 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
             // Section label
             Text(
               context.l10n.walletsAddressType,
-              style: TextStyle(color: c.textSecondary, fontSize: 13.sp, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+              style: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3),
             ),
             SizedBox(height: 4.h),
             // Helper: most users should never touch this. Spell out the
@@ -946,7 +997,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
 
             // Address type selector
             ...BitcoinAddressType.values.map((type) {
-              final isSelected = !_useCustomDerivation && type == _selectedAddressType;
+              final isSelected =
+                  !_useCustomDerivation && type == _selectedAddressType;
               return GestureDetector(
                 onTap: () {
                   // Stable enum identifier, NOT the display label — labels get
@@ -960,7 +1012,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                   });
                 },
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
                   margin: EdgeInsets.only(bottom: 4.h),
                   decoration: BoxDecoration(
                     color: isSelected ? c.surface : Colors.transparent,
@@ -973,7 +1026,9 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
                         color: isSelected ? c.textPrimary : c.textTertiary,
                         size: 16.sp,
                       ),
@@ -983,16 +1038,23 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(type.label,
-                                style: TextStyle(color: c.textPrimary, fontSize: 15.sp, fontWeight: FontWeight.w600)),
+                                style: TextStyle(
+                                    color: c.textPrimary,
+                                    fontSize: 15.sp,
+                                    fontWeight: FontWeight.w600)),
                             SizedBox(height: 1.h),
                             Text(type.derivationPath,
-                                style: TextStyle(color: c.textTertiary, fontSize: 13.sp, fontFamily: 'Courier')),
+                                style: TextStyle(
+                                    color: c.textTertiary,
+                                    fontSize: 13.sp,
+                                    fontFamily: 'Courier')),
                           ],
                         ),
                       ),
                       Text(
                         type.description.split('(').last.replaceAll(')', ''),
-                        style: TextStyle(color: c.textTertiary, fontSize: 13.sp),
+                        style:
+                            TextStyle(color: c.textTertiary, fontSize: 13.sp),
                       ),
                     ],
                   ),
@@ -1004,7 +1066,11 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
             SizedBox(height: 10.h),
             Text(
               context.l10n.walletsDerivationPath,
-              style: TextStyle(color: c.textSecondary, fontSize: 13.sp, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+              style: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3),
             ),
             SizedBox(height: 6.h),
             Container(
@@ -1018,17 +1084,25 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
               ),
               child: TextField(
                 controller: _derivationPathController,
-                style: TextStyle(color: c.textPrimary, fontSize: 15.sp, fontFamily: 'Courier'),
+                style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 15.sp,
+                    fontFamily: 'Courier'),
                 cursorColor: context.colors.accent,
                 decoration: InputDecoration(
                   hintText: "m/84'/0'/0'",
-                  hintStyle: TextStyle(color: c.textDisabled, fontSize: 15.sp, fontFamily: 'Courier'),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  hintStyle: TextStyle(
+                      color: c.textDisabled,
+                      fontSize: 15.sp,
+                      fontFamily: 'Courier'),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
                   border: InputBorder.none,
                   isDense: true,
                 ),
                 onChanged: (value) {
-                  setState(() => _useCustomDerivation = value.trim() != _selectedAddressType.derivationPath);
+                  setState(() => _useCustomDerivation =
+                      value.trim() != _selectedAddressType.derivationPath);
                   // Once per mount; never the path itself.
                   if (_useCustomDerivation && !_customPathTracked) {
                     _customPathTracked = true;
@@ -1053,12 +1127,16 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
             Center(
               child: Column(
                 children: [
-                  LoadingAnimationWidget.staggeredDotsWave(color: context.colors.accent, size: 32.sp),
+                  LoadingAnimationWidget.staggeredDotsWave(
+                      color: context.colors.accent, size: 32.sp),
                   SizedBox(height: 12.h),
                   Text(
                     context.l10n.connectingToDevice(
                         config.type == 'jade' ? 'Jade' : 'Ledger'),
-                    style: TextStyle(color: c.textPrimary, fontSize: 16.sp, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -1095,8 +1173,10 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
         children: [
           Divider(color: c.border, height: 1),
           SizedBox(height: 12.h),
-          _buildStepRow(1, context.l10n.walletsExportWalletToFile(config.title), c),
-          _buildStepRow(2, context.l10n.walletsTapToImportFile, c, isActive: true),
+          _buildStepRow(
+              1, context.l10n.walletsExportWalletToFile(config.title), c),
+          _buildStepRow(2, context.l10n.walletsTapToImportFile, c,
+              isActive: true),
           SizedBox(height: 4.h),
           if (_hardwareBlock case final reason?) CapabilityBlockNote(reason),
           AppButton(
@@ -1181,8 +1261,7 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                             isValid
                                 ? Icons.check_circle_rounded
                                 : Icons.info_outline_rounded,
-                            color:
-                                isValid ? AppColors.success : c.textTertiary,
+                            color: isValid ? AppColors.success : c.textTertiary,
                             size: 16.sp,
                           ),
                           SizedBox(width: 6.w),
@@ -1306,8 +1385,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('•',
-                        style: TextStyle(
-                            color: c.textTertiary, fontSize: 13.sp)),
+                        style:
+                            TextStyle(color: c.textTertiary, fontSize: 13.sp)),
                     SizedBox(width: 8.w),
                     Expanded(
                       child: Text(
@@ -1326,10 +1405,11 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
           AppButton(
             text: context.l10n.walletsTryAgain,
             onPressed: () {
-              TrackingService.track('hardware_connection_retry_tapped', params: {
-                'device': isJade ? 'jade' : 'ledger',
-                'surface': 'wallet_add',
-              });
+              TrackingService.track('hardware_connection_retry_tapped',
+                  params: {
+                    'device': isJade ? 'jade' : 'ledger',
+                    'surface': 'wallet_add',
+                  });
               setState(() => _connectError = null);
               isJade
                   ? _connectJadeAndGetXpub(config)
@@ -1349,11 +1429,13 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
 
     // 1. Providers
     final addWalletState = ref.watch(addWalletProvider);
-    final allConfigs = [...addWalletState.hotWallets, ...addWalletState.coldWallets];
+    final allConfigs = [
+      ...addWalletState.hotWallets,
+      ...addWalletState.coldWallets
+    ];
     final config = allConfigs.firstWhere(
-            (cfg) => cfg.id == addWalletState.selectedWalletConfigId,
-        orElse: () => allConfigs.last
-    );
+        (cfg) => cfg.id == addWalletState.selectedWalletConfigId,
+        orElse: () => allConfigs.last);
     final importState = ref.watch(importWalletControllerProvider);
 
     ref.listen(importWalletControllerProvider, (prev, next) {
@@ -1395,8 +1477,7 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
             // The stable row id (ledger, jade, ...), not the display title.
             final device = config.id;
             final scriptType = _scriptTypeLabel(_selectedAddressType);
-            final walletCount =
-                ref.read(settingsProvider).wallets.length;
+            final walletCount = ref.read(settingsProvider).wallets.length;
             TrackingService.hardwareWalletAdded(
               device: device,
               scriptType: scriptType,
@@ -1465,228 +1546,258 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
       }
     });
 
+    // EXPANDED: the back button and the title on the page's left gutter
+    // (see [_buildActionPage]).
+    final wide = kuteIsExpanded(context);
+    final gutter = kuteWidePadding(context, maxWidth: kuteWideTwoColumns).left;
     return KeyboardDismissOnTap(
       child: Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: c.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        systemOverlayStyle: Theme.of(context).brightness == Brightness.light
-            ? SystemUiOverlayStyle.dark
-            : SystemUiOverlayStyle.light,
-        centerTitle: true,
-        leading: const KuteBackButton(),
-        title: Text(
+        extendBodyBehindAppBar: true,
+        backgroundColor: c.background,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          systemOverlayStyle: Theme.of(context).brightness == Brightness.light
+              ? SystemUiOverlayStyle.dark
+              : SystemUiOverlayStyle.light,
+          centerTitle: !wide,
+          titleSpacing: wide ? 8 : null,
+          leadingWidth: wide ? gutter + 40 : null,
+          leading: wide
+              ? kuteWideLeading(gutter, const KuteBackButton())
+              : const KuteBackButton(),
+          title: Text(
             config.id == 'ledger'
                 ? context.l10n.ledgerConnectTitle
                 : config.importTitleIn(context.l10n),
             style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 20.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
+              color: c.textPrimary,
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
             ),
+          ),
+          actions: const [],
         ),
-        actions: const [],
-      ),
-      body: Container(
-        decoration: AppDecorations.screenGradient(context),
-        child: Stack(
-          alignment: Alignment.topCenter,
-          children: [
-            Positioned(
-              top: -100.h,
-              left: 0,
-              right: 0,
-              height: 400.h,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: Alignment.topCenter,
-                    radius: 1.0,
-                    colors: [
-                      c.textPrimary.withValues(alpha:0.04),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 1.0],
+        body: Container(
+          decoration: AppDecorations.screenGradient(context),
+          child: Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              Positioned(
+                top: -100.h,
+                left: 0,
+                right: 0,
+                height: 400.h,
+                child: KuteFullBleed(
+                    child: Container(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.topCenter,
+                      radius: 1.0,
+                      colors: [
+                        c.textPrimary.withValues(alpha: 0.04),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 1.0],
+                    ),
                   ),
-                ),
+                )),
               ),
-            ),
-
-            SafeArea(
-              bottom: false,
-              child: _buildActionPage(config, importState),
-            ),
-          ],
+              SafeArea(
+                bottom: false,
+                child: _buildActionPage(config, importState),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
-  Widget _buildActionPage(WalletDeviceConfig config, AsyncValue<void> importState) {
+  Widget _buildActionPage(
+      WalletDeviceConfig config, AsyncValue<void> importState) {
     final c = context.colors;
+    final header =
+        // Device header — chromeless to match the rest of
+        // the design language. Wallet icon + title + subtitle
+        // sit directly on the screen background, no boxed
+        // card chrome.
+        Padding(
+      padding: EdgeInsets.symmetric(vertical: 4.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              WalletIcon(
+                visual: WalletVisual(
+                  svgAsset: config.svgAsset,
+                  icon: config.icon,
+                  color: config.color,
+                ),
+                size: 56,
+              ),
+              SizedBox(width: 16.w),
+              // The AppBar title already names the device
+              // ("Connect Ledger"), so the body doesn't
+              // repeat it — the hero shows the supported
+              // models next to the device icon instead.
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.walletsSupportedModels.toUpperCase(),
+                        style: TextStyle(
+                          color: c.textTertiary,
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        )),
+                    SizedBox(height: 4.h),
+                    Text(config.subtitleIn(context.l10n),
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                          height: 1.2,
+                        )),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 14.h),
+          // One-line explainer so the screen states its
+          // purpose before listing methods: import the
+          // public key, keys never leave the device.
+          Text(
+            context.l10n.walletsImportXpubExplainer,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              letterSpacing: -0.1,
+            ),
+          ),
+        ],
+      ),
+    );
+    final methods = <Widget>[
+      // Expandable method cards — Bluetooth first when available
+      // Recommended method first: Bluetooth for BLE
+      // devices, otherwise QR. Secondary methods drop below
+      // the "Other ways to import" divider so the screen
+      // has one obvious happy path.
+      if (config.isBluetooth) ...[
+        _buildExpandableMethodCard(
+          c: c,
+          methodKey: 'bluetooth',
+          icon: Icons.bluetooth_rounded,
+          label: context.l10n.bluetooth,
+          description: context.l10n.connectViaBluetooth(config.title),
+          isLoading: _isConnectingLedger,
+          contentBuilder: (c) => _buildBluetoothContent(c, config),
+        ),
+        SizedBox(height: 8.h),
+      ] else ...[
+        _buildExpandableMethodCard(
+          c: c,
+          methodKey: 'qr',
+          icon: Icons.qr_code_scanner_rounded,
+          label: context.l10n.scanQrCode,
+          description: context.l10n.importScanQrDescription,
+          contentBuilder: (c) => _buildQrContent(c, config),
+        ),
+        SizedBox(height: 8.h),
+      ],
+
+      _buildOtherMethodsDivider(c),
+
+      // QR as a secondary method only when Bluetooth was
+      // the primary above (otherwise it's already shown).
+      if (config.isBluetooth) ...[
+        _buildExpandableMethodCard(
+          c: c,
+          methodKey: 'qr',
+          icon: Icons.qr_code_scanner_rounded,
+          label: context.l10n.scanQrCode,
+          description: context.l10n.importScanQrDescription,
+          contentBuilder: (c) => _buildQrContent(c, config),
+        ),
+        SizedBox(height: 8.h),
+      ],
+
+      if (config.isSdCard) ...[
+        _buildExpandableMethodCard(
+          c: c,
+          methodKey: 'file',
+          icon: Icons.folder_open_rounded,
+          label: context.l10n.importFile,
+          description: context.l10n.importFileDescription,
+          contentBuilder: (c) => _buildFileContent(c, config),
+        ),
+        SizedBox(height: 8.h),
+      ],
+
+      _buildExpandableMethodCard(
+        c: c,
+        methodKey: 'paste',
+        icon: Icons.paste_rounded,
+        label: context.l10n.paste,
+        description: context.l10n.importPasteDescription,
+        contentBuilder: (c) => _buildPasteContent(c),
+      ),
+    ];
+    // EXPANDED (round three; founder, 25 November 2026: "it must be all
+    // occupying full screen when we can"): the ways to import (the form)
+    // at a readable width on the left, the device and what importing does
+    // on the right.
+    final wide = kuteIsExpanded(context);
+    final side = wide
+        ? kuteWidePadding(context, maxWidth: kuteWideTwoColumns)
+        : EdgeInsets.symmetric(horizontal: 20.w);
 
     return Column(
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            padding: EdgeInsets.only(left: side.left, right: side.right),
             physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: 8.h),
-
-                // Device header — chromeless to match the rest of
-                // the design language. Wallet icon + title + subtitle
-                // sit directly on the screen background, no boxed
-                // card chrome.
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4.h),
-                  child: Column(
+            child: wide
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(height: 8.h),
+                      KuteColumns.fixed(columns: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: methods,
+                        ),
+                        header,
+                      ]),
+                      SizedBox(height: 100.h),
+                    ],
+                  )
+                : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          WalletIcon(
-                            visual: WalletVisual(
-                              svgAsset: config.svgAsset,
-                              icon: config.icon,
-                              color: config.color,
-                            ),
-                            size: 56,
-                          ),
-                          SizedBox(width: 16.w),
-                          // The AppBar title already names the device
-                          // ("Connect Ledger"), so the body doesn't
-                          // repeat it — the hero shows the supported
-                          // models next to the device icon instead.
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                    context.l10n.walletsSupportedModels
-                                        .toUpperCase(),
-                                    style: TextStyle(
-                                      color: c.textTertiary,
-                                      fontSize: 11.sp,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.8,
-                                    )),
-                                SizedBox(height: 4.h),
-                                Text(config.subtitleIn(context.l10n),
-                                    style: TextStyle(
-                                      color: c.textPrimary,
-                                      fontSize: 18.sp,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: -0.3,
-                                      height: 1.2,
-                                    )),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 14.h),
-                      // One-line explainer so the screen states its
-                      // purpose before listing methods: import the
-                      // public key, keys never leave the device.
-                      Text(
-                        context.l10n.walletsImportXpubExplainer,
-                        style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w500,
-                          height: 1.45,
-                          letterSpacing: -0.1,
-                        ),
-                      ),
+                      SizedBox(height: 8.h),
+                      header,
+                      SizedBox(height: 20.h),
+                      // Device, QR and file captures import immediately and end
+                      // on the shared success confirmation, so the method picker
+                      // is the whole screen: no "Public key captured" card, no
+                      // second Confirm step. Paste keeps its inline validation
+                      // row plus the bottom Confirm bar.
+                      ...methods,
+                      SizedBox(height: 100.h),
                     ],
                   ),
-                ),
-                SizedBox(height: 20.h),
-
-                // Device, QR and file captures import immediately and end
-                // on the shared success confirmation, so the method picker
-                // is the whole screen: no "Public key captured" card, no
-                // second Confirm step. Paste keeps its inline validation
-                // row plus the bottom Confirm bar.
-                ...[
-                  // Expandable method cards — Bluetooth first when available
-                  // Recommended method first: Bluetooth for BLE
-                  // devices, otherwise QR. Secondary methods drop below
-                  // the "Other ways to import" divider so the screen
-                  // has one obvious happy path.
-                  if (config.isBluetooth) ...[
-                    _buildExpandableMethodCard(
-                      c: c,
-                      methodKey: 'bluetooth',
-                      icon: Icons.bluetooth_rounded,
-                      label: context.l10n.bluetooth,
-                      description: context.l10n.connectViaBluetooth(config.title),
-                      isLoading: _isConnectingLedger,
-                      contentBuilder: (c) => _buildBluetoothContent(c, config),
-                    ),
-                    SizedBox(height: 8.h),
-                  ] else ...[
-                    _buildExpandableMethodCard(
-                      c: c,
-                      methodKey: 'qr',
-                      icon: Icons.qr_code_scanner_rounded,
-                      label: context.l10n.scanQrCode,
-                      description: context.l10n.importScanQrDescription,
-                      contentBuilder: (c) => _buildQrContent(c, config),
-                    ),
-                    SizedBox(height: 8.h),
-                  ],
-
-                  _buildOtherMethodsDivider(c),
-
-                  // QR as a secondary method only when Bluetooth was
-                  // the primary above (otherwise it's already shown).
-                  if (config.isBluetooth) ...[
-                    _buildExpandableMethodCard(
-                      c: c,
-                      methodKey: 'qr',
-                      icon: Icons.qr_code_scanner_rounded,
-                      label: context.l10n.scanQrCode,
-                      description: context.l10n.importScanQrDescription,
-                      contentBuilder: (c) => _buildQrContent(c, config),
-                    ),
-                    SizedBox(height: 8.h),
-                  ],
-
-                  if (config.isSdCard) ...[
-                    _buildExpandableMethodCard(
-                      c: c,
-                      methodKey: 'file',
-                      icon: Icons.folder_open_rounded,
-                      label: context.l10n.importFile,
-                      description: context.l10n.importFileDescription,
-                      contentBuilder: (c) => _buildFileContent(c, config),
-                    ),
-                    SizedBox(height: 8.h),
-                  ],
-
-                  _buildExpandableMethodCard(
-                    c: c,
-                    methodKey: 'paste',
-                    icon: Icons.paste_rounded,
-                    label: context.l10n.paste,
-                    description: context.l10n.importPasteDescription,
-                    contentBuilder: (c) => _buildPasteContent(c),
-                  ),
-
-                  SizedBox(height: 100.h),
-                ],
-              ],
-            ),
           ),
         ),
 
@@ -1694,7 +1805,8 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
         if (_controller.text.isNotEmpty)
           Container(
             width: double.infinity,
-            padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, MediaQuery.of(context).padding.bottom + 16.h),
+            padding: EdgeInsets.fromLTRB(
+                20.w, 16.h, 20.w, MediaQuery.of(context).padding.bottom + 16.h),
             decoration: BoxDecoration(
               color: c.surface,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -1721,7 +1833,9 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                       _isValidKey(_controller.text),
                   busy: importState.isLoading,
                   source: 'xpub_import',
-                  disabledLabel: _hardwareBlock == null ? context.l10n.barNeedPublicKey : null,
+                  disabledLabel: _hardwareBlock == null
+                      ? context.l10n.barNeedPublicKey
+                      : null,
                 ),
                 child: SizedBox(height: kuteBarScrollClearance.h),
               ),

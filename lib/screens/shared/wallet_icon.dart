@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:kute/helpers/kute_dog_asset.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -22,11 +24,28 @@ class BrandMark extends StatelessWidget {
   final double size;
   final Color? tint;
 
+  /// The 3D Sal's clip a dog mark plays.
+  static const String clip = 'idle';
+
+  /// The web's head start (main.dart): the mark's sheet is read and
+  /// decoded at boot and never given up by the sprite cache's cap, so
+  /// the Financial hub, the switcher and the account rows draw the 3D
+  /// face from their first frame. A browser reads each sheet over the
+  /// network and decodes it on the page; without this the hub opened
+  /// after the empty states' hero sheets filled the cap showed a blank
+  /// square for the second it took to read `idle` again. A phone reads
+  /// the bundle in a frame and keeps its cache as it was.
+  static void warmForWeb(double devicePixelRatio) {
+    SalSpriteCache.keep(clip);
+    unawaited(SalSpriteCache.clip(
+        clip, SalSpriteCache.densityFor(devicePixelRatio)));
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isKuteDogAsset(asset)) {
       return SalSprite(
-        clip: 'idle',
+        clip: clip,
         size: size,
         fallback: SvgPicture.asset(kuteDogAsset(context),
             width: size, height: size),

@@ -82,6 +82,9 @@ void main() {
       expect(polyChartShortName('Draw'), 'Draw');
       expect(polyChartShortName('Real Madrid'), 'Real Madrid');
       expect(polyChartShortName('Himeno Sakatsume'), 'Sakatsume');
+      // A leading number is the outcome's meaning, never dropped.
+      expect(polyChartShortName('25 bps increase'), '25 bps increase');
+      expect(polyChartShortName('50+ bps decrease'), '50+ bps decrease');
       expect(polyChartShortName('Viktoria Hruncakova'), 'Hruncakova');
       expect(polyChartShortName('  '), '');
     });

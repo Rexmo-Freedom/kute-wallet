@@ -29,7 +29,7 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:isolate';
+import 'package:kute/platform/off_thread.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:kute/services/polymarket/market_terms_store.dart';
@@ -739,7 +739,7 @@ class PolymarketClobWebSocket {
     _decodeTail = (_decodeTail ?? Future<void>.value()).then((_) async {
       final messages = data.length < _kOffThreadFrameBytes
           ? polymarketWsMessagesOf(data)
-          : await Isolate.run(() => polymarketWsMessagesOf(data));
+          : await runOffThread(() => polymarketWsMessagesOf(data));
       _emitAll(messages);
     }).catchError((_) {}).whenComplete(() {
       if (--_decoding == 0) _decodeTail = null;

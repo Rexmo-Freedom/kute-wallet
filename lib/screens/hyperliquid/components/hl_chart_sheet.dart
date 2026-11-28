@@ -128,6 +128,7 @@ Future<void> showHlChartSheet(
   required List<HyperliquidCandle> candles,
   bool showYourTrades = true,
   VoidCallback? onAddPriceLine,
+  bool indicatorsOnly = false,
 }) {
   HapticFeedback.selectionClick();
   return showAppBottomSheet<void>(
@@ -138,7 +139,28 @@ Future<void> showHlChartSheet(
       candles: candles,
       showYourTrades: showYourTrades,
       onAddPriceLine: onAddPriceLine,
+      indicatorsOnly: indicatorsOnly,
     ),
+  );
+}
+
+/// Stores [style] as the Chart sheet's card does (one layout for every
+/// Hyperliquid market) and reports it the same way.
+void hlPickChartStyle(WidgetRef ref, HlMarket market, HlChartStyle style) {
+  final current =
+      HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
+  if (style == current) return;
+  HapticFeedback.selectionClick();
+  ref.read(hlChartLayoutProvider.notifier).setStyle(style.name);
+  VenueAnalytics.settingChanged(
+    'chart_type_changed',
+    setting: 'chart_style',
+    value: style.name,
+    extra: {
+      'type': style.name,
+      'coin': market.coin,
+      ...VenueAnalytics.hlAssetParams(market.coin),
+    },
   );
 }
 
@@ -178,7 +200,10 @@ String _groupName(AppLocalizations l10n, HlIndGroup g) => switch (g) {
       HlIndGroup.volume => l10n.chartVolume,
     };
 
-String _styleName(AppLocalizations l10n, HlChartStyle style) => switch (style) {
+/// A chart type's name, as the Chart sheet's cards and the web desk's
+/// type menu say it.
+String hlChartStyleName(AppLocalizations l10n, HlChartStyle style) =>
+    switch (style) {
       HlChartStyle.line => l10n.chartStyleLine,
       HlChartStyle.area => l10n.chartStyleArea,
       HlChartStyle.heikinAshi => l10n.chartStyleHeikinAshi,
@@ -195,7 +220,12 @@ class HlChartSheet extends ConsumerStatefulWidget {
     required this.candles,
     this.showYourTrades = true,
     this.onAddPriceLine,
+    this.indicatorsOnly = false,
   });
+
+  /// The indicators alone (the web desk's Indicators button; its chart
+  /// type is the toolbar's own choice).
+  final bool indicatorsOnly;
 
   final HlMarket market;
   final String marketKey;
@@ -249,21 +279,9 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
     ];
   }
 
-  void _pickStyle(HlChartStyle style) {
-    final current =
-        HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
-    if (style == current) return;
-    HapticFeedback.selectionClick();
-    // Only how the bars are drawn changes: the interval, the view and the
-    // history stay, on this market and every other one.
-    ref.read(hlChartLayoutProvider.notifier).setStyle(style.name);
-    VenueAnalytics.settingChanged(
-      'chart_type_changed',
-      setting: 'chart_style',
-      value: style.name,
-      extra: {'type': style.name, ..._assetParams},
-    );
-  }
+  void _pickStyle(HlChartStyle style) =>
+      hlPickChartStyle(ref, widget.market, style);
+
 
   void _toggle(String key) {
     HapticFeedback.selectionClick();
@@ -398,6 +416,7 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
         );
 
     final sections = <Widget>[
+      if (!widget.indicatorsOnly) ...[
       _SectionLabel(l10n.chartSheetChartType,
           key: const ValueKey('hl-chart-group-type')),
       pairs([
@@ -410,6 +429,7 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
           ),
       ]),
       const SizedBox(height: 20),
+      ],
       _SectionLabel(l10n.chartGroupDisplay,
           key: const ValueKey('hl-chart-group-display')),
       pairs([
@@ -490,10 +510,12 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
       const SizedBox(height: 8),
     ];
 
-    // A picker: the floating bar is away while it is up.
-    return KuteBarContextScope(
-      barContext: const KuteBarContext.hidden(),
-      child: AppBottomSheetContainer(
+    // RESET IS THE FLOATING BAR (founder, 27 November 2026: "make this
+    // reset floating also like the others"): the sheet draws no button and
+    // no rule over one; Reset is the Sal bar's primary, over the cards,
+    // which scroll clear of it ([_resetBar], the scroll content's last
+    // child).
+    return AppBottomSheetContainer(
         maxHeight: 0.9,
         child: Column(
           key: const ValueKey('hl-chart-sheet'),
@@ -514,40 +536,43 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
-                  children: sections,
-                ),
-              ),
-            ),
-            Container(height: 0.5, color: c.border),
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 2, 16.w, 2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  key: const ValueKey('hl-chart-sheet-reset'),
-                  onPressed: isDefault ? null : _reset,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    minimumSize: Size(0, 44.h),
-                    foregroundColor: c.textPrimary,
-                    disabledForegroundColor: c.textTertiary,
-                  ),
-                  child: Text(
-                    l10n.chartReset,
-                    style: TextStyle(
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
+                  children: [
+                    ...sections,
+                    hlChartResetBar(
+                      key: const ValueKey('hl-chart-sheet-reset'),
+                      label: l10n.chartReset,
+                      onReset: isDefault ? null : _reset,
+                      source: 'hl_chart_sheet',
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
           ],
         ),
-      ),
     );
   }
 }
+
+/// Reset as the floating Sal bar's primary on a chart sheet, and the room
+/// under the sheet's content for it: disabled (the bar's own disabled
+/// look) while there is nothing to put back ([onReset] null).
+Widget hlChartResetBar({
+  required Key key,
+  required String label,
+  required VoidCallback? onReset,
+  required String source,
+}) =>
+    KuteBarContextScope(
+      key: key,
+      barContext: KuteBarContext.primary(
+        label: label,
+        enabled: onReset != null,
+        onPrimary: onReset ?? () {},
+        source: source,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
+    );
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text, {super.key});
@@ -656,7 +681,7 @@ class _StyleCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                _styleName(context.l10n, style),
+                hlChartStyleName(context.l10n, style),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1635,9 +1660,8 @@ class _HlIndicatorSettingsSheetState
       for (var i = 0; i < values.length; i++)
         values[i] == spec.params[i].defaultValue,
     ].every((v) => v);
-    return KuteBarContextScope(
-      barContext: const KuteBarContext.hidden(),
-      child: AppBottomSheetContainer(
+    // Reset is the floating bar here too (hlChartResetBar).
+    return AppBottomSheetContainer(
         child: Column(
           key: ValueKey('hl-indicator-settings-${widget.indicator}'),
           mainAxisSize: MainAxisSize.min,
@@ -1684,36 +1708,20 @@ class _HlIndicatorSettingsSheetState
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 6, 16.w, 2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  key: const ValueKey('hl-indicator-settings-reset'),
-                  onPressed: isDefault
-                      ? null
-                      : () {
-                          HapticFeedback.selectionClick();
-                          _last = spec.defaults;
-                          _notifier.setParams(widget.indicator, null);
-                        },
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    minimumSize: Size(0, 44.h),
-                    foregroundColor: c.textPrimary,
-                    disabledForegroundColor: c.textTertiary,
-                  ),
-                  child: Text(
-                    l10n.chartReset,
-                    style:
-                        TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
+            hlChartResetBar(
+              key: const ValueKey('hl-indicator-settings-reset'),
+              label: l10n.chartReset,
+              onReset: isDefault
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      _last = spec.defaults;
+                      _notifier.setParams(widget.indicator, null);
+                    },
+              source: 'hl_indicator_settings',
             ),
           ],
         ),
-      ),
     );
   }
 }

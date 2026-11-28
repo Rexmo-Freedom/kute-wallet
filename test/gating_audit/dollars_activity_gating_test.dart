@@ -106,11 +106,8 @@ void main() {
         ]);
         final container = ProviderScope.containerOf(
             tester.element(find.byType(InvestmentsBody, skipOffstage: false)));
-        // The page opens on Investing whatever the policy says (founder, 25
-        // November 2026); Overview is a pick away.
-        expect(
-            container.read(investmentsTabProvider), InvestmentsTab.investing);
-        await tapPill(tester, 'Overview');
+        // The page opens on Overview whatever the policy says (founder, 26
+        // November 2026).
         expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
         final squares = find.byKey(const ValueKey('dollars-activity-squares'));
         expect(squares, findsOneWidget);

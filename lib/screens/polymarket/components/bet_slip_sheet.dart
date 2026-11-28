@@ -1,5 +1,10 @@
+import 'package:kute/screens/share/share_wallet_gate.dart';
+import 'package:kute/services/share_target.dart';
+import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
+import 'package:kute/screens/shared/kute_side_panel.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteSideFlow;
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/standing_order_slips.dart'
     show StandingOrderSlips;
@@ -36,6 +41,8 @@ import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/screens/shared/polymarket_fee_summary.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
+import 'package:kute/screens/shared/advanced_ticket.dart';
+import 'package:kute/screens/polymarket/components/bet_slip_in_place.dart';
 // lib/screens/polymarket/components/bet_slip_sheet.dart
 //
 // Bet slip bottom sheet for placing bets on Polymarket outcomes.
@@ -85,6 +92,7 @@ import 'package:kute/screens/home/home_feature_carousel.dart'
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
+import 'package:kute/platform/kute_layout.dart' show KuteLayout;
 import 'package:kute/services/polymarket/crypto_round.dart'
     show
         polyRoundBuyClosed,
@@ -99,7 +107,13 @@ import 'package:kute/services/polymarket/live_game/game_sides.dart'
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show showDepositSheet, MoveLockedSide;
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
+import 'package:kute/providers/polymarket_limit_terms_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
+import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
+    show PolyMarketOrders;
+import 'package:kute/services/polymarket/limit_order_rules.dart';
+import 'package:kute/screens/polymarket/components/limit_copy.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/ledger/ledger_pm_buying_power_provider.dart';
@@ -110,7 +124,6 @@ import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsOrders;
 import 'package:kute/services/polymarket/sell_settlement.dart'
     show pmLiveOrderDelaySeconds;
-import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
@@ -288,6 +301,15 @@ class _BetSlipDraft extends ChangeNotifier {
   bool isLimitMode = false;
   double limitPrice = 0;
   String? limitSideKey;
+
+  /// The slip in place this draft's plain slip is (bet_slip_in_place
+  /// .dart), for the Advanced page over it: a limit placed there resets
+  /// that slip and keeps the market page, never closes it.
+  BetSlipInPlaceLink? inPlaceParent;
+
+  /// The limit price was stepped by hand: it is no longer re-seeded when
+  /// the market's tick arrives.
+  bool limitEdited = false;
   /// The slippage the person picked; null while the market's own default
   /// applies (polymarketDefaultSlippagePct: wider on a short crypto round).
   double? slippageChoice;
@@ -342,6 +364,11 @@ class _BetSlipDraft extends ChangeNotifier {
 /// (declined) out.
 @visibleForTesting
 Future<AuthGrant?> Function(SensitiveIntent intent)? debugPmBetFundingApproval;
+
+/// Test seam: stands in for a bet's own approval (no funding leg), as
+/// [debugPmBetFundingApproval] does for a funded one.
+@visibleForTesting
+Future<AuthGrant?> Function(SensitiveIntent intent)? debugPmBetApproval;
 
 /// Whether [pending]'s stop retries on its series' next round: a short
 /// round with a slug per window (`btc-updown-5m-…`) that has ended at
@@ -556,15 +583,70 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     String source = 'unknown',
     PolymarketEvent? event,
     SendPickSession? sendPick,
+    void Function(BetSlipSheet slip)? widePage,
   }) async {
+    // A wide market page with the slip in its pane (bet_slip_in_place.dart)
+    // takes the slip there instead of a sheet, after the same guards. Its
+    // own quiet open (the pane opening on the market on screen, no tap)
+    // shows no notice and counts nothing.
+    final inPlace = BetSlipInPlaceHost.maybeOf(context);
+    final quiet = inPlace?.quietOpen ?? false;
+    // No wallet at all (a shared market's guest page): the wallet comes
+    // first, then this same slip (share_wallet_gate.dart). A quiet open
+    // (the wide page's pane on its own) shows nothing.
+    if (ledgerWalletId == null &&
+        sendPick == null &&
+        ShareWalletGate.needsWallet(context)) {
+      if (quiet) return;
+      return ShareWalletGate.open(context,
+          target: ShareTarget.of(
+              investing: false,
+              slug: event?.slug ?? marketSlug,
+              outcome: outcomes.isNotEmpty &&
+                      initialOutcomeIndex >= 0 &&
+                      initialOutcomeIndex < outcomes.length &&
+                      outcomes.length > 1 &&
+                      event != null &&
+                      event.outcomes.length > 2
+                  ? outcomes[initialOutcomeIndex].name
+                  : null),
+          pick: ShareWalletPick(
+              outcome: outcomes.isNotEmpty &&
+                      initialOutcomeIndex >= 0 &&
+                      initialOutcomeIndex < outcomes.length
+                  ? outcomes[initialOutcomeIndex].name
+                  : null,
+              buyNo: initialBuyNo),
+          resume: () => BetSlipSheet.show(context,
+              marketQuestion: marketQuestion,
+              marketSlug: marketSlug,
+              marketImage: marketImage,
+              outcomes: outcomes,
+              initialOutcomeIndex: initialOutcomeIndex,
+              onDeposit: onDeposit,
+              marketEndAt: marketEndAt,
+              marketCategory: marketCategory,
+              initialBuyNo: initialBuyNo,
+              sideLabelPos: sideLabelPos,
+              sideLabelNeg: sideLabelNeg,
+              outcomeColors: outcomeColors,
+              outcomeLabels: outcomeLabels,
+              initialAmountUsd: initialAmountUsd,
+              negRisk: negRisk,
+              source: source,
+              event: event,
+              widePage: widePage));
+    }
     // A Ledger bet answers to Ledger Predictions (`ledger.polymarket`)
     // first, wherever the slip was opened from (the Ledger Predictions
     // tab, search, a market page). Sells, claims and withdrawals keep
     // their own capabilities and never come through here.
     if (ledgerWalletId != null &&
         !ledgerInvestmentAllowed(ledgerPredictionsCapability)) {
-      unawaited(showLedgerInvestmentUnavailable(
-          context, ledgerPredictionsCapability));
+      if (!quiet) {
+        unawaited(showLedgerInvestmentUnavailable(
+            context, ledgerPredictionsCapability));
+      }
       return;
     }
     // A market already over (closed, ended, or a short round past its
@@ -576,10 +658,12 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         question: marketQuestion,
         endAt: marketEndAt,
         now: debugClock())) {
-      showMessageSnackBar(
-          context: context,
-          message: context.l10n.builderMarketGone,
-          error: true);
+      if (!quiet) {
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.builderMarketGone,
+            error: true);
+      }
       return;
     }
     // A crypto Up-or-Down round past its cutoff (two minutes into a
@@ -594,7 +678,8 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     // through here.
     if (polyRoundBuyClosed(marketSlug,
         endDate: marketEndAt, now: debugClock())) {
-      if (event != null &&
+      if (!quiet &&
+          event != null &&
           MarketDetailSheet.openRouteFor(event.slug) == null &&
           context.mounted) {
         MarketDetailSheet.show(context,
@@ -629,6 +714,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         step: 'amount',
         venue: 'polymarket',
         walletKind: walletKind);
+    if (!quiet) {
     TrackingService.screenView('bet_slip');
     TrackingService.polymarketBetSlipOpened(
       // Same id the placement events use for this market's outcome.
@@ -668,6 +754,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         ...polyRoundWindowParams(marketSlug, at: debugClock()),
       },
     );
+    }
     // NOTHING is awaited before the sheet is shown. The regional gate
     // used to run here, which meant a tap on an outcome sat on the old
     // screen for up to two network round-trips (provider availability
@@ -683,9 +770,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     // (a long-standing Flutter gap) — that let a user swipe the sheet
     // away mid-placement. Dismissal is via tap-outside (isDismissible),
     // which DOES go through PopScope, so the placing-state lock holds.
-    _present(
-      context,
-      BetSlipSheet(
+    final slip = BetSlipSheet(
         marketQuestion: marketQuestion,
         marketSlug: marketSlug,
         marketImage: marketImage,
@@ -705,8 +790,26 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         source: source,
         event: event,
         sendPick: ledgerWalletId == null ? sendPick : null,
-      ),
-    );
+      );
+    if (inPlace != null && inPlace.present(slip)) return;
+    // EXPANDED, a browse card's button ([widePage]): never a slip floating
+    // over the browse. The market's own page opens with this slip, already
+    // counted above, in its side panel ([presentOnPage]).
+    if (widePage != null && KuteLayout.isExpanded(context)) {
+      widePage(slip);
+      return;
+    }
+    _present(context, slip);
+  }
+
+  /// A market page's first slip handed to it by the door that opened the
+  /// page ([show]'s `widePage`): into the page's side panel under [under],
+  /// as a tap on the page opens it; as the sheet where the page takes no
+  /// slips (the window narrowed meanwhile). Nothing is counted again.
+  static void presentOnPage(BuildContext under, BetSlipSheet slip) {
+    final host = BetSlipInPlaceHost.maybeOf(under);
+    if (host != null && host.present(slip)) return;
+    _present(under, slip);
   }
 
   /// The slip's sheet over everything (the root navigator), as [show]
@@ -796,7 +899,132 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// expanded. Purely presentational, so it stays on the page rather
   /// than on the shared draft.
   bool _expertOpen = false;
+
+  /// The slip open in place on a wide market page (bet_slip_in_place
+  /// .dart): no sheet around it, no close, its button drawn in it, and a
+  /// placed bet or an OK resets it instead of closing it. Null in a sheet
+  /// (and on the Advanced page, a route of its own).
+  BetSlipInPlaceLink? _inPlace;
+  bool _inPlaceRead = false;
+  bool get _isInPlace => _inPlace != null;
+
+  /// The keypad took no keys at the last build (a placement, a Ledger
+  /// lock): a hardware keyboard types nothing either.
+  bool _keypadLocked = false;
+
+  /// Reads the pane's link once (didChangeDependencies).
+  void _readInPlace() {
+    if (_inPlaceRead) return;
+    _inPlaceRead = true;
+    if (widget._advanced) return;
+    _inPlace = BetSlipInPlaceHost.linkOf(context);
+    if (_ownsDraft) _draft.inPlaceParent = _inPlace;
+    if (_inPlace != null) HardwareKeyboard.instance.addHandler(_onHardwareKey);
+  }
+
+  /// A hardware keyboard types the amount on a slip in place (digits, the
+  /// point, backspace), through the keypad's own rules; never while a
+  /// text field has the focus, the keypad is locked or another route
+  /// covers the page.
+  bool _onHardwareKey(KeyEvent event) {
+    if (!mounted || !_isInPlace || _keypadLocked) return false;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    if (ModalRoute.of(context)?.isCurrent == false) return false;
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return false;
+    }
+    final text = _amountController.text;
+    String? next;
+    if (event.logicalKey == LogicalKeyboardKey.backspace) {
+      next = amountBackspace(text);
+    } else {
+      final ch = event.character;
+      if (ch == null || ch.length != 1) return false;
+      if (RegExp(r'[0-9]').hasMatch(ch)) {
+        next = amountAppendKey(text, ch, maxDecimals: 2);
+      } else if (ch == '.' || ch == ',') {
+        next = amountAppendKey(text, '.', maxDecimals: 2);
+      }
+    }
+    if (next == null) return false;
+    if (next != text) _amountController.text = next;
+    return true;
+  }
+
+  /// In place, the slip's end (an OK, a placed bet on a page that stays)
+  /// gives the pane a fresh slip on the same market; in a sheet, the
+  /// sheet closes.
+  void _leaveInPlace() {
+    _onLeave();
+    _inPlace?.reset();
+  }
+
   bool get _ownsDraft => widget._sharedDraft == null;
+
+  /// A resting order on one of this slip's outcomes.
+  bool _orderIsHere(Order order) {
+    for (final o in widget.outcomes) {
+      if (order.assetId.isNotEmpty &&
+          (o.tokenId == order.assetId || o.noTokenId == order.assetId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// The slip in place a placement ends on: this slip's own, or (the
+  /// Advanced page over it) the one it was opened from.
+  BetSlipInPlaceLink? get _placeHost =>
+      _inPlace ?? (widget._advanced ? _draft.inPlaceParent : null);
+
+  /// The selected token's limit terms (its tick and minimum), read while
+  /// a limit is set ([polymarketLimitTermsProvider]); null otherwise.
+  PolymarketLimitTerms? _limitTerms;
+
+  /// The tick a limit price is snapped to and checked against: the
+  /// market's, else the saved one, else a whole cent.
+  double get _limitTick {
+    final token = _selectedTokenId;
+    final saved = token == null || token.isEmpty
+        ? null
+        : polymarketTickValue(PolymarketMarketTermsStore.currentTickSize(
+            token,
+            referencePrice: _limitPrice > 0 ? _limitPrice : null));
+    return polymarketUsableTick(_limitTerms?.tick ?? saved);
+  }
+
+  /// The venue's minimum for a limit, in shares: the book's, else the
+  /// market's, else the usual 5.
+  double get _limitMinShares {
+    final cid = widget.outcomes[_selectedIndex].conditionId;
+    final market = cid == null || cid.isEmpty || _isLedger
+        ? null
+        : ref.read(polymarketMinOrderSizeProvider(cid)).valueOrNull;
+    final min = _limitTerms?.minShares ?? market;
+    return min != null && min > 0 ? min : kPolymarketDefaultMinOrderShares;
+  }
+
+  /// A limit price at [price] seeded on the tick: at or under it (a buy
+  /// never seeds above the market).
+  double _limitSeed(double price) => polymarketSnapToTick(
+      price, _limitTick,
+      snap: PolymarketTickSnap.down);
+
+  /// Why the limit price cannot be placed as it stands (off the tick, out
+  /// of range), in the words the page shows under it; null when it can.
+  String? get _limitPriceIssue {
+    if (!_isLimitMode || _limitPrice <= 0) return null;
+    return polymarketLimitIssueText(context.l10n, _limitPrice, _limitTick);
+  }
   bool get _showAdvanced => widget._advanced;
   bool get _isLedger => widget.ledgerWalletId != null;
   int get _selectedIndex => _draft.selectedIndex;
@@ -1106,6 +1334,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _readInPlace();
     _windowL10n = context.l10n;
     _window24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
     _draft.roundWindow ??=
@@ -1469,7 +1698,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       tapWhileBusy: true,
       busyLabel: context.l10n.ok,
       enabled: true,
-      onTap: () => Navigator.of(context).maybePop(),
+      onTap: _isInPlace
+          ? _leaveInPlace
+          : () => Navigator.of(context).maybePop(),
       label: context.l10n.ok,
       band: false,
     );
@@ -1630,10 +1861,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     FocusManager.instance.primaryFocus?.unfocus();
     HapticFeedback.selectionClick();
     _trackStep('advanced');
+    // From the market page's side panel (EXPANDED) Advanced opens as the
+    // same side panel, over it (kute_wide_frames.dart, KuteSideFlow).
+    if (_isInPlace) KuteSideFlow.arm();
     try {
       await Navigator.of(context, rootNavigator: true).push<void>(
-        MaterialPageRoute(
-          fullscreenDialog: true,
+        // The page; the shared panel on EXPANDED (kute_form_panel_route).
+        kuteFormPanelRoute(
+          context,
           settings: const RouteSettings(name: BetSlipSheet.routeName),
           builder: (_) => BetSlipSheet._advanced(widget, _draft),
         ),
@@ -1654,6 +1889,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       _draft.isLimitMode = false;
       _draft.limitPrice = 0;
       _draft.limitSideKey = null;
+      _draft.limitEdited = false;
       _draft.slippageChoice = null;
     });
   }
@@ -1875,6 +2111,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (!widget._advanced) {
       RegionFreshness.answers.removeListener(_onRegionAnswers);
     }
+    if (_isInPlace) HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     // Abandonment funnel signal — fires only when the user dismissed
     // the slip without proceeding to place an order. We pass the
     // market question as `market_id` (truncated to 80 chars by the
@@ -1883,7 +2120,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // analytics-safe. `had_amount` / `had_outcome_selected` give the
     // dashboard a 4-way breakdown of abandonment shape (no amount,
     // no outcome, partial, full-intent).
-    if (_ownsDraft && !_orderPlaced) {
+    // The pane's own quiet slip (bet_slip_in_place.dart) was never opened
+    // by a tap: left without an amount, it is not an abandoned slip.
+    final quietUntouched =
+        (_inPlace?.quiet ?? false) && !(_amount > 0);
+    if (_ownsDraft && !_orderPlaced && !quietUntouched) {
       try {
         TrackingService.betSlipAbandoned(
           marketId: widget.marketQuestion,
@@ -2113,8 +2354,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// `orderPrice`, which silently overcharged by up to the slippage %.
   double _sharesFor(double orderPrice) {
     if (orderPrice <= 0 || _amount <= 0) return 0;
-    final raw = _amount / orderPrice;
-    return (raw * 100).floorToDouble() / 100;
+    // In integers: \$1.40 at 28¢ is 5.00 shares, never 4.99.
+    return polymarketLimitBuyShares(_amount, orderPrice);
   }
 
   /// Effective floor for THIS market: the venue's own order floor,
@@ -2122,6 +2363,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// price being paid) demands more, otherwise the CLOB rejects with a
   /// raw "Size lower than the minimum" after the user already confirmed.
   double get _effectiveMinBetUsd {
+    // A resting limit: the venue's minimum in shares at the limit price,
+    // in whole cents and exact (limit_order_rules.dart), so the minimum
+    // stake buys 5.00 shares, never 4.99.
+    if (_isLimitMode && _limitPrice > 0 && _limitPrice < 1) {
+      return max(_kMinBetUsd,
+          polymarketLimitBuyMinimumUsd(_limitMinShares, _limitPrice));
+    }
     // The Ledger target validates fresh public market rules before review.
     // This older warmup provider requires the software account.
     if (_isLedger) return _kMinBetUsd;
@@ -2681,7 +2929,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       eventSlug: widget.marketSlug,
       roundWindow: _roundWindow,
       isLimit: _isLimitMode,
-      limitPrice: _isLimitMode ? _limitPrice.clamp(0.01, 0.99).toDouble() : 0.0,
+      // Exactly the price on the page, checked against the market's tick
+      // before approval (prepareIntent), never moved to fit a band.
+      limitPrice: _isLimitMode ? _limitPrice : 0.0,
       negRisk: widget.negRisk,
       entrySource: widget.source,
       spendAllBudgetUsd: _isLimitMode ? null : _spendAllBudgetUsd,
@@ -2997,7 +3247,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       final setup = e is PolymarketSetupIncomplete ? e : null;
       _decline(
           setup == null
-              ? (e is PolymarketThinBook || '$e'.contains('No liquidity')
+              ? (e is PolymarketLimitRefused
+                  ? 'limit_refused'
+                  : e is PolymarketThinBook || '$e'.contains('No liquidity')
                   ? 'liquidity_unavailable'
                   : 'prepare_failed')
               : setup.timedOut
@@ -3010,6 +3262,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             PendingBetStatus.failed,
             errorMessage: setup != null
                 ? (setup.timedOut ? l10n.betSetupSlow : l10n.betSetupFailed)
+                : e is PolymarketLimitRefused
+                    ? polymarketLimitRefusalMessage(l10n, e)
                 : e is PolymarketThinBook
                     ? polymarketThinBookMessage(l10n, e)
                 : e.toString().toLowerCase().contains('liquidity')
@@ -3098,7 +3352,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       if (grant == null) return _decline('approval_not_granted');
       return grant;
     }
-    final grant = await requireFreshAuthGrant(
+    final plainSeam = debugPmBetApproval;
+    final grant = plainSeam != null
+        ? await plainSeam(review)
+        : await requireFreshAuthGrant(
       context,
       ref,
       intent: review,
@@ -4341,10 +4598,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // The fees at the order's worst price (its tolerance), plus the
     // rounding cent: the most the order can take of the venue's cash.
     final shown = _maxFeePrice ?? selected.price;
-    final worst = _isLimitMode && _limitPrice > 0
-        ? _limitPrice
-        : shown * (1 + _slippagePct / 100);
-    final price = worst.clamp(0.01, 0.99).toDouble();
+    final price = betSlipWorstFeePrice(
+        limitPrice: _isLimitMode ? _limitPrice : null,
+        shown: shown,
+        slippagePct: _slippagePct);
     return terms.allInCost(stake, price) +
         PolymarketMarketBuyQuote.roundingHeadroom;
   }
@@ -4391,78 +4648,40 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   // ── Spot / Limit ────────────────────────────────────────────────────────
 
-  Widget _buildOrderTypeToggle(AppColorsExtension c, double currentPrice) {
-    Widget seg(String label, bool isLimit) {
-      final selected = _isLimitMode == isLimit;
-      return Expanded(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            if (_isLimitMode == isLimit) return;
-            HapticFeedback.selectionClick();
-            _updateState(() {
-              _isLimitMode = isLimit;
-              if (isLimit && _limitPrice <= 0) {
-                _limitPrice = currentPrice.clamp(0.01, 0.99).toDouble();
-              }
-            });
-            TrackingService.track('bet_slip_order_type',
-                params: {'type': isLimit ? 'limit' : 'spot'});
-          },
-          child: Container(
-            height: 38.h,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected ? c.surface : Colors.transparent,
-              borderRadius: BorderRadius.circular(9.r),
-              border: selected ? Border.all(color: c.border) : null,
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                color: selected ? c.textPrimary : c.textTertiary,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: EdgeInsets.all(3.w),
-      decoration: BoxDecoration(
-        color: c.surfaceLight,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: c.border),
-      ),
-      child: Row(children: [
-        seg(context.l10n.betOrderTypeSpot, false),
-        seg(context.l10n.betOrderTypeLimit, true),
-      ]),
-    );
-  }
-
-  Widget _limitStepBtn(
-      AppColorsExtension c, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        // 44x44 minimum hit target (was 42x36). Standalone +/- stepper
-        // button; growing the box keeps the icon centred and doesn't
-        // disturb the surrounding limit-price row layout.
-        width: 44.sp,
-        height: 44.sp,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(8.r),
-          border: Border.all(color: c.border),
-        ),
-        child: Icon(icon, size: 18.sp, color: c.textPrimary),
-      ),
+  /// Spot or Limit as the Advanced page's type tiles (advanced_ticket
+  /// .dart), the type's one-sentence explanation under them. The same
+  /// switch, seed and event as before.
+  Widget _buildOrderTypeToggle(
+      AppColorsExtension c, double currentPrice, Color sideColor) {
+    return AdvancedTypeTiles(
+      key: const ValueKey('bet-slip-order-type'),
+      tileHeight: MediaQuery.sizeOf(context).height < 700 ? 68 : 76,
+      options: [
+        AdvancedTypeOption(
+            label: context.l10n.betOrderTypeSpot,
+            glyph: AdvancedTypeGlyph.market),
+        AdvancedTypeOption(
+            label: context.l10n.betOrderTypeLimit,
+            glyph: AdvancedTypeGlyph.limit),
+      ],
+      selected: _isLimitMode ? 1 : 0,
+      sideColor: sideColor,
+      onSelected: (i) {
+        final isLimit = i == 1;
+        if (_isLimitMode == isLimit) return;
+        _updateState(() {
+          _isLimitMode = isLimit;
+          if (isLimit && _limitPrice <= 0) {
+            _limitPrice = _limitSeed(currentPrice);
+          }
+        });
+        TrackingService.track('bet_slip_order_type',
+            params: {'type': isLimit ? 'limit' : 'spot'});
+      },
+      explanation: _isLimitMode
+          ? context.l10n.betSlipLimitExplainer
+          : context.l10n
+              .betSlipMarketExplainer(_slippagePct.toStringAsFixed(0)),
     );
   }
 
@@ -4471,70 +4690,82 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         setting: 'limit_price', value: 'edited', scope: _settingsScope);
   }
 
-  Widget _buildLimitPriceInput(AppColorsExtension c, double currentPrice) {
-    void bump(double deltaCents) {
-      final next =
-          (((_limitPrice * 100) + deltaCents).clamp(1.0, 99.0)) / 100.0;
+  Widget _buildLimitPriceInput(
+      AppColorsExtension c, double currentPrice, Color sideColor) {
+    // One tick a step, on the market's tick and inside its range (a 0.1¢
+    // market reaches under 1¢ and over 99¢).
+    void bump(int direction) {
+      final next = polymarketStepLimitPrice(_limitPrice, _limitTick, direction);
       HapticFeedback.selectionClick();
-      _updateState(() => _limitPrice = next);
+      _updateState(() {
+        _limitPrice = next;
+        _draft.limitEdited = true;
+      });
       _trackLimitPriceEdited();
     }
 
-    final cents = _limitPrice * 100;
+    final issue = _limitPriceIssue;
+    // The book on the feed, when known: its best bid and ask on the rail,
+    // and where a buy at the price fills at once (at or over the ask).
+    final token = _selectedTokenId;
+    final book = token == null || token.isEmpty
+        ? null
+        : PolymarketLiveBooks.instance
+            .snapshot(token, maxAge: _typingBookAge);
+    final ask = book?.bestAsk;
+    final fillsNow = ask != null && _limitPrice >= ask - 1e-9;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Text(
-              context.l10n.betLimitPrice,
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: c.textSecondary,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () => _updateState(() =>
-                  _limitPrice = currentPrice.clamp(0.01, 0.99).toDouble()),
-              behavior: HitTestBehavior.opaque,
-              child: Text(
-                context.l10n.betMarketPrice(formatPolyCents(currentPrice)),
-                style: TextStyle(fontSize: 12.sp, color: _kPolyPurple),
-              ),
-            ),
-          ],
+        AdvancedOddsTrack(
+          price: _limitPrice,
+          market: currentPrice.clamp(0.0, 1.0).toDouble(),
+          tick: _limitTick,
+          sideColor: sideColor,
+          marketLabel:
+              context.l10n.betMarketPrice(formatPolyCents(currentPrice)),
+          bestBid: book?.bestBid,
+          bestAsk: ask,
+          fillsFrom: ask,
+          title: context.l10n.betLimitPrice,
+          formatPrice: polymarketLimitCentsLabel,
+          // "Market 6%" under the market's tick snaps the price to it.
+          onMarketTap: () =>
+              _updateState(() => _limitPrice = _limitSeed(currentPrice)),
+          // One card for the pair: the stepper is its last row.
+          footer: AdvancedStepper(
+            label: '',
+            framed: false,
+            value: polymarketLimitCentsLabel(_limitPrice),
+            valueKey: const ValueKey('bet-slip-limit-price'),
+            onStep: bump,
+          ),
+          thumbLabel: ask == null
+              ? null
+              : fillsNow
+                  ? context.l10n.advancedFillsNow
+                  : context.l10n.advancedRests,
+          onChanged: (p) {
+            _updateState(() {
+              _limitPrice = p;
+              _draft.limitEdited = true;
+            });
+            _trackLimitPriceEdited();
+          },
         ),
+
+        // Off the tick or out of range: said here, in red, and the
+        // button stays shut until it is fixed (one step does it).
+        if (issue != null) ...[
+          SizedBox(height: 8.h),
+          Text(
+            issue,
+            key: const ValueKey('bet-slip-limit-issue'),
+            style: TextStyle(fontSize: 14.sp, color: AppColors.error),
+          ),
+        ],
         SizedBox(height: 8.h),
-        Container(
-          decoration: BoxDecoration(
-            color: c.surfaceLight,
-            borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: c.border),
-          ),
-          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
-          child: Row(
-            children: [
-              _limitStepBtn(c, Icons.remove_rounded, () => bump(-1)),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    '${cents.toStringAsFixed(1)}¢',
-                    style: TextStyle(
-                      fontSize: 22.sp,
-                      fontWeight: FontWeight.w700,
-                      color: c.textPrimary,
-                    ),
-                  ),
-                ),
-              ),
-              _limitStepBtn(c, Icons.add_rounded, () => bump(1)),
-            ],
-          ),
-        ),
-        SizedBox(height: 6.h),
         Text(
           context.l10n.betLimitRestsOnBook,
           style: TextStyle(
@@ -4633,10 +4864,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final side = stopped.outcomeName.trim().toLowerCase();
     final index = side == 'down' || side == 'no' ? 1 : 0;
     final navigator = Navigator.of(context, rootNavigator: true);
-    final host = navigator.context;
+    // In place, the page's pane takes the new round's slip.
+    final host = _isInPlace ? context : navigator.context;
     final onDeposit = widget.onDeposit;
     _clearFundedStop();
     _dismissPlacing();
+    // Nothing is placing any more: the pane may take the new slip now,
+    // before this one builds again.
+    _inPlace?.canLeave = true;
     // This slip (and its Advanced page, when open) gives way to the new
     // round's; the round sheet under it stays.
     navigator.popUntil(
@@ -4841,8 +5076,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   outcomes: widget.outcomes,
                   eventSlug: widget.marketSlug,
                 ),
-                keepMarketSheet: polyIsFastBetRound(widget.marketSlug),
+                keepMarketSheet: polyIsFastBetRound(widget.marketSlug) ||
+                    _placeHost != null,
               );
+              _placeHost?.reset();
             });
             return;
           }
@@ -4882,14 +5119,16 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     outcomes: widget.outcomes,
                     eventSlug: widget.marketSlug,
                   ),
+                  keepMarketSheet: _placeHost != null,
                 );
+                _placeHost?.reset();
                 return;
               }
-              nav.popUntil((route) {
-                final name = route.settings.name;
-                return name != 'polymarket-bet-slip' &&
-                    name != 'polymarket-market-detail-sheet';
-              });
+              // P7: the Advanced page over a slip in place (a wide market
+              // page) keeps that page and resets its slip.
+              final inPlace = _placeHost;
+              popBetSlipRoutes(nav, keepMarketPage: inPlace != null);
+              inPlace?.reset();
               final cost = limitIntent!.filledCost;
               final costLabel =
                   cost == null ? null : '\$${cost.toStringAsFixed(2)}';
@@ -4903,7 +5142,18 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                           costLabel, limitIntent.outcomeName),
                   contextLine: _shownFor(
                       limitIntent.marketQuestion, limitIntent.eventSlug),
-                  rows: {l10n.betShares: limitBought.toStringAsFixed(2)},
+                  rows: {
+                    l10n.betShares: limitBought.toStringAsFixed(2),
+                    l10n.betOrderTypeRow: l10n.betOrderTypeLimit,
+                    l10n.betLimitPrice: formatPolyCents(limitIntent.limitPrice),
+                    l10n.betOrderDuration: l10n.betUntilCanceled,
+                    // What the rest still holds at the person's price.
+                    l10n.betReservedRow: formatDollars(
+                        ((limitIntent.orderedShares ?? limitBought) -
+                                    limitBought)
+                                .clamp(0.0, double.infinity) *
+                            limitIntent.limitPrice),
+                  },
                   // How much bought, and that the rest waits at the
                   // person's price.
                   detail: l10n.betBuyPartialLimit(
@@ -4937,15 +5187,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             if (!mounted || _left) return;
             ref.read(pendingPolymarketBetProvider.notifier).clear();
             final nav = Navigator.of(context, rootNavigator: true);
-            nav.popUntil((route) {
-              final name = route.settings.name;
-              return name != 'polymarket-bet-slip' &&
-                  name != 'polymarket-market-detail-sheet';
-            });
+            // P7: the Advanced page over a slip in place (a wide market
+            // page) keeps that page and resets its slip.
+            final inPlace = _placeHost;
+            popBetSlipRoutes(nav, keepMarketPage: inPlace != null);
+            inPlace?.reset();
             if (restingIntent == null) return;
             final price = restingIntent.limitPrice;
             final shares = restingIntent.orderedShares ??
-                (price > 0 ? restingIntent.amount / price : 0.0);
+                polymarketLimitBuyShares(restingIntent.amount, price);
             final cost = '\$${restingIntent.amount.toStringAsFixed(2)}';
             pushKuteSuccessOverlay(
               navigator: nav,
@@ -4957,10 +5207,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     : l10n.betAmountOnSide(cost, restingIntent.outcomeName),
                 contextLine: _shownFor(
                     restingIntent.marketQuestion, restingIntent.eventSlug),
-                rows: {
-                  l10n.betLimitPrice: formatPolyCents(price),
-                  if (shares > 0) l10n.betShares: shares.toStringAsFixed(2),
-                },
+                rows: betSlipRestingRows(l10n,
+                    price: price, shares: shares, money: formatDollars),
                 detail: l10n.betRestingBuyNote,
                 onDone: nav.pop,
                 // The order rests: "View orders" opens the Portfolio's P&L
@@ -5063,11 +5311,26 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // market. Done in build (no setState) so it stays in sync with whatever
     // outcome is currently selected; manual stepper edits persist because the
     // side key is unchanged between them.
+    // The market's tick and minimum while a limit is set (public book).
+    _limitTerms = _isLimitMode &&
+            effectiveTokenId != null &&
+            effectiveTokenId.isNotEmpty
+        ? ref.watch(polymarketLimitTermsProvider(effectiveTokenId)).valueOrNull
+        : null;
     if (_isLimitMode) {
       final sideKey = '${_selectedIndex}_$_buyNo';
       if (_limitSideKey != sideKey) {
         _limitSideKey = sideKey;
-        _limitPrice = currentPrice.clamp(0.01, 0.99).toDouble();
+        _draft.limitEdited = false;
+        // On the tick, at or under the market: a mid of 53.5¢ seeds 53¢.
+        _limitPrice = _limitSeed(currentPrice);
+      } else if (!_draft.limitEdited &&
+          _limitPrice > 0 &&
+          !polymarketPriceOnTick(_limitPrice, _limitTick)) {
+        // The market's own tick arrived after the seed (a 10¢ market):
+        // an untouched seed follows it; a price set by hand is said off
+        // the tick instead ([_limitPriceIssue]).
+        _limitPrice = _limitSeed(currentPrice);
       }
     } else {
       _limitSideKey = null;
@@ -5337,6 +5600,21 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // move's own cost is folded into the one fee row (the total, plus a
       // "Move fee" detail), never a row of its own.
       final moveFee = _moveFee(cash);
+      // The Advanced page's summary card: the same row, Retry inline.
+      final advancedFeeSummary = PolymarketFeeSummary(
+        tokenId: effectiveTokenId,
+        shares: _sharesFor(maxFeePrice),
+        price: maxFeePrice,
+        bitcoinFirst: false,
+        limit: _isLimitMode,
+        hasFunds: cash == null || cash > 0 || moveFee != null,
+        showNote: _showAdvanced,
+        moveFeeUsd: moveFee?.usd,
+        moveFeeLabel: context.l10n.slipMoveFee,
+        moveFeePending: moveFee != null && moveFee.usd == null,
+        moveLegs: moveFee?.legs ?? const [],
+        retryInline: true,
+      );
       final feeSummary = PolymarketFeeSummary(
         tokenId: effectiveTokenId,
         shares: _sharesFor(maxFeePrice),
@@ -5352,10 +5630,21 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         moveFeePending: moveFee != null && moveFee.usd == null,
         moveLegs: moveFee?.legs ?? const [],
       );
+      // On a limit the venue's minimum is in shares: said with it, in red
+      // on the Advanced page (the button offers the minimum stake).
       final minBetWarning = _amount > 0 && _amount < _effectiveMinBetUsd
           ? Text(
-              context.l10n.betMinimumBetIs(formatDollars(_effectiveMinBetUsd)),
-              style: TextStyle(fontSize: 14.sp, color: tc.textSecondary),
+              _isLimitMode
+                  ? '${context.l10n.betMinimumBetIs(formatDollars(_effectiveMinBetUsd))} '
+                      '${context.l10n.betLimitMinimumShares(polymarketSharesFigure(_limitMinShares))}'
+                  : context.l10n
+                      .betMinimumBetIs(formatDollars(_effectiveMinBetUsd)),
+              key: const ValueKey('bet-slip-minimum-warning'),
+              style: TextStyle(
+                  fontSize: 14.sp,
+                  color: fullscreen && _isLimitMode
+                      ? AppColors.error
+                      : tc.textSecondary),
             )
           : null;
       // A placement that did not go through says so on the ticket the
@@ -5390,7 +5679,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             20.w,
             8.h,
             20.w,
-            fullscreen
+            fullscreen || _isInPlace
                 ? 16.h
                 : max(16.h, MediaQuery.of(context).padding.bottom)),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -5509,71 +5798,109 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // how the order rests, what it comes to — and the read-only rows
       // folded into Details. Nothing here computes or guards anything.
       final form = Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20.w),
+        // The Advanced page's frame holds its own side room.
+        padding: fullscreen
+            ? EdgeInsets.zero
+            : EdgeInsets.symmetric(horizontal: 20.w),
         child: fullscreen
             ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(height: 12.h),
-                  Text(polySlipTitle(_shownQuestion),
-                      style: TextStyle(
-                          fontSize: 20.sp,
-                          fontWeight: FontWeight.w700,
-                          color: tc.textPrimary)),
-                  SizedBox(height: 20.h),
-                  ...sideBlock,
-                  SizedBox(height: 20.h),
-                  PolySlipSection(
-                    title: context.l10n.amount,
-                    trailing: Text(available,
-                        textAlign: TextAlign.end,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 14.sp, color: tc.textSecondary)),
+                  SizedBox(height: 4.h),
+                  // What is bought: the market's picture beside its
+                  // question.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      PolySlipAmountField(
-                        controller: _amountController,
-                        prefix: r'$',
-                        readOnly: _draft.ledgerBusy || _draft.ledgerPending,
-                        inputFormatters: const [
-                          DecimalInputFormatter(fractionDigits: 2)
-                        ],
+                      if ((widget.marketImage ?? '').isNotEmpty &&
+                          PolyPictureLead.shown(widget.marketImage))
+                        PolyPictureLead(
+                          url: widget.marketImage!,
+                          size: 40.sp,
+                          radius: 12.r,
+                          gap: 12.w,
+                          fallback: Container(
+                            width: 40.sp,
+                            height: 40.sp,
+                            color: tc.surfaceLight,
+                          ),
+                        ),
+                      Expanded(
+                        child: Text(polySlipTitle(_shownQuestion),
+                            // A small phone keeps the hero, the tiles and
+                            // the first input in view: two lines there.
+                            maxLines: MediaQuery.sizeOf(context).height < 700
+                                ? 2
+                                : 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.w600,
+                                height: 1.25,
+                                color: tc.textPrimary)),
                       ),
-                      if (minBetWarning != null) ...[
-                        SizedBox(height: 10.h),
-                        minBetWarning,
+                    ],
+                  ),
+                  SizedBox(height: 18.h),
+                  ...sideBlock,
+                  SizedBox(height: 22.h),
+                  // The amount, the page's hero; what can be spent under
+                  // it, the market's minimum under that.
+                  AdvancedHeroAmount(
+                    controller: _amountController,
+                    caption: available,
+                    readOnly: _draft.ledgerBusy || _draft.ledgerPending,
+                    inputFormatters: const [
+                      DecimalInputFormatter(fractionDigits: 2)
+                    ],
+                    below: minBetWarning,
+                  ),
+                  SizedBox(height: 22.h),
+                  ..._buildOrderControls(tc, currentPrice, selectedColor),
+                  SizedBox(height: 16.h),
+                  // What it comes to: the win figure first, in green.
+                  AdvancedSummaryCard(
+                    key: const ValueKey('bet-slip-advanced-summary'),
+                    headline: AdvancedSummaryRow(
+                        context.l10n.betReceiptPayout, formatDollars(payout),
+                        key: const ValueKey('bet-slip-advanced-payout')),
+                    headlineColor: _kPolyGreen,
+                    // The return multiple: the payout over the stake.
+                    headlineChip: _amount > 0 && payout > 0
+                        ? '${(payout / _amount).toStringAsFixed(1)}×'
+                        : null,
+                    rows: [
+                      AdvancedSummaryRow(context.l10n.amount,
+                          formatDollars(_amount > 0 ? _amount : 0)),
+                      AdvancedSummaryRow(context.l10n.betSlipEstimatedShares,
+                          shares.toStringAsFixed(2)),
+                      AdvancedSummaryRow(
+                          _isLimitMode
+                              ? context.l10n.betPricePerShare
+                              : context.l10n.ledgerBetWorstPrice,
+                          formatDollars(orderPrice)),
+                      if (_isLimitMode) ...[
+                        AdvancedSummaryRow(context.l10n.betOrderTypeRow,
+                            context.l10n.betOrderTypeLimit),
+                        AdvancedSummaryRow(context.l10n.betOrderDuration,
+                            context.l10n.betUntilCanceled),
                       ],
                     ],
-                  ),
-                  SizedBox(height: 14.h),
-                  PolySlipSection(
-                    title: context.l10n.portfolioTabOrders,
-                    children: _buildOrderControls(tc, currentPrice),
-                  ),
-                  SizedBox(height: 14.h),
-                  PolySlipSection(
-                    children: [
-                      _buildPayout(tc, payout, accentText: tc.textPrimary),
-                      SizedBox(height: 10.h),
-                      feeSummary,
+                    footer: [
+                      SizedBox(height: 4.h),
+                      advancedFeeSummary,
+                      AdvancedSummaryCard.rowOf(context, _fundingSourceRow()),
                     ],
                   ),
-                  SizedBox(height: 14.h),
-                  PolySlipDetailsGroup(
-                    // Opens the rows in a bottom sheet; the event hears it open
-                    // and close.
-                    onToggle: (open) => TrackingService.track(
-                        'bet_slip_advanced_details_toggled',
-                        params: {'open': open}),
-                    rows: _buildOrderDetails(tc, shares, orderPrice),
-                  ),
+                  // This market's resting orders, where the next one is
+                  // set: the Orders tab's rows, each with its Cancel.
+                  if (!_isLedger && widget.sendPick == null)
+                    PolyMarketOrders(here: _orderIsHere, top: 14.h),
                   if (failureNotice != null) ...[
                     SizedBox(height: 14.h),
                     failureNotice,
                   ],
-                  SizedBox(height: 16.h),
                 ],
               )
             : Column(
@@ -5663,21 +5990,26 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               ),
       );
       if (fullscreen) {
-        // Advanced pins the action as a bottom bar, like the market
-        // sheet's Yes / No bar, so the form scrolls underneath it.
-        return Column(
+        // The Advanced page (advanced_ticket.dart): the form scrolls under
+        // the one primary, which floats over a fade of the page's ground,
+        // never in a bar of its own.
+        return AdvancedTicketFrame(
+          title: context.l10n.betSlipAdvancedTitle,
+          canPop: _standingAccepted ||
+              (!_buyInFlight && !_draft.ledgerBusy && !activelyPlacing),
+          onBack: () => Navigator.of(context).pop(),
+          scrollKey: const ValueKey('prediction-advanced-form-scroll'),
+          // Marked when it is over a slip in place (a wide market page),
+          // whose page a placement keeps ([_placeHost]).
+          contentKey: _placeHost != null
+              ? const ValueKey('prediction-advanced-over-in-place')
+              : null,
+          primaryHeight: kuteBarScrollClearance.h + 24.h,
+          primary: action,
           children: [
-            Expanded(
-              child: SingleChildScrollView(
-                key: const ValueKey('prediction-advanced-form-scroll'),
-                physics: const ClampingScrollPhysics(),
-                primary: false,
-                child: IgnorePointer(
-                    ignoring: _buyInFlight || ledgerLocked || activelyPlacing,
-                    child: form),
-              ),
-            ),
-            KuteStickyActionBar(child: action),
+            IgnorePointer(
+                ignoring: _buyInFlight || ledgerLocked || activelyPlacing,
+                child: form),
           ],
         );
       }
@@ -5708,6 +6040,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               ),
             ),
           ),
+          // In the side panel (EXPANDED), what the person holds on this
+          // market, over the button (kute_side_panel.dart).
+          if (_inPlace != null) SlipPanelFooterSlot(horizontal: 20.w),
           action,
         ],
       );
@@ -5753,12 +6088,46 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         onPopInvokedWithResult: (didPop, _) {
           if (didPop) _onLeave();
         },
-        child: Builder(
-          builder: (context) => PolySlipAdvancedScaffold(
-            title: context.l10n.betSlipAdvancedTitle,
-            canPop: canLeave,
-            onBack: () => Navigator.of(context).pop(),
-            body: KeyboardDismissOnTap(child: ticket(fullscreen: true)),
+        child: KeyboardDismissOnTap(child: ticket(fullscreen: true)),
+      );
+    }
+    // In place (bet_slip_in_place.dart): the same ticket in the side's
+    // colour, a card in the page's pane rather than a sheet: no top-only
+    // corners, no keyboard inset, no screen-height cap (the pane bounds
+    // it), its button drawn in it ([PolySlipInPlace]). The page cannot be
+    // left while the slip places (the same PopScope, on the page's route).
+    final inPlace = _inPlace;
+    if (inPlace != null) {
+      inPlace.canLeave = canLeave;
+      inPlace.leave = _onLeave;
+      return PopScope(
+        canPop: canLeave,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) _onLeave();
+        },
+        child: PolySlipInPlace(
+          theme: baseTheme,
+          // Send mode has no look-only link (the trade row's rule).
+          share: widget.sendPick == null ? inPlace.share : null,
+          child: KeyboardDismissOnTap(
+            child: tinted(
+              AnimatedContainer(
+                key: const ValueKey('bet-slip-in-place'),
+                duration: tintDuration,
+                curve: Curves.easeOut,
+                clipBehavior: Clip.antiAlias,
+                // The slip IS the side panel: its colour the panel's
+                // surface from the window's top to its bottom, rounded
+                // only where it meets the page (kute_side_panel.dart).
+                decoration: kuteSidePanelDecoration(selectedColor),
+                // Full height: the keypad takes the panel's spare
+                // height, the button at its foot.
+                child: Padding(
+                  padding: kuteSidePanelInsets,
+                  child: SlipFit(fill: true, child: ticket(fullscreen: false)),
+                ),
+              ),
+            ),
           ),
         ),
       );
@@ -5962,6 +6331,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// the same draft, with the same two-decimal rule the formatter
   /// enforced. [locked] is the Ledger lock the form already carries.
   Widget _buildAmountKeypad(bool locked) {
+    _keypadLocked = locked;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 8.w),
       child: AmountKeypad(
@@ -6113,17 +6483,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     return selected.name;
   }
 
-  /// [accentText] overrides the green payout figure — the side-tinted
-  /// sheet passes its own ink, since green on green is not a number.
-  Widget _buildPayout(AppColorsExtension c, double payout,
-      {Color? accentText}) {
-    return PolySlipFigureRow(
-      label: context.l10n.betReceiptPayout,
-      value: formatDollars(payout),
-      valueColor: accentText ?? _kPolyGreen,
-    );
-  }
-
   /// What Advanced is set to when it is not the default, for the chip
   /// under the amount (null: the default, no chip and no dot). A limit
   /// names its price; a market order with its own slippage names its
@@ -6182,22 +6541,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// and whatever that choice needs (a resting limit price, or the
   /// slippage budget for a market buy). Same widgets, same guards, same
   /// events — they just live in the Orders section now.
-  List<Widget> _buildOrderControls(AppColorsExtension c, double currentPrice) {
+  List<Widget> _buildOrderControls(
+      AppColorsExtension c, double currentPrice, Color sideColor) {
     return [
-      _buildOrderTypeToggle(c, currentPrice),
-      // What the chosen type does, in one sentence, right where it is
-      // chosen.
-      SizedBox(height: 10.h),
-      Text(
-        _isLimitMode
-            ? context.l10n.betSlipLimitExplainer
-            : context.l10n
-                .betSlipMarketExplainer(_slippagePct.toStringAsFixed(0)),
-        style: TextStyle(fontSize: 13.sp, color: c.textSecondary, height: 1.4),
-      ),
+      // The type tiles, what the chosen type does under them.
+      _buildOrderTypeToggle(c, currentPrice, sideColor),
       if (_isLimitMode) ...[
-        SizedBox(height: 16.h),
-        _buildLimitPriceInput(c, currentPrice),
+        SizedBox(height: 14.h),
+        _buildLimitPriceInput(c, currentPrice, sideColor),
       ] else ...[
         // Slippage is the one expert knob on a market order: closed by
         // default, opened by the few who know what they are looking for.
@@ -6275,33 +6626,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ],
         ),
       ],
-    ];
-  }
-
-  /// Read-only description of the order, folded into the Details group:
-  /// the estimated shares and price the page used to print at the very
-  /// bottom, the limit order's duration, and the account it spends from.
-  List<Widget> _buildOrderDetails(
-      AppColorsExtension c, double shares, double orderPrice) {
-    return [
-      PolySlipDetailRow(
-          label: context.l10n.betSlipEstimatedShares,
-          value: shares.toStringAsFixed(2)),
-      SizedBox(height: 12.h),
-      PolySlipDetailRow(
-          // A market order's figure is its maximum (the approved cap).
-          label: _isLimitMode
-              ? context.l10n.betPricePerShare
-              : context.l10n.ledgerBetWorstPrice,
-          value: formatDollars(orderPrice)),
-      if (_isLimitMode) ...[
-        SizedBox(height: 12.h),
-        PolySlipDetailRow(
-            label: context.l10n.betOrderDuration,
-            value: context.l10n.betUntilCanceled),
-      ],
-      SizedBox(height: 12.h),
-      _buildFundingSource(c),
     ];
   }
 
@@ -6566,6 +6890,23 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // fill now ([_thinBook]), the way a short balance's door is shut.
     // Before the deposit door too: nothing is funded for a bet that
     // cannot fill.
+    // A limit price off the market's tick or out of its range: the bet
+    // as it stands, shut, the line under the price saying what to change.
+    // Before the deposit door too: nothing is funded for it.
+    if (_limitPriceIssue != null && !_isPlacing && !busy && !_buyInFlight) {
+      return PolySlipCta(
+        key: const ValueKey('bet-slip-limit-shut'),
+        band: band,
+        color: selectedColor,
+        neutral: true,
+        isBusy: false,
+        enabled: false,
+        onTap: () {},
+        label: _emptyStake
+            ? _betCtaLabel(selected, 0, empty: true)
+            : _betCtaLabel(selected, _amount),
+      );
+    }
     if (_thinBook != null &&
         !_isPlacing &&
         !busy &&
@@ -6863,24 +7204,24 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       );
 
   /// Source account detail in the advanced order summary.
-  Widget _buildFundingSource(AppColorsExtension c) {
+  /// The account the bet spends from and what it holds, as a summary row.
+  AdvancedSummaryRow _fundingSourceRow() {
     if (widget.ledgerWalletId case final walletId?) {
       final buyingPower = ref.watch(ledgerPmBuyingPowerProvider(walletId));
       final spendable = buyingPower.isLoading || buyingPower.hasError
           ? null
           : buyingPower.valueOrNull?.spendable;
-      return PolySlipDetailRow(
-        label: context.l10n.predictions,
-        value: spendable == null
+      return AdvancedSummaryRow(
+        context.l10n.predictions,
+        spendable == null
             ? context.l10n.ledgerBalanceUnavailable
             : formatDollars(spendable.toDouble() / 1e6),
       );
     }
     final usdc = ref.watch(polymarketTradingProvider
         .select((s) => s.valueOrNull?.usdcBalance ?? 0));
-    return PolySlipDetailRow(
-        label: context.l10n.betSlipFromPredictions,
-        value: formatDollars(usdc));
+    return AdvancedSummaryRow(
+        context.l10n.betSlipFromPredictions, formatDollars(usdc));
   }
 
   // ── Placement progress ─────────────────────────────────────────────────
@@ -6988,9 +7329,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 4.h),
                 child: Row(
                   children: [
-                    KuteCloseButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
+                    if (!_isInPlace)
+                      KuteCloseButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
                   ],
                 ),
               ),
@@ -7058,12 +7400,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                       await ref
                           .read(settingsProvider.notifier)
                           .setActiveWallet(spendingId);
-                      if (context.mounted) Navigator.of(context).pop();
+                      if (context.mounted && !_isInPlace) {
+                        Navigator.of(context).pop();
+                      }
                     } else {
                       if (context.mounted) {
                         TrackingService.track('add_wallet_cta_tapped',
                             params: {'source': 'prediction_slip'});
-                        Navigator.of(context).pop();
+                        if (!_isInPlace) Navigator.of(context).pop();
                         context.pushNamed('addWallet');
                       }
                     }
@@ -7090,6 +7434,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     return PolySlipHeader(
       marketQuestion: _shownQuestion,
       marketImage: widget.marketImage,
+      // In the side panel the X closes the panel, the page back at rest.
+      onClose: _inPlace?.close,
       // Send mode says it at the top (send_pick_session.dart).
       chip: send == null ? null : SendPickChip(session: send),
     );
@@ -7257,11 +7603,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       ),
       child: Row(
         children: [
-          _OutcomeLeadingThumb(
-            imageUrl: sel.imageUrl ?? widget.marketImage,
-            fallbackColor: _outcomeFallbackColor(_selectedIndex),
-          ),
-          SizedBox(width: 10.w),
+          // Web: only a picture the backend routes draw; else none, and
+          // no gap (PolyPictureLead).
+          if (PolyPictureLead.shown(sel.imageUrl ?? widget.marketImage)) ...[
+            _OutcomeLeadingThumb(
+              imageUrl: sel.imageUrl ?? widget.marketImage,
+              fallbackColor: _outcomeFallbackColor(_selectedIndex),
+            ),
+            SizedBox(width: 10.w),
+          ],
           Expanded(
             child: Text(
               sel.name,
@@ -7801,6 +8151,47 @@ class _IconDiscButton extends StatelessWidget {
 /// haptic, so the controller skips its own); limit orders keep the short
 /// in-sheet beat and the controller haptic.
 bool betSlipEndsOnConfirmation({required bool isLimit}) => !isLimit;
+
+/// The price the slip sizes a stake's fees at: a limit's own price (inside
+/// the widest tick's range: a 0.1c market rests under 1c), else the shown
+/// price plus the slippage, inside 1c-99c exactly as before limits.
+double betSlipWorstFeePrice(
+    {required double? limitPrice,
+    required double shown,
+    required double slippagePct}) {
+  if (limitPrice != null && limitPrice > 0) {
+    return limitPrice.clamp(0.0001, 0.9999).toDouble();
+  }
+  return (shown * (1 + slippagePct / 100)).clamp(0.01, 0.99).toDouble();
+}
+
+/// The receipt of a limit buy resting whole: what it is (a limit), its
+/// price, its shares, how long it stands, and what it holds of the cash
+/// while it rests (shares × price, what the venue reserves).
+Map<String, String> betSlipRestingRows(AppLocalizations l10n,
+        {required double price,
+        required double shares,
+        required String Function(double) money}) =>
+    {
+      l10n.betOrderTypeRow: l10n.betOrderTypeLimit,
+      l10n.betLimitPrice: formatPolyCents(price),
+      if (shares > 0) l10n.betShares: shares.toStringAsFixed(2),
+      l10n.betOrderDuration: l10n.betUntilCanceled,
+      if (shares > 0) l10n.betReservedRow: money(shares * price),
+    };
+
+/// Where a placed bet leaves the navigator: the slip's routes closed (the
+/// Advanced page with them), and the market page too unless
+/// [keepMarketPage] (a slip in place on a wide market page, whose page
+/// stays and gets a fresh slip; a fast round). Never anything under the
+/// market page.
+void popBetSlipRoutes(NavigatorState nav, {required bool keepMarketPage}) {
+  nav.popUntil((route) {
+    final name = route.settings.name;
+    return name != BetSlipSheet.routeName &&
+        (keepMarketPage || name != MarketDetailSheet.routeName);
+  });
+}
 
 /// Closes the bet slip (and the market detail sheet under it) and shows
 /// the shared "Prediction placed" confirmation on [navigator].

@@ -1,0 +1,12 @@
+{
+  "dependencies": {},
+  "description": "Web IndexedDB tree store implementation for Breez SDK WASM (ES6 modules)",
+  "exports": {
+    ".": "./index.js",
+    "./tree-store": "./index.js"
+  },
+  "main": "index.js",
+  "name": "@breez-sdk/web-tree-store",
+  "type": "module",
+  "version": "1.0.0"
+}

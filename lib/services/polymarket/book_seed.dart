@@ -12,7 +12,7 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:isolate';
+import 'package:kute/platform/off_thread.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:kute/services/http/shared_http_client.dart';
@@ -155,7 +155,7 @@ Future<_Batch> _readBatch(List<String> tokens, http.Client? client) async {
     final text = response.body;
     return text.length < _kOffThreadBytes
         ? parseClobBookSeeds(text)
-        : await Isolate.run(() => parseClobBookSeeds(text));
+        : await runOffThread(() => parseClobBookSeeds(text));
   } catch (_) {
     return _kNoBatch;
   }

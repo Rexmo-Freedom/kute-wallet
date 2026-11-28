@@ -13,12 +13,12 @@
 // `bio_domain_state_v1`. Android has no equivalent (risk R7). Phase 1c
 // reuses this class.
 
-import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
 
 import 'package:kute/services/secure_storage.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 abstract final class BiometryDomainState {
   static const MethodChannel _channel =
@@ -33,7 +33,7 @@ abstract final class BiometryDomainState {
   /// The current hash, or null when unknown: not iOS, no biometry, the
   /// native method missing, or any error.
   static Future<String?> currentHash() async {
-    if (!Platform.isIOS) return null;
+    if (!PlatformOs.isIOS) return null;
     try {
       final raw =
           await _channel.invokeMethod<String>('biometryDomainStateHash');

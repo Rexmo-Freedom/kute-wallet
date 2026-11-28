@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/wallet_backup_provider.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
@@ -38,32 +39,45 @@ class ShellWalletScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final expanded = KuteLayout.isExpanded(context);
+    final banner = needsWalletBackup(wallet,
+            pendingLabels: ref.watch(passkeyPendingLabelsProvider))
+        ? Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+            child: SecurityActionCard(walletId: wallet.id),
+          )
+        : null;
     return Container(
       decoration: AppDecorations.screenGradient(context),
       // Home's dock mount: frost band + floating dock, bound to the wallet
-      // this tab is showing.
+      // this tab is showing. On EXPANDED the dock stands in the right pane
+      // under the hero (WalletBitcoinBody.wide), so nothing floats here.
       child: KuteDockHost(
-        dockBuilder: (onHeightChanged) => WalletBitcoinActionBar(
-          wallet: wallet,
-          onHeightChanged: onHeightChanged,
-          onSearch: () => showKuteSearch(context,
-              walletId: wallet.id, source: 'wallet_detail'),
-        ),
+        frostBand: !expanded,
+        dockBuilder: (onHeightChanged) => expanded
+            ? const SizedBox.shrink()
+            : WalletBitcoinActionBar(
+                wallet: wallet,
+                onHeightChanged: onHeightChanged,
+                onSearch: () => showKuteSearch(context,
+                    walletId: wallet.id, source: 'wallet_detail'),
+              ),
         body: SafeArea(
           bottom: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(height: kShellTopBarSpacing.h),
-              if (needsWalletBackup(wallet,
-                  pendingLabels: ref.watch(passkeyPendingLabelsProvider)))
-                Padding(
-                  padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
-                  child: SecurityActionCard(walletId: wallet.id),
+          // EXPANDED: separated like the Bitcoin and Dollars homes
+          // (bitcoin_home_panes.dart), the frame keeping the top bar's
+          // room itself; MEDIUM is a centred column (main_screen.dart), a
+          // phone as it was.
+          child: expanded
+              ? WalletBitcoinBody(wallet: wallet, wide: true, banner: banner)
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: kShellTopBarSpacing.h),
+                    if (banner != null) banner,
+                    Expanded(child: WalletBitcoinBody(wallet: wallet)),
+                  ],
                 ),
-              Expanded(child: WalletBitcoinBody(wallet: wallet)),
-            ],
-          ),
         ),
       ),
     );

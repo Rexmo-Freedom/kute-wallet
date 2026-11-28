@@ -52,6 +52,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -121,6 +123,8 @@ class OpenInvestmentsScreen extends ConsumerStatefulWidget {
   /// with the app's standard back.
   static Future<void> show(BuildContext context, {required String source}) =>
       Navigator.of(context, rootNavigator: true).push(KutePageRoute<void>(
+          // EXPANDED: across the window, its sections in columns.
+          wide: KuteWideMode.full,
           builder: (_) => OpenInvestmentsScreen(source: source)));
 
   @override
@@ -140,6 +144,9 @@ class _OpenInvestmentsScreenState extends ConsumerState<OpenInvestmentsScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // EXPANDED: the back and the title on the page's left gutter.
+    final wide = kuteIsExpanded(context);
+    final gutter = kuteWidePadding(context).left;
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(
@@ -147,8 +154,16 @@ class _OpenInvestmentsScreenState extends ConsumerState<OpenInvestmentsScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: true,
-        leading: const KuteBackButton(),
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? gutter + 40 : null,
+        leading: wide
+            ? Padding(
+                padding: EdgeInsets.only(left: gutter - 2),
+                child: const Align(
+                    alignment: Alignment.centerLeft, child: KuteBackButton()),
+              )
+            : const KuteBackButton(),
         title: Text(
           context.l10n.walletPortfolioAction,
           style: TextStyle(
@@ -182,10 +197,10 @@ class _PortfolioPage extends ConsumerWidget {
     final l10n = context.l10n;
     final venues = ref.watch(portfolioVenuesProvider);
     final activity = watchPortfolioActivity(ref);
-    final footer = <Widget>[
-      // What is held now, the Positions pill's rows, then the resting
-      // orders, above the Activity.
-      ...portfolioPositionsSlivers(context, ref, venues),
+    // What is held now, the Positions pill's rows, then the resting
+    // orders, above the Activity.
+    final positions = portfolioPositionsSlivers(context, ref, venues);
+    final activitySlivers = <Widget>[
       if (activity.entries.isNotEmpty || activity.failed) ...[
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -211,10 +226,19 @@ class _PortfolioPage extends ConsumerWidget {
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h)),
         ),
     ];
+    final footer = [...positions, ...activitySlivers];
     if (!venues.any) {
       if (footer.isEmpty) return PortfolioEmptyState(l10n.hlNoHistoryYet);
       return CustomScrollView(slivers: [
-        ...footer,
+        // EXPANDED: the Activity alone, a readable column in the middle.
+        if (kuteIsExpanded(context))
+          SliverPadding(
+            padding:
+                kuteWidePadding(context, maxWidth: KuteLayout.columnMaxWidth),
+            sliver: SliverMainAxisGroup(slivers: footer),
+          )
+        else
+          ...footer,
         SliverToBoxAdapter(
             child: SizedBox(height: 32.h + kuteDockScrollClearance(context))),
       ]);
@@ -229,6 +253,10 @@ class _PortfolioPage extends ConsumerWidget {
           trading: venues.trading, predictions: venues.predictions),
       footer: footer,
       footerEmpty: footer.isEmpty,
+      // EXPANDED (round three; founder, 25 November 2026: "it must be all
+      // occupying full screen when we can"): the figures, Positions and the
+      // Activity side by side as columns across the page.
+      wideColumns: [positions, activitySlivers],
     );
   }
 }
@@ -480,8 +508,8 @@ List<String> portfolioOpenRanked(WidgetRef ref, PortfolioVenues venues) {
   if (venues.predictions) {
     final book = _PolyBook.watch(ref);
     for (final p in book.open) {
-      final live = ref.watch(livePriceProvider
-          .select((s) => s.live ? s.prices[p.tokenId] : null));
+      final live = ref.watch(
+          livePriceProvider.select((s) => s.live ? s.prices[p.tokenId] : null));
       raw.add(('poly-${p.tokenId}', p.size * (live ?? p.currentPrice)));
     }
     for (final p in book.openCombos) {
@@ -504,9 +532,7 @@ int portfolioOpenCount(WidgetRef ref, PortfolioVenues venues) {
       final hl = s.valueOrNull;
       if (hl == null) return 0;
       return hl.positions.length +
-          hl.spotBalances
-              .where((b) => b.coin != 'USDC' && b.total > 0)
-              .length;
+          hl.spotBalances.where((b) => b.coin != 'USDC' && b.total > 0).length;
     }));
   }
   if (venues.predictions) {
@@ -698,9 +724,7 @@ class _PredictionsPnl extends ConsumerWidget {
     }
     final pnl = portfolioPredictionsOpenPnl(ref, positions);
     return BalancesPnlText(
-        usd: pnl.usd,
-        costUsd: pnl.costUsd,
-        money: (v) => formatDollars(v));
+        usd: pnl.usd, costUsd: pnl.costUsd, money: (v) => formatDollars(v));
   }
 }
 
@@ -719,9 +743,7 @@ class _InvestingPnl extends ConsumerWidget {
     }
     final pnl = portfolioInvestingOpenPnl(ref, state);
     return BalancesPnlText(
-        usd: pnl.usd,
-        costUsd: pnl.costUsd,
-        money: (v) => formatDollars(v));
+        usd: pnl.usd, costUsd: pnl.costUsd, money: (v) => formatDollars(v));
   }
 }
 
