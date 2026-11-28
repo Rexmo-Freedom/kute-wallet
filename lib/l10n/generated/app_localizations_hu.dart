@@ -13,6 +13,14 @@ class AppLocalizationsHu extends AppLocalizations {
       'Ez a pozíció tőkeáttételt használ, ezért itt csak csökkentheted vagy lezárhatod.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Itt nincs olyan pozíció, amelyet ez a megbízás csökkenthetne.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Még nincs pénz a kereskedéshez. Adj hozzá pénzt, mielőtt megadod ezt a megbízást.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Nem sikerült ellenőrizni a pozíciódat ezen a piacon. Próbáld újra egy pillanat múlva.';
 

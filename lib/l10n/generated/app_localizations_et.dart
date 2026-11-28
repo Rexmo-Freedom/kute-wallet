@@ -13,6 +13,14 @@ class AppLocalizationsEt extends AppLocalizations {
       'See positsioon kasutab finantsvõimendust, seega saad seda siin ainult vähendada või sulgeda.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Siin pole positsiooni, mida see tellimus saaks vähendada.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Kauplemiseks pole veel raha. Lisa raha enne selle tellimuse esitamist.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Sinu positsiooni sellel turul ei õnnestunud kontrollida. Proovi hetke pärast uuesti.';
 

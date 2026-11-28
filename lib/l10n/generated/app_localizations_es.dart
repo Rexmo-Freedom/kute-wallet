@@ -13,6 +13,14 @@ class AppLocalizationsEs extends AppLocalizations {
       'Esta posición usa apalancamiento, así que aquí solo puedes reducirla o cerrarla.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Aquí no hay ninguna posición que esta orden pueda reducir.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Aún no hay dinero para operar. Añade dinero antes de enviar esta orden.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'No pudimos comprobar tu posición en este mercado. Inténtalo de nuevo en un momento.';
 

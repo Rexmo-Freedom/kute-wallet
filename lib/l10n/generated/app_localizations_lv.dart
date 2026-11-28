@@ -13,6 +13,14 @@ class AppLocalizationsLv extends AppLocalizations {
       'Šī pozīcija izmanto finanšu sviru, tāpēc šeit to var tikai samazināt vai slēgt.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Šeit nav pozīcijas, ko šis rīkojums varētu samazināt.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Tirdzniecībai vēl nav naudas. Pievienojiet naudu, pirms iesniedzat šo rīkojumu.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Neizdevās pārbaudīt jūsu pozīciju šajā tirgū. Mēģiniet vēlreiz pēc brīža.';
 

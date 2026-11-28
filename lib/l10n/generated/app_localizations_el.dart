@@ -13,6 +13,14 @@ class AppLocalizationsEl extends AppLocalizations {
       'Αυτή η θέση χρησιμοποιεί μόχλευση, οπότε εδώ μπορείτε μόνο να τη μειώσετε ή να την κλείσετε.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Δεν υπάρχει εδώ θέση που να μπορεί να μειώσει αυτή η εντολή.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Δεν υπάρχουν ακόμη χρήματα για συναλλαγές. Προσθέστε χρήματα πριν υποβάλετε αυτή την εντολή.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Δεν ήταν δυνατός ο έλεγχος της θέσης σας σε αυτή την αγορά. Δοκιμάστε ξανά σε λίγο.';
 

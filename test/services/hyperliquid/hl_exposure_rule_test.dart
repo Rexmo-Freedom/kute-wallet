@@ -395,6 +395,41 @@ void main() {
           isTrue);
     });
 
+    test('a ticket\'s reduce-only order needs something to reduce', () {
+      HlExposureCheck reduce(HlHeldPosition h, {required bool isBuy}) =>
+          hlExposureCheck(
+              market: btc,
+              held: h,
+              isBuy: isBuy,
+              size: 0.001,
+              reduceOnly: true,
+              needsPositionToReduce: true);
+      // Nothing held: refused, in its own words, never sent.
+      final none = reduce(flat, isBuy: true);
+      expect(none.verdict, HlExposureVerdict.refused);
+      expect(none.refusal, HlExposureRefusal.nothingToReduce);
+      expect(none.allows(sentReduceOnly: true), isFalse);
+      // A long, and a reduce-only buy: it could only add.
+      final long = HlHeldPosition.of(held(500, leverage: 1));
+      expect(reduce(long, isBuy: true).refusal,
+          HlExposureRefusal.nothingToReduce);
+      // The closing side of a held position goes, reduce-only.
+      expect(reduce(long, isBuy: false).allows(sentReduceOnly: true), isTrue);
+      // A position that could not be read never stops an exit.
+      expect(reduce(unknown, isBuy: false).allows(sentReduceOnly: true),
+          isTrue);
+      // A stop attached to an order that has just filled is not asked.
+      expect(
+          hlExposureCheck(
+                  market: btc,
+                  held: flat,
+                  isBuy: false,
+                  size: 0.001,
+                  reduceOnly: true)
+              .allows(sentReduceOnly: true),
+          isTrue);
+    });
+
     for (final cross in [false, true]) {
       final kind = cross ? '10x cross' : '10x isolated';
       group('a $kind short worth \$500', () {
@@ -575,6 +610,27 @@ void main() {
       final posted = <Map<String, dynamic>>[];
       final n = await _notifierOn(venue, posted);
       await _limit(n, isLong: false, usd: 200);
+      expect(_types(posted), ['order']);
+      expect(_orderReduceOnly(posted), isTrue);
+    });
+
+    test('reduce-only with nothing to reduce is refused, nothing is sent',
+        () async {
+      final venue = _Venue([]);
+      final posted = <Map<String, dynamic>>[];
+      final n = await _notifierOn(venue, posted);
+      await expectLater(
+          _limit(n, isLong: true, usd: 100, reduceOnly: true),
+          throwsA(isA<HlExposureRefusedException>().having((e) => e.refusal,
+              'refusal', HlExposureRefusal.nothingToReduce)));
+      expect(posted, isEmpty);
+    });
+
+    test('reduce-only against a held position goes out', () async {
+      final venue = _Venue([held(500, leverage: 1)]);
+      final posted = <Map<String, dynamic>>[];
+      final n = await _notifierOn(venue, posted);
+      await _limit(n, isLong: false, usd: 200, reduceOnly: true);
       expect(_types(posted), ['order']);
       expect(_orderReduceOnly(posted), isTrue);
     });

@@ -1650,6 +1650,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       isBuy: _isLong,
       size: size,
       reduceOnly: !atMarket && _reduceOnly,
+      // Reduce only with nothing held on the closing side: said above the
+      // disabled button, never sent for the venue to refuse.
+      needsPositionToReduce: true,
     );
     final plan = hlPositionPlan(
       position: held.position,
@@ -2261,9 +2264,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final exposure = await _exposureRefusalAtTap();
     if (!mounted) return;
     if (exposure != null) {
-      _trackBlocked(exposure == HlExposureRefusal.positionUnknown
-          ? 'position_unknown'
-          : 'leveraged_position');
+      _trackBlocked(switch (exposure) {
+        HlExposureRefusal.positionUnknown => 'position_unknown',
+        HlExposureRefusal.leveragedPosition => 'leveraged_position',
+        HlExposureRefusal.nothingToReduce => 'nothing_to_reduce',
+      });
       _updateDraft(() => _errorText = hlExposureRefusalText(_strings, exposure));
       return;
     }

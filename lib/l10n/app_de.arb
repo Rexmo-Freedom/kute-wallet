@@ -1,6 +1,8 @@
 {
   "@@locale": "de",
   "hlExpoLeveragedPosition": "Diese Position nutzt einen Hebel, daher kannst du sie hier nur verkleinern oder schließen.",
+  "hlExpoNothingToReduce": "Hier gibt es keine Position, die dieser Auftrag verkleinern könnte.",
+  "hlRejectNoAccount": "Es ist noch kein Geld zum Handeln da. Füge Geld hinzu, bevor du diesen Auftrag aufgibst.",
   "hlExpoPositionUnknown": "Deine Position in diesem Markt konnte nicht geprüft werden. Versuche es gleich noch einmal.",
   "hlProtectStopBelowPrice": "Setze den Stop-Loss unter den aktuellen Preis, sonst schließt er die Position sofort.",
   "hlProtectStopAbovePrice": "Setze den Stop-Loss über den aktuellen Preis, sonst schließt er die Position sofort.",

@@ -13,6 +13,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Cette position utilise un effet de levier : ici, vous pouvez seulement la réduire ou la clôturer.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Il n\'y a ici aucune position que cet ordre puisse réduire.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Il n\'y a pas encore d\'argent pour négocier. Ajoutez de l\'argent avant de passer cet ordre.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Impossible de vérifier votre position sur ce marché. Réessayez dans un instant.';
 

@@ -13,6 +13,12 @@ class AppLocalizationsJa extends AppLocalizations {
       'このポジションはレバレッジを使用しているため、ここでは縮小または決済のみ可能です。';
 
   @override
+  String get hlExpoNothingToReduce => 'この注文で縮小できるポジションがありません。';
+
+  @override
+  String get hlRejectNoAccount => '取引に使える資金がまだありません。この注文を出す前に資金を追加してください。';
+
+  @override
   String get hlExpoPositionUnknown =>
       'この市場でのポジションを確認できませんでした。しばらくしてからもう一度お試しください。';
 

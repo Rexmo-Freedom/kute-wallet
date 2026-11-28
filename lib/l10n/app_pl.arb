@@ -1,6 +1,8 @@
 {
   "@@locale": "pl",
   "hlExpoLeveragedPosition": "Ta pozycja korzysta z dźwigni, więc tutaj możesz ją tylko zmniejszyć lub zamknąć.",
+  "hlExpoNothingToReduce": "Nie ma tu pozycji, którą to zlecenie mogłoby zmniejszyć.",
+  "hlRejectNoAccount": "Nie ma jeszcze środków do handlu. Dodaj środki przed złożeniem tego zlecenia.",
   "hlExpoPositionUnknown": "Nie udało się sprawdzić Twojej pozycji na tym rynku. Spróbuj ponownie za chwilę.",
   "hlProtectStopBelowPrice": "Ustaw stop loss poniżej bieżącej ceny, inaczej od razu zamknie pozycję.",
   "hlProtectStopAbovePrice": "Ustaw stop loss powyżej bieżącej ceny, inaczej od razu zamknie pozycję.",

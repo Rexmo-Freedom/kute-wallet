@@ -1,6 +1,8 @@
 {
   "@@locale": "fi",
   "hlExpoLeveragedPosition": "Tämä positio käyttää vipua, joten voit täällä vain pienentää tai sulkea sen.",
+  "hlExpoNothingToReduce": "Täällä ei ole positiota, jota tämä toimeksianto voisi pienentää.",
+  "hlRejectNoAccount": "Kaupankäyntiin ei ole vielä rahaa. Lisää rahaa ennen tämän toimeksiannon jättämistä.",
   "hlExpoPositionUnknown": "Positiotasi tällä markkinalla ei voitu tarkistaa. Yritä hetken päästä uudelleen.",
   "hlProtectStopBelowPrice": "Aseta stop loss nykyisen hinnan alle, muuten se sulkee position heti.",
   "hlProtectStopAbovePrice": "Aseta stop loss nykyisen hinnan yläpuolelle, muuten se sulkee position heti.",

@@ -13,6 +13,14 @@ class AppLocalizationsPt extends AppLocalizations {
       'Esta posição usa alavancagem, por isso aqui só pode reduzi-la ou fechá-la.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Não há aqui nenhuma posição que esta ordem possa reduzir.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Ainda não há dinheiro para negociar. Adicione dinheiro antes de colocar esta ordem.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Não foi possível verificar a sua posição neste mercado. Tente novamente daqui a pouco.';
 

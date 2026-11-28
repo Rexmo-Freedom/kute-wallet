@@ -13,6 +13,14 @@ class AppLocalizationsBg extends AppLocalizations {
       'Тази позиция използва ливъридж, затова тук можете само да я намалите или затворите.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Тук няма позиция, която тази поръчка да намали.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Все още няма пари за търговия. Добавете пари, преди да подадете тази поръчка.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Не успяхме да проверим позицията ви на този пазар. Опитайте отново след малко.';
 

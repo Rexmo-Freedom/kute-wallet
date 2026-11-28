@@ -1,6 +1,8 @@
 {
   "@@locale": "da",
   "hlExpoLeveragedPosition": "Denne position bruger gearing, så her kan du kun reducere eller lukke den.",
+  "hlExpoNothingToReduce": "Der er ingen position her, som denne ordre kan reducere.",
+  "hlRejectNoAccount": "Der er endnu ingen penge at handle for. Tilføj penge, før du afgiver denne ordre.",
   "hlExpoPositionUnknown": "Vi kunne ikke tjekke din position på dette marked. Prøv igen om lidt.",
   "hlProtectStopBelowPrice": "Sæt stop loss under den aktuelle pris, ellers lukker den positionen med det samme.",
   "hlProtectStopAbovePrice": "Sæt stop loss over den aktuelle pris, ellers lukker den positionen med det samme.",

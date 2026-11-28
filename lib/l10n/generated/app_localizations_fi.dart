@@ -13,6 +13,14 @@ class AppLocalizationsFi extends AppLocalizations {
       'Tämä positio käyttää vipua, joten voit täällä vain pienentää tai sulkea sen.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Täällä ei ole positiota, jota tämä toimeksianto voisi pienentää.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Kaupankäyntiin ei ole vielä rahaa. Lisää rahaa ennen tämän toimeksiannon jättämistä.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Positiotasi tällä markkinalla ei voitu tarkistaa. Yritä hetken päästä uudelleen.';
 

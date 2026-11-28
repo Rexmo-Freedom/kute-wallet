@@ -1,6 +1,8 @@
 {
   "@@locale": "ro",
   "hlExpoLeveragedPosition": "Această poziție folosește efect de levier, așa că aici o poți doar reduce sau închide.",
+  "hlExpoNothingToReduce": "Aici nu există nicio poziție pe care acest ordin să o poată reduce.",
+  "hlRejectNoAccount": "Încă nu există bani pentru tranzacționare. Adaugă bani înainte de a plasa acest ordin.",
   "hlExpoPositionUnknown": "Nu am putut verifica poziția ta pe această piață. Încearcă din nou peste câteva momente.",
   "hlProtectStopBelowPrice": "Setați stop loss-ul sub prețul actual, altfel închide poziția imediat.",
   "hlProtectStopAbovePrice": "Setați stop loss-ul peste prețul actual, altfel închide poziția imediat.",

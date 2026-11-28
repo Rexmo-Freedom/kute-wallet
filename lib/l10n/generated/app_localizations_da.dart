@@ -13,6 +13,14 @@ class AppLocalizationsDa extends AppLocalizations {
       'Denne position bruger gearing, så her kan du kun reducere eller lukke den.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Der er ingen position her, som denne ordre kan reducere.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Der er endnu ingen penge at handle for. Tilføj penge, før du afgiver denne ordre.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Vi kunne ikke tjekke din position på dette marked. Prøv igen om lidt.';
 

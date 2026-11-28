@@ -13,6 +13,14 @@ class AppLocalizationsSk extends AppLocalizations {
       'Táto pozícia používa pákový efekt, preto ju tu môžete len znížiť alebo uzavrieť.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Nie je tu žiadna pozícia, ktorú by tento príkaz mohol znížiť.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Zatiaľ tu nie sú žiadne peniaze na obchodovanie. Pred zadaním tohto príkazu pridajte peniaze.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Nepodarilo sa overiť vašu pozíciu na tomto trhu. Skúste to o chvíľu znova.';
 

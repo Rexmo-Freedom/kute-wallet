@@ -13,6 +13,14 @@ class AppLocalizationsSl extends AppLocalizations {
       'Ta pozicija uporablja finančni vzvod, zato jo lahko tukaj le zmanjšate ali zaprete.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Tukaj ni pozicije, ki bi jo to naročilo lahko zmanjšalo.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Za trgovanje še ni denarja. Pred oddajo tega naročila dodajte denar.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Vaše pozicije na tem trgu ni bilo mogoče preveriti. Poskusite znova čez trenutek.';
 

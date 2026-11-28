@@ -13,6 +13,14 @@ class AppLocalizationsIt extends AppLocalizations {
       'Questa posizione usa la leva, quindi qui puoi solo ridurla o chiuderla.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Qui non c\'è nessuna posizione che questo ordine possa ridurre.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Non c\'è ancora denaro per operare. Aggiungi denaro prima di inviare questo ordine.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Non è stato possibile verificare la tua posizione su questo mercato. Riprova tra un momento.';
 

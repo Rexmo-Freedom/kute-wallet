@@ -1,6 +1,8 @@
 {
   "@@locale": "cs",
   "hlExpoLeveragedPosition": "Tato pozice používá páku, proto ji zde můžete jen snížit nebo uzavřít.",
+  "hlExpoNothingToReduce": "Není tu žádná pozice, kterou by tento pokyn mohl zmenšit.",
+  "hlRejectNoAccount": "Zatím tu nejsou žádné peníze k obchodování. Před zadáním tohoto pokynu přidejte peníze.",
   "hlExpoPositionUnknown": "Nepodařilo se ověřit vaši pozici na tomto trhu. Zkuste to za chvíli znovu.",
   "hlProtectStopBelowPrice": "Nastavte stop loss pod aktuální cenu, jinak pozici hned uzavře.",
   "hlProtectStopAbovePrice": "Nastavte stop loss nad aktuální cenu, jinak pozici hned uzavře.",

@@ -1,6 +1,8 @@
 {
   "@@locale": "es",
   "hlExpoLeveragedPosition": "Esta posición usa apalancamiento, así que aquí solo puedes reducirla o cerrarla.",
+  "hlExpoNothingToReduce": "Aquí no hay ninguna posición que esta orden pueda reducir.",
+  "hlRejectNoAccount": "Aún no hay dinero para operar. Añade dinero antes de enviar esta orden.",
   "hlExpoPositionUnknown": "No pudimos comprobar tu posición en este mercado. Inténtalo de nuevo en un momento.",
   "hlProtectStopBelowPrice": "Pon el stop loss por debajo del precio actual o cerrará la posición al instante.",
   "hlProtectStopAbovePrice": "Pon el stop loss por encima del precio actual o cerrará la posición al instante.",

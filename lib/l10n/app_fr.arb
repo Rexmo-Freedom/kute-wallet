@@ -1,6 +1,8 @@
 {
   "@@locale": "fr",
   "hlExpoLeveragedPosition": "Cette position utilise un effet de levier : ici, vous pouvez seulement la réduire ou la clôturer.",
+  "hlExpoNothingToReduce": "Il n'y a ici aucune position que cet ordre puisse réduire.",
+  "hlRejectNoAccount": "Il n'y a pas encore d'argent pour négocier. Ajoutez de l'argent avant de passer cet ordre.",
   "hlExpoPositionUnknown": "Impossible de vérifier votre position sur ce marché. Réessayez dans un instant.",
   "hlProtectStopBelowPrice": "Placez le stop loss sous le prix actuel, sinon il clôture la position immédiatement.",
   "hlProtectStopAbovePrice": "Placez le stop loss au-dessus du prix actuel, sinon il clôture la position immédiatement.",

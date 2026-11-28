@@ -1,6 +1,8 @@
 {
   "@@locale": "it",
   "hlExpoLeveragedPosition": "Questa posizione usa la leva, quindi qui puoi solo ridurla o chiuderla.",
+  "hlExpoNothingToReduce": "Qui non c'è nessuna posizione che questo ordine possa ridurre.",
+  "hlRejectNoAccount": "Non c'è ancora denaro per operare. Aggiungi denaro prima di inviare questo ordine.",
   "hlExpoPositionUnknown": "Non è stato possibile verificare la tua posizione su questo mercato. Riprova tra un momento.",
   "hlProtectStopBelowPrice": "Imposta lo stop loss sotto il prezzo attuale, altrimenti chiude subito la posizione.",
   "hlProtectStopAbovePrice": "Imposta lo stop loss sopra il prezzo attuale, altrimenti chiude subito la posizione.",

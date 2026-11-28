@@ -1,6 +1,8 @@
 {
   "@@locale": "lt",
   "hlExpoLeveragedPosition": "Ši pozicija naudoja finansinį svertą, todėl čia galite ją tik sumažinti arba uždaryti.",
+  "hlExpoNothingToReduce": "Čia nėra pozicijos, kurią šis pavedimas galėtų sumažinti.",
+  "hlRejectNoAccount": "Prekybai dar nėra pinigų. Prieš pateikdami šį pavedimą, pridėkite pinigų.",
   "hlExpoPositionUnknown": "Nepavyko patikrinti jūsų pozicijos šioje rinkoje. Bandykite dar kartą po akimirkos.",
   "hlProtectStopBelowPrice": "Nustatykite stop loss žemiau dabartinės kainos, kitaip jis iškart uždarys poziciją.",
   "hlProtectStopAbovePrice": "Nustatykite stop loss aukščiau dabartinės kainos, kitaip jis iškart uždarys poziciją.",

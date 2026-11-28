@@ -9,7 +9,11 @@
 // So the one rule every order that can open or add perp exposure answers
 // to, before anything is funded or signed:
 //
-// * spot, or an order sent reduce-only: never new exposure;
+// * spot, or an order sent reduce-only: never new exposure. A reduce-only
+//   order on a market positively known to hold nothing on its closing
+//   side (flat, or a position on the order's own side) has nothing to
+//   reduce: the venue refuses it, so it is refused here first, in plain
+//   words. A position that cannot be read never stops an exit;
 // * a perp whose position on that dex is not positively known (the account
 //   not read yet, the read failed, a dex the account read does not cover):
 //   refused, never treated as "no position";
@@ -104,6 +108,9 @@ enum HlExposureRefusal {
   /// The position uses leverage or cross margin, and the order would add
   /// to it or flip it.
   leveragedPosition,
+
+  /// A reduce-only order, and nothing held on its closing side.
+  nothingToReduce,
 }
 
 class HlExposureCheck {
@@ -152,16 +159,33 @@ class HlExposureCheck {
 
 /// THE rule (see the header): an order of [size] coins on the [isBuy] side
 /// of [market], against what is [held] there. [reduceOnly] is an order the
-/// caller already sends reduce-only.
+/// caller already sends reduce-only; with [needsPositionToReduce] it is
+/// refused when [held] positively has nothing on its closing side.
 HlExposureCheck hlExposureCheck({
   required HlMarket market,
   required HlHeldPosition held,
   required bool isBuy,
   required double size,
   bool reduceOnly = false,
+  bool needsPositionToReduce = false,
 }) {
   if (market.isSpot) return const HlExposureCheck.allowed();
-  if (reduceOnly) return HlExposureCheck.reduceOnly(held.position);
+  if (reduceOnly) {
+    // [needsPositionToReduce] (a ticket's limit, scale or TWAP): nothing
+    // on the closing side, positively, and the venue would refuse it (on
+    // an account it has never seen, with "User or API Wallet does not
+    // exist"). Unknown is not flat: an exit is never stopped by a read.
+    // A stop attached to an order that has just filled is not asked: the
+    // read may not show its position yet.
+    final pos = held.position;
+    if (needsPositionToReduce &&
+        held.known &&
+        (pos == null || pos.szi == 0 || pos.isLong == isBuy)) {
+      return HlExposureCheck.refused(HlExposureRefusal.nothingToReduce,
+          position: pos);
+    }
+    return HlExposureCheck.reduceOnly(pos);
+  }
   if (!held.known) {
     return const HlExposureCheck.refused(HlExposureRefusal.positionUnknown);
   }
@@ -215,6 +239,8 @@ class HlExposureRefusedException implements Exception {
           'Could not read the position on this market',
         HlExposureRefusal.leveragedPosition =>
           'This position uses leverage: it can only be reduced or closed',
+        HlExposureRefusal.nothingToReduce =>
+          'Reduce-only order with no position on its closing side',
       };
 }
 
@@ -223,4 +249,5 @@ String hlExposureRefusalText(AppLocalizations l10n, HlExposureRefusal refusal) =
     switch (refusal) {
       HlExposureRefusal.positionUnknown => l10n.hlExpoPositionUnknown,
       HlExposureRefusal.leveragedPosition => l10n.hlExpoLeveragedPosition,
+      HlExposureRefusal.nothingToReduce => l10n.hlExpoNothingToReduce,
     };

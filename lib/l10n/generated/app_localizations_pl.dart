@@ -13,6 +13,14 @@ class AppLocalizationsPl extends AppLocalizations {
       'Ta pozycja korzysta z dźwigni, więc tutaj możesz ją tylko zmniejszyć lub zamknąć.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Nie ma tu pozycji, którą to zlecenie mogłoby zmniejszyć.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Nie ma jeszcze środków do handlu. Dodaj środki przed złożeniem tego zlecenia.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Nie udało się sprawdzić Twojej pozycji na tym rynku. Spróbuj ponownie za chwilę.';
 

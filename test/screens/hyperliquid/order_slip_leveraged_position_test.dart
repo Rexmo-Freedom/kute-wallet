@@ -328,6 +328,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+      'the Advanced page, Limit, nothing held: Reduce-only has nothing to '
+      'reduce, said above a disabled button', (tester) async {
+    const nothing = 'There is no position here for this order to reduce.';
+    await _pump(tester, isLong: true, heldUsd: 0, advanced: true);
+    final button = find.byKey(const ValueKey('slip-advanced-button'));
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Limit'));
+    await tester.tap(find.text('Limit'));
+    await tester.pumpAndSettle();
+    Future<void> enter(int i, String text) async {
+      final f = find.byType(TextField).at(i);
+      await tester.ensureVisible(f);
+      await tester.enterText(f, text);
+      await tester.pumpAndSettle();
+    }
+
+    await enter(0, '200');
+    await enter(1, '59000');
+    expect(find.text(nothing), findsNothing);
+    await tester.ensureVisible(find.text('Expert settings'));
+    await tester.tap(find.text('Expert settings'));
+    await tester.pumpAndSettle();
+    final reduce = find.text('Reduce-only (never opens a new position)');
+    await tester.ensureVisible(reduce);
+    await tester.tap(reduce);
+    await tester.pumpAndSettle();
+    expect(find.text(nothing), findsOneWidget);
+    expect(scopeEnabled(tester), isFalse);
+    // Off again: the order is an open like any other.
+    await tester.ensureVisible(reduce);
+    await tester.tap(reduce);
+    await tester.pumpAndSettle();
+    expect(find.text(nothing), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final cross in [false, true]) {
     testWidgets(
         'the Details row says the held 10x ${cross ? 'cross' : 'isolated'} '

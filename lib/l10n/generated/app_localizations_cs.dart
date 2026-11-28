@@ -13,6 +13,14 @@ class AppLocalizationsCs extends AppLocalizations {
       'Tato pozice používá páku, proto ji zde můžete jen snížit nebo uzavřít.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Není tu žádná pozice, kterou by tento pokyn mohl zmenšit.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Zatím tu nejsou žádné peníze k obchodování. Před zadáním tohoto pokynu přidejte peníze.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Nepodařilo se ověřit vaši pozici na tomto trhu. Zkuste to za chvíli znovu.';
 

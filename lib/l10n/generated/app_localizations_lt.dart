@@ -13,6 +13,14 @@ class AppLocalizationsLt extends AppLocalizations {
       'Ši pozicija naudoja finansinį svertą, todėl čia galite ją tik sumažinti arba uždaryti.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Čia nėra pozicijos, kurią šis pavedimas galėtų sumažinti.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Prekybai dar nėra pinigų. Prieš pateikdami šį pavedimą, pridėkite pinigų.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Nepavyko patikrinti jūsų pozicijos šioje rinkoje. Bandykite dar kartą po akimirkos.';
 

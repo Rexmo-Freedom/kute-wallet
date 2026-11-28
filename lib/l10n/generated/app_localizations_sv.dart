@@ -13,6 +13,14 @@ class AppLocalizationsSv extends AppLocalizations {
       'Den här positionen använder hävstång, så här kan du bara minska eller stänga den.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Det finns ingen position här som den här ordern kan minska.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Det finns inga pengar att handla för ännu. Lägg till pengar innan du lägger den här ordern.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Vi kunde inte kontrollera din position på den här marknaden. Försök igen om en stund.';
 

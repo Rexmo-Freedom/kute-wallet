@@ -1,6 +1,8 @@
 {
   "@@locale": "en",
   "hlExpoLeveragedPosition": "This position uses leverage, so here you can only reduce or close it.",
+  "hlExpoNothingToReduce": "There is no position here for this order to reduce.",
+  "hlRejectNoAccount": "There is no money to trade with yet. Add money before placing this order.",
   "hlExpoPositionUnknown": "Couldn't check your position on this market. Try again in a moment.",
   "hlProtectStopBelowPrice": "Set the stop loss below the current price, or it closes the position at once.",
   "hlProtectStopAbovePrice": "Set the stop loss above the current price, or it closes the position at once.",

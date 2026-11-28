@@ -146,6 +146,18 @@ abstract class AppLocalizations {
   /// **'This position uses leverage, so here you can only reduce or close it.'**
   String get hlExpoLeveragedPosition;
 
+  /// No description provided for @hlExpoNothingToReduce.
+  ///
+  /// In en, this message translates to:
+  /// **'There is no position here for this order to reduce.'**
+  String get hlExpoNothingToReduce;
+
+  /// No description provided for @hlRejectNoAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'There is no money to trade with yet. Add money before placing this order.'**
+  String get hlRejectNoAccount;
+
   /// No description provided for @hlExpoPositionUnknown.
   ///
   /// In en, this message translates to:

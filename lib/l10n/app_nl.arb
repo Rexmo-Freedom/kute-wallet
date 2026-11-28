@@ -1,6 +1,8 @@
 {
   "@@locale": "nl",
   "hlExpoLeveragedPosition": "Deze positie gebruikt hefboom, dus hier kun je haar alleen verkleinen of sluiten.",
+  "hlExpoNothingToReduce": "Er is hier geen positie die deze order kan verkleinen.",
+  "hlRejectNoAccount": "Er is nog geen geld om mee te handelen. Voeg geld toe voordat je deze order plaatst.",
   "hlExpoPositionUnknown": "We konden je positie in deze markt niet controleren. Probeer het zo opnieuw.",
   "hlProtectStopBelowPrice": "Zet de stop-loss onder de huidige prijs, anders sluit hij de positie meteen.",
   "hlProtectStopAbovePrice": "Zet de stop-loss boven de huidige prijs, anders sluit hij de positie meteen.",

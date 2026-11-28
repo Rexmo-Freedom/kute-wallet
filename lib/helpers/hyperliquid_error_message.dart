@@ -83,6 +83,10 @@ String? hlRejectionCopy(AppLocalizations l10n, String reason) {
       r.contains('insufficient spot balance')) {
     return l10n.investingInsufficientBalance;
   }
+  // An account the venue has never seen (nothing was ever added to it).
+  if (r.contains('does not exist') && r.contains('user')) {
+    return l10n.hlRejectNoAccount;
+  }
   if (r.contains('reduce only order would increase position')) {
     return l10n.hlRejectReduceOnly;
   }

@@ -13,6 +13,14 @@ class AppLocalizationsNl extends AppLocalizations {
       'Deze positie gebruikt hefboom, dus hier kun je haar alleen verkleinen of sluiten.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Er is hier geen positie die deze order kan verkleinen.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Er is nog geen geld om mee te handelen. Voeg geld toe voordat je deze order plaatst.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'We konden je positie in deze markt niet controleren. Probeer het zo opnieuw.';
 

@@ -2379,8 +2379,15 @@ class HyperliquidTradingNotifier
     required bool isBuy,
     required double size,
     bool reduceOnly = false,
+    bool needsPositionToReduce = false,
   }) async {
-    if (market.isSpot || reduceOnly) {
+    // A reduce-only order is never new exposure. One placed from a ticket
+    // ([needsPositionToReduce]: limit, scale, TWAP) reads the position all
+    // the same: with nothing on its closing side it is refused here, never
+    // sent for the venue to refuse. A read that fails leaves the position
+    // unknown, which stops no exit. A stop attached to an order that has
+    // just filled is not asked (the read may not show its position yet).
+    if (market.isSpot || (reduceOnly && !needsPositionToReduce)) {
       return (
         check: hlExposureCheck(
             market: market,
@@ -2394,7 +2401,12 @@ class HyperliquidTradingNotifier
     final held = await heldPositionFor(market, maxAge: kHlPositionsFreshFor);
     return (
       check: hlExposureCheck(
-          market: market, held: held, isBuy: isBuy, size: size),
+          market: market,
+          held: held,
+          isBuy: isBuy,
+          size: size,
+          reduceOnly: reduceOnly,
+          needsPositionToReduce: needsPositionToReduce),
       held: held,
     );
   }
@@ -2481,7 +2493,10 @@ class HyperliquidTradingNotifier
       // market held above 1x or in cross only a reduction goes, and it
       // goes reduce-only; an add, a flip or an unknown position stops here.
       final exposure = await exposureFor(market,
-          isBuy: isLong, size: coinSize, reduceOnly: reduceOnly);
+          isBuy: isLong,
+          size: coinSize,
+          reduceOnly: reduceOnly,
+          needsPositionToReduce: true);
       exposure.check
           .ensureAllows(sentReduceOnly: reduceOnly || !asksTpsl);
       final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
@@ -2907,7 +2922,10 @@ class HyperliquidTradingNotifier
       // The exposure rule, before the leverage write or any funding (see
       // placeLimit): the whole ladder is judged at its total size.
       final exposure = await exposureFor(market,
-          isBuy: isLong, size: totalSize, reduceOnly: reduceOnly);
+          isBuy: isLong,
+          size: totalSize,
+          reduceOnly: reduceOnly,
+          needsPositionToReduce: true);
       exposure.check.ensureAllows(sentReduceOnly: true);
       final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
       if (!sendReduceOnly) {
@@ -3083,7 +3101,10 @@ class HyperliquidTradingNotifier
       // The exposure rule, before the leverage write or any funding (see
       // placeLimit).
       final exposure = await exposureFor(market,
-          isBuy: isLong, size: coinSize, reduceOnly: reduceOnly);
+          isBuy: isLong,
+          size: coinSize,
+          reduceOnly: reduceOnly,
+          needsPositionToReduce: true);
       exposure.check.ensureAllows(sentReduceOnly: true);
       final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
       ensureSubmissionCurrent();

@@ -13,6 +13,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'This position uses leverage, so here you can only reduce or close it.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'There is no position here for this order to reduce.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'There is no money to trade with yet. Add money before placing this order.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Couldn\'t check your position on this market. Try again in a moment.';
 

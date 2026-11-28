@@ -13,6 +13,14 @@ class AppLocalizationsRo extends AppLocalizations {
       'Această poziție folosește efect de levier, așa că aici o poți doar reduce sau închide.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Aici nu există nicio poziție pe care acest ordin să o poată reduce.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Încă nu există bani pentru tranzacționare. Adaugă bani înainte de a plasa acest ordin.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Nu am putut verifica poziția ta pe această piață. Încearcă din nou peste câteva momente.';
 

@@ -1,6 +1,8 @@
 {
   "@@locale": "sk",
   "hlExpoLeveragedPosition": "Táto pozícia používa pákový efekt, preto ju tu môžete len znížiť alebo uzavrieť.",
+  "hlExpoNothingToReduce": "Nie je tu žiadna pozícia, ktorú by tento príkaz mohol znížiť.",
+  "hlRejectNoAccount": "Zatiaľ tu nie sú žiadne peniaze na obchodovanie. Pred zadaním tohto príkazu pridajte peniaze.",
   "hlExpoPositionUnknown": "Nepodarilo sa overiť vašu pozíciu na tomto trhu. Skúste to o chvíľu znova.",
   "hlProtectStopBelowPrice": "Nastavte stop loss pod aktuálnu cenu, inak pozíciu hneď uzavrie.",
   "hlProtectStopAbovePrice": "Nastavte stop loss nad aktuálnu cenu, inak pozíciu hneď uzavrie.",

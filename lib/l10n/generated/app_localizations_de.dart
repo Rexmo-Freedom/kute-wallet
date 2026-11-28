@@ -13,6 +13,14 @@ class AppLocalizationsDe extends AppLocalizations {
       'Diese Position nutzt einen Hebel, daher kannst du sie hier nur verkleinern oder schließen.';
 
   @override
+  String get hlExpoNothingToReduce =>
+      'Hier gibt es keine Position, die dieser Auftrag verkleinern könnte.';
+
+  @override
+  String get hlRejectNoAccount =>
+      'Es ist noch kein Geld zum Handeln da. Füge Geld hinzu, bevor du diesen Auftrag aufgibst.';
+
+  @override
   String get hlExpoPositionUnknown =>
       'Deine Position in diesem Markt konnte nicht geprüft werden. Versuche es gleich noch einmal.';
 
